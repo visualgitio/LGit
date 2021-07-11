@@ -27,7 +27,8 @@ SCCRTN SccUncheckout (LPVOID context,
 					  LPCMDOPTS pvOptions)
 {
 	int i, path_count;
-	const char **paths, *path;
+	const char *raw_path;
+	char **paths;
 	git_checkout_options co_opts;
 	LGitContext *ctx = (LGitContext*)context;
 
@@ -40,17 +41,21 @@ SCCRTN SccUncheckout (LPVOID context,
 	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 	/* XXX: Apply GIT_CHECKOUT_DONT_WRITE_INDEX? */
 
-	paths = (const char**)calloc(sizeof(char*), nFiles);
+	paths = (char**)calloc(sizeof(char*), nFiles);
 	if (paths == NULL) {
 		return SCC_E_NONSPECIFICERROR;
 	}
 	path_count = 0;
 	for (i = 0; i < nFiles; i++) {
-		path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
+		char *path;
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
 			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
+		/* Translate because libgit2 operates with forward slashes */
+		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    %s\n", path);
 		paths[path_count++] = path;
 	}
@@ -59,16 +64,16 @@ SCCRTN SccUncheckout (LPVOID context,
 		LGitLog("    In list, %s\n", path);
 	}
 	*/
-	co_opts.paths.strings = (char**)paths;
+	co_opts.paths.strings = paths;
 	co_opts.paths.count = path_count;
 
 	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
 		LGitLibraryError(hWnd, "SccUncheckout git_checkout_head");
-		free(paths);
+		LGitFreePathList(paths, path_count);
 		return SCC_E_NONSPECIFICERROR;
 	}
 
-	free(paths);
+	LGitFreePathList(paths, path_count);
 	return SCC_OK;
 }
 

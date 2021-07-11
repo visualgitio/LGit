@@ -29,7 +29,7 @@ typedef struct _LGitHistoryDialogParams {
 	git_pathspec *ps;
 	git_diff_options *diffopts;
 	
-	const char **paths;
+	char **paths;
 	int path_count;
 } LGitHistoryDialogParams;
 
@@ -219,10 +219,13 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		}
 		return TRUE;
 	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK) {
+		switch (LOWORD(wParam)) {
+		case IDOK:
+		case IDCANCEL:
 			EndDialog(hwnd, 1);
+			return TRUE;
 		}
-		return TRUE;
+		return FALSE;
 	default:
 		return FALSE;
 	}
@@ -246,46 +249,54 @@ SCCRTN SccHistory (LPVOID context,
 	LGitHistoryDialogParams params;
 
 	int i, path_count;
-	const char **paths, *path;
+	const char *raw_path;
+	char **paths;
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("**SccHistory** Flags %x, count %d\n", dwFlags, nFiles);
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
-	paths = (const char**)calloc(sizeof(char*), nFiles);
+	paths = (char**)calloc(sizeof(char*), nFiles);
 	if (paths == NULL) {
 		return SCC_E_NONSPECIFICERROR;
 	}
 	path_count = 0;
 	for (i = 0; i < nFiles; i++) {
-		path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
+		char *path;
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
 			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
+		/* Translate because libgit2 operates with forward slashes */
+		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    %s\n", path);
 		paths[path_count++] = path;
 	}
 
-	diffopts.pathspec.strings = (char**)paths;
+	diffopts.pathspec.strings = paths;
 	diffopts.pathspec.count	  = path_count;
 	if (path_count > 0) {
 		if (git_pathspec_new(&ps, &diffopts.pathspec) != 0) {
 			LGitLibraryError(hWnd, "SccHistory git_pathspec_new");
-			free(paths);
+			LGitFreePathList(paths, path_count);
 			return SCC_E_NONSPECIFICERROR;
 		}
 	}
 
 	if (git_revwalk_new(&walker, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_new");
-		free(paths);
+		git_pathspec_free(ps);
+		LGitFreePathList(paths, path_count);
 		return SCC_E_NONSPECIFICERROR;
 	}
 	if (git_revwalk_push_head(walker) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
-		free(paths);
+		git_pathspec_free(ps);
+		git_revwalk_free(walker);
+		LGitFreePathList(paths, path_count);
 		return SCC_E_NONSPECIFICERROR;
 	}
 	git_revwalk_sorting(walker, GIT_SORT_TIME | GIT_SORT_REVERSE);
@@ -310,6 +321,6 @@ SCCRTN SccHistory (LPVOID context,
 
 	git_pathspec_free(ps);
 	git_revwalk_free(walker);
-	free(paths);
+	LGitFreePathList(paths, path_count);
 	return SCC_OK;
 }

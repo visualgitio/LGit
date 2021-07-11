@@ -17,7 +17,7 @@ typedef struct _LGitContext {
 	git_repository *repo;
 	OPTNAMECHANGEPFN renameCb;
 	/* big in case of Windows 10 */
-	char path[1024];
+	char path[1024], workdir_path[1024];
 	char appName[SCC_NAME_LEN];
 } LGitContext;
 
@@ -26,6 +26,8 @@ void LGitLog(const char *format_str, ...);
 void LGitLibraryError(HWND hWnd, LPCSTR title);
 
 /* path.cpp */
+void LGitFreePathList(char **paths, int path_count);
+void LGitTranslateStringChars(char *buf, int char1, int char2);
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
 
 /* format.cpp */

@@ -16,14 +16,18 @@ SCCRTN SccQueryInfo (LPVOID context,
 	unsigned int flags;
 	LGitLog("**SccQueryInfo** count %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
-		const char *path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
+		const char *raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
 			LGitLog("    Error stripping %s\n", lpFileNames[i]);
 			lpStatus[i] = SCC_STATUS_NOTCONTROLLED;
 			continue;
 		}
+		/* Translate because libgit2 operates with forward slashes */
+		char path[1024];
+		strncpy(path, raw_path, 1024);
+		LGitTranslateStringChars(path, '\\', '/');
 		rc = git_status_file(&flags, ctx->repo, path);
-		LGitLog("    Adding %s, git status flags %x\n", lpFileNames[i], flags);
+		LGitLog("    Adding %s, git status flags %x\n", path, flags);
 		switch (rc) {
 		case 0:
 			break;

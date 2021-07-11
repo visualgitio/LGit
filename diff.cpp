@@ -79,10 +79,13 @@ static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 		}
 		return TRUE;
 	case WM_COMMAND:
-		if (LOWORD(wParam) == IDOK) {
+		switch (LOWORD(wParam)) {
+		case IDOK:
+		case IDCANCEL:
 			EndDialog(hwnd, 1);
+			return TRUE;
 		}
-		return TRUE;
+		return FALSE;
 	default:
 		return FALSE;
 	}
@@ -99,20 +102,26 @@ SCCRTN SccDiff (LPVOID context,
 	
 	LGitDiffDialogParams params;
 
-	const char *path;
+	const char *raw_path;
+	char path[1024], *path_ptr;
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("**SccDiff** Flags %x, %s\n", dwFlags, lpFileName);
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
-	path = LGitStripBasePath(ctx, lpFileName);
-	if (path == NULL) {
+	raw_path = LGitStripBasePath(ctx, lpFileName);
+	if (raw_path == NULL) {
 		LGitLog("     Couldn't get base path for %s\n", lpFileName);
 		return SCC_E_NONSPECIFICERROR;
 	}
+	/* Translate because libgit2 operates with forward slashes */
+	strncpy(path, raw_path, 1024);
+	LGitTranslateStringChars(path, '\\', '/');
 
-	diffopts.pathspec.strings = (char**)&path;
+	/* Work around a very weird C quirk where &array == array are the same */
+	path_ptr = path;
+	diffopts.pathspec.strings = &path_ptr;
 	diffopts.pathspec.count = 1;
 
 	/*
@@ -120,10 +129,12 @@ SCCRTN SccDiff (LPVOID context,
 	 * This is similar to a straight "git diff" with a specific file, that is,
 	 * we're comparing the working tree to HEAD.
 	 */
+	LGitLog(" ! Before\n");
 	if (git_diff_index_to_workdir(&diff, ctx->repo, NULL, &diffopts) != 0) {
 		LGitLibraryError(hWnd, "SccDiff git_diff_index_to_workdir");
 		return SCC_E_NONSPECIFICERROR;
 	}
+	LGitLog(" ! After\n");
 	/* XXX: Rename detection with git_diff_find_similar? */
 
 	/* If it's a quick diff, don't pop up a UI */
@@ -146,6 +157,7 @@ SCCRTN SccDiff (LPVOID context,
 		(LPARAM)&params)) {
 	case 0:
 		LGitLog(" ! Uh-oh, dialog error\n");
+		git_diff_free(diff);
 		return SCC_E_NONSPECIFICERROR;
 	default:
 		break;

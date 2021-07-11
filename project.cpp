@@ -17,6 +17,7 @@ SCCRTN SccOpenProject (LPVOID context,
 					   LONG dwFlags)
 {
 	int rc;
+	const char *workdir;
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("**SccOpenProject**\n");
@@ -42,6 +43,23 @@ SCCRTN SccOpenProject (LPVOID context,
 		LGitLibraryError(hWnd, "SccOpenProject");
 		return SCC_E_UNKNOWNERROR;
 	}
+
+	workdir = git_repository_workdir(ctx->repo);
+	if (workdir == NULL) {
+		LGitLog("!! Workdir doesn't exist, bare repo");
+		MessageBox(hWnd, "The repository is bare.", "Can't open repository",
+			MB_ICONERROR);
+		return SCC_E_INVALIDFILEPATH;
+	}
+	strncpy(ctx->workdir_path, workdir, 1024);
+	/*
+	 * Translate the path to Windows-style backslashes. The IDE will return us
+	 * backslashes, which will confuse PathCommonPrefix. We translate them back
+	 * after the prefix check in each function.
+	 */
+	LGitTranslateStringChars(ctx->workdir_path, '/', '\\');
+	LGitLog("  The workdir is %s\n", ctx->workdir_path);
+
 	ctx->active = TRUE;
 	return SCC_OK;
 }
@@ -82,8 +100,17 @@ SCCRTN SccGetProjPath (LPVOID context,
 	LGitLog("  local path %s\n", lpLocalPath);
 	LGitLog("  aux proj path %s\n", lpAuxProjPath);
 	LGitLog("  allow change path? %x\n", bAllowChangePath);
+	LGitLog("  can make new? %x\n", *pbNew);
 
 	/* XXX: Employ git_repository_discover */
+	/* XXX: Also deref pbNew since it can be set incoming */
+	if (bAllowChangePath) {
+		// Can change path, probably clone
+		LGitLog(" ! Clone\n");
+		MessageBox(hWnd, "Not implemented yet", "Clone Git Repository",
+			MB_ICONWARNING);
+		return SCC_E_UNKNOWNERROR;
+	}
 
 	// If bAllowChangePath is called, we're likely cloning.
 	// Otherwise, we're initing probably. (or perhaps binding?)
@@ -93,12 +120,6 @@ SCCRTN SccGetProjPath (LPVOID context,
 		// Repo already exists, connect to it
 		LGitLog(" ! Repo exists, connecting\n");
 		git_repository_free(temp_repo);
-	} else if (rc == GIT_ENOTFOUND && bAllowChangePath) {
-		// Can change path, probably clone
-		LGitLog(" ! Clone\n");
-		MessageBox(hWnd, "Not implemented yet", "Clone Git Repository",
-			MB_ICONWARNING);
-		return SCC_E_UNKNOWNERROR;
 	} else if (rc == GIT_ENOTFOUND && !bAllowChangePath) {
 		// Can't change path, probably initing and importing existing files
 		int res;

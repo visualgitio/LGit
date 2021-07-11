@@ -107,11 +107,16 @@ SCCRTN SccCheckin (LPVOID context,
 	}
 
 	for (i = 0; i < nFiles; i++) {
-		const char *path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
-			LGitLog("    Error stripping %s\n", lpFileNames[i]);
+		const char *raw_path;
+		char path[1024];
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
+		/* Translate because libgit2 operates with forward slashes */
+		strncpy(path, raw_path, 1024);
+		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Adding %s\n", lpFileNames[i]);
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
@@ -158,11 +163,16 @@ SCCRTN SccAdd (LPVOID context,
 		 * (Maybe we could use it to convert behind the IDE's back...)
 		 */
 		LGitLog("    Flags: %x\n", pdwFlags[i]);
-		const char *path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
-			LGitLog("    Error stripping %s\n", lpFileNames[i]);
+		const char *raw_path;
+		char path[1024];
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
+		/* Translate because libgit2 operates with forward slashes */
+		strncpy(path, raw_path, 1024);
+		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Adding %s\n", lpFileNames[i]);
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
@@ -201,12 +211,17 @@ SCCRTN SccRemove (LPVOID context,
 	}
 
 	for (i = 0; i < nFiles; i++) {
-		const char *path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (path == NULL) {
-			LGitLog("    Error stripping %s\n", lpFileNames[i]);
+		const char *raw_path;
+		char path[1024];
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
-		LGitLog("    Adding %s\n", lpFileNames[i]);
+		/* Translate because libgit2 operates with forward slashes */
+		strncpy(path, raw_path, 1024);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog("    Removing %s\n", lpFileNames[i]);
 		if (git_index_remove_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}

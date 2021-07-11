@@ -88,17 +88,22 @@ SCCRTN SccProperties (LPVOID context,
 					  LPCSTR lpFileName)
 {
 	LGitPropsDialogParams params;
-	const char *path;
+	const char *raw_path;
+	char path[1024];
+
 	int rc;
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("**SccProperties** %s\n", lpFileName);
 
-	path = LGitStripBasePath(ctx, lpFileName);
-	if (path == NULL) {
+	raw_path = LGitStripBasePath(ctx, lpFileName);
+	if (raw_path == NULL) {
 		LGitLog("     Couldn't get base path for %s\n", lpFileName);
 		return SCC_E_NONSPECIFICERROR;
 	}
+	/* Translate because libgit2 operates with forward slashes */
+	strncpy(path, raw_path, 1024);
+	LGitTranslateStringChars(path, '\\', '/');
 
 	rc = git_status_file(&params.flags, ctx->repo, path);
 	switch (rc) {
