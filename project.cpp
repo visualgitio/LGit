@@ -20,7 +20,7 @@ SCCRTN SccOpenProject (LPVOID context,
 	const char *workdir;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccOpenProject**\n");
+	LGitLog("**SccOpenProject** context %p\n", ctx);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj name %s\n", lpProjName);
 	LGitLog("  local proj path %s\n", lpLocalProjPath);
@@ -61,13 +61,16 @@ SCCRTN SccOpenProject (LPVOID context,
 	LGitLog("  The workdir is %s\n", ctx->workdir_path);
 
 	ctx->active = TRUE;
+	ctx->textoutCb = lpTextOutProc;
+
 	return SCC_OK;
 }
 
 SCCRTN SccCloseProject (LPVOID context)
 {
 	LGitContext *ctx = (LGitContext*)context;
-	LGitLog("**SccCloseProject** Active? %d\n", ctx->active);
+	LGitLog("**SccCloseProject** context %p\n", ctx);
+	LGitLog("    Active? %d\n", ctx->active);
 	if (context) {
 		LGitContext *ctx = (LGitContext*)context;
 		if (ctx->repo) {
@@ -76,6 +79,7 @@ SCCRTN SccCloseProject (LPVOID context)
 		}
 		ctx->renameCb = NULL;
 		ZeroMemory(ctx->path, MAX_PATH + 1);
+		ZeroMemory(ctx->workdir_path, MAX_PATH + 1);
 		ctx->active = FALSE;
 	}
 	return SCC_OK;

@@ -16,6 +16,7 @@ typedef struct _LGitContext {
 	HINSTANCE dllInst;
 	git_repository *repo;
 	OPTNAMECHANGEPFN renameCb;
+	LPTEXTOUTPROC textoutCb;
 	/* big in case of Windows 10 */
 	char path[1024], workdir_path[1024];
 	char appName[SCC_NAME_LEN];

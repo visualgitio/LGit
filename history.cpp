@@ -200,6 +200,8 @@ static BOOL FillHistoryListView(HWND hwnd,
 		lvi.pszText = (char*)git_commit_summary(commit);
 		ListView_SetItem(lv, &lvi);
 	}
+	/* Recalculate after adding because of scroll bars */
+	ListView_SetColumnWidth(lv, 3, LVSCW_AUTOSIZE_USEHEADER);
 	return TRUE;
 }
 

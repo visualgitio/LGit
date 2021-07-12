@@ -10,7 +10,6 @@ SCCRTN SccQueryInfo (LPVOID context,
 					 LPCSTR* lpFileNames, 
 					 LPLONG lpStatus)
 {
-
 	LGitContext *ctx = (LGitContext*)context;
 	int i, rc;
 	unsigned int flags;
@@ -69,7 +68,7 @@ SCCRTN SccQueryInfo (LPVOID context,
 		LGitLog("      Success, flags %x\n", lpStatus[i]);
 		
 	}
-	return SCC_E_OPNOTSUPPORTED;
+	return SCC_OK;
 }
 
 SCCRTN SccPopulateList (LPVOID context, 
@@ -82,7 +81,7 @@ SCCRTN SccPopulateList (LPVOID context,
 						LONG dwFlags)
 {
 	int i;
-	LGitLog("**SccQueryInfo** count %d\n", nFiles);
+	LGitLog("**SccPopulateList** command %x, flags %x count %d\n", nCommand, dwFlags, nFiles);
 	for (i = 0; i < nFiles; i++) {
 		LGitLog("  %s\n", lpFileNames[i]);
 	}

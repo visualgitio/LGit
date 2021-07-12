@@ -11,14 +11,6 @@
 #include "stdafx.h"
 #include "LGit.h"
 
-static void LGitCheckoutProgress(const char *path,
-								   size_t completed,
-								   size_t total,
-								   void *buf)
-{
-	LGitLog(" ! Checking out %s: %d/%d\n", path, completed, total);
-}
-
 SCCRTN SccUncheckout (LPVOID context, 
 					  HWND hWnd, 
 					  LONG nFiles, 
@@ -37,7 +29,6 @@ SCCRTN SccUncheckout (LPVOID context,
 	LGitLog("  files %d", nFiles);
 
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
-	co_opts.progress_cb = LGitCheckoutProgress;
 	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 	/* XXX: Apply GIT_CHECKOUT_DONT_WRITE_INDEX? */
 

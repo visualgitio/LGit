@@ -91,11 +91,11 @@ static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 	}
 }
 
-SCCRTN SccDiff (LPVOID context, 
-				HWND hWnd, 
-				LPCSTR lpFileName, 
-				LONG dwFlags,
-				LPCMDOPTS pvOptions)
+SCCRTN LGitDiffInternal (LPVOID context, 
+						 HWND hWnd, 
+						 LPCSTR lpFileName, 
+						 LONG dwFlags,
+						 LPCMDOPTS pvOptions)
 {
 	git_diff_options diffopts;
 	git_diff *diff;
@@ -124,23 +124,29 @@ SCCRTN SccDiff (LPVOID context,
 	diffopts.pathspec.strings = &path_ptr;
 	diffopts.pathspec.count = 1;
 
+	if (dwFlags & SCC_DIFF_IGNORESPACE) {
+		diffopts.flags |= GIT_DIFF_IGNORE_WHITESPACE;
+	}
+	/* XXX: Not sure if semantics are a precise match */
+	if (dwFlags & SCC_DIFF_QD_CHECKSUM) {
+		diffopts.flags |= GIT_DIFF_FIND_EXACT_MATCH_ONLY;
+	}
+
 	/*
 	 * Conceptually, SccDiff is "what's different from the commited copy".
 	 * This is similar to a straight "git diff" with a specific file, that is,
 	 * we're comparing the working tree to HEAD.
 	 */
-	LGitLog(" ! Before\n");
 	if (git_diff_index_to_workdir(&diff, ctx->repo, NULL, &diffopts) != 0) {
 		LGitLibraryError(hWnd, "SccDiff git_diff_index_to_workdir");
 		return SCC_E_NONSPECIFICERROR;
 	}
-	LGitLog(" ! After\n");
 	/* XXX: Rename detection with git_diff_find_similar? */
 
 	/* If it's a quick diff, don't pop up a UI */
 	if (dwFlags & SCC_DIFF_QUICK_DIFF)
 	{
-		/* Contents only. We don't (yet?) support checksum/timestamp diff */
+		/* Contents only. We don't (yet?) support timestamp diff */
 		size_t deltas;
 		deltas = git_diff_num_deltas(diff);
 		git_diff_free(diff);
@@ -165,4 +171,28 @@ SCCRTN SccDiff (LPVOID context,
 
 	git_diff_free(diff);
 	return SCC_E_OPNOTSUPPORTED;
+}
+
+/*
+ * The LGitDiffInternal has the same semantics regardless if it's a file or a
+ * directory being compared. Traditional SCC plugins would probably do a side
+ * by side comparison of the file or directory, but Git doesn't really work
+ * like that. Instead, we'll just shove it all into the same pathspec.
+ */
+SCCRTN SccDiff (LPVOID context, 
+				HWND hWnd, 
+				LPCSTR lpFileName, 
+				LONG dwFlags,
+				LPCMDOPTS pvOptions)
+{
+	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
+}
+
+SCCRTN SccDirDiff (LPVOID context, 
+				   HWND hWnd, 
+				   LPCSTR lpFileName, 
+				   LONG dwFlags,
+				   LPCMDOPTS pvOptions)
+{
+	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
 }

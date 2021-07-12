@@ -48,7 +48,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		LGitLibraryError(hWnd, "Error initializing LGit");
 		return SCC_E_INITIALIZEFAILED;
 	}
-	LGitLog("**SccInitializeInit** count: %d (by %s)\n", init_count, callerName);
+	LGitLog("**SccInitialize** initialization count: %d (by %s)\n", init_count, callerName);
 
 	strcpy(sccName, "LGit");
 
@@ -63,15 +63,17 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 				SCC_CAP_COMMENTREMOVE | /* ...comment on removing files */
 				SCC_CAP_COMMENTADD | /* ...comment on adding files */
 				//SCC_CAP_GET_NOUI | /* removes the UI for SccGet; no open from SCC opt if so */
-				SCC_CAP_GETPROJPATH | /* SccGetProjPath *
-				//SCC_CAP_TEXTOUT | /* Output through IDE */
+				SCC_CAP_GETPROJPATH | /* SccGetProjPath */
+				SCC_CAP_TEXTOUT | /* Output through IDE */
 				//SCC_CAP_MULTICHECKOUT | /* Multiple checkouts? */
 				SCC_CAP_HISTORY | /* SccHistory */
 				SCC_CAP_HISTORY_MULTFILE | /* multiple files with ^ */
 				SCC_CAP_POPULATELIST | /* List files not known by IDE */
-				//SCC_CAP_ADDFROMSCC | /* Seems to be share button? */
+				SCC_CAP_ADDFROMSCC | /* Seems to be share button? */
 				//SCC_CAP_GETCOMMANDOPTIONS | /* Advanced button/addtl arg? */
 				//SCC_CAP_ADD_STORELATEST | /* Storing without deltas? */
+				SCC_CAP_DIRECTORYDIFF | /* Directory diff */
+				SCC_CAP_IGNORESPACE | /* Can ignore whitespace in files */
 				SCC_CAP_REENTRANT; /* Thread-safe, VC++6 demands it */
 
 	/* XXX: What are the /real/ limits? */
@@ -94,6 +96,11 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		ZeroMemory(*context, sizeof(LGitContext));
 		strncpy(ctx->appName, callerName, SCC_NAME_LEN);
 		ctx->dllInst = dllInstance;
+	} else if (context) {
+		LGitContext *ctx = (LGitContext*)*context;
+		LGitLog("     Recycling context\n");
+		LGitLog("     ProjPath =%s\n", ctx->path);
+		LGitLog("     WorkPath =%s\n", ctx->workdir_path);
 	}
 
 	return SCC_OK;
@@ -111,7 +118,13 @@ SCCRTN SccUninitialize (LPVOID context)
 	if (uninit_count < 0) {
 		LGitLibraryError(NULL, "Error ending LGit");
 	}
-	if (context) {
+	/*
+	 * HACK: It seems Visual C++ 6, when switching workspaces, will call
+	 * close, uninit... then open project, which frees this. Then it keeps
+	 * the handle. This is slightly bizarre, but mitigateable.
+	 */
+	if (context && uninit_count == 0) {
+		LGitLog("  Freed context because all instances gone\n");
 		free(context);
 	}
 	return SCC_OK;
@@ -124,8 +137,13 @@ SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext,
 	LGitLog("**SccGetExtendedCapabilities** %x\n", lSccExCap);
 	switch (lSccExCap)
 	{
+	case SCC_EXCAP_DELETE_CHECKEDOUT:
+	case SCC_EXCAP_RENAME_CHECKEDOUT:
+		*pbSupported = TRUE;
+		break;
 	default:
 		*pbSupported = FALSE;
+		break;
 	}
 	return SCC_OK;
 }
@@ -150,15 +168,6 @@ SCCRTN SccGetCommandOptions (LPVOID context,
 							 LPCMDOPTS * ppvOptions)
 {
 	LGitLog("**SccGetCommandOptions** Command %d\n", nCommand);
-	return SCC_E_OPNOTSUPPORTED;
-}
-
-SCCRTN SccAddFromScc (LPVOID context, 
-					  HWND hWnd, 
-					  LPLONG pnFiles,
-					  LPCSTR** lplpFileNames)
-{
-	LGitLog("**SccAddFromScc**\n");
 	return SCC_E_OPNOTSUPPORTED;
 }
 

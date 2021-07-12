@@ -155,6 +155,19 @@ BEGIN
     PUSHBUTTON      "&File Properties...",IDC_FILESYSPROPS,7,184,68,14
 END
 
+IDD_ADDFROM DIALOG DISCARDABLE  0, 0, 402, 245
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Add files from Git"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,290,224,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,345,224,50,14
+    LTEXT           "The files below are known by Git and can be added into your project.",
+                    IDC_STATIC,7,7,388,10
+    CONTROL         "List1",IDC_ADDSCC_LIST,"SysListView32",LVS_REPORT | 
+                    WS_BORDER | WS_TABSTOP,7,22,388,197
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -207,6 +220,20 @@ BEGIN
         HORZGUIDE, 157
         HORZGUIDE, 167
         HORZGUIDE, 177
+    END
+
+    IDD_ADDFROM, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 395
+        VERTGUIDE, 340
+        VERTGUIDE, 345
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 238
+        HORZGUIDE, 17
+        HORZGUIDE, 22
+        HORZGUIDE, 219
+        HORZGUIDE, 224
     END
 END
 #endif    // APSTUDIO_INVOKED
