@@ -23,7 +23,10 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 	 * git prefers prettified because it'll make sure there's all the fixings
 	 * like a trailing newline and no comments.
 	 */
-	if (git_message_prettify(&prettified_message, lpComment, 1, '#') != 0) {
+	if (lpComment == NULL) {
+		/* Null commit messages will crash libgit2 */
+		comment = "(No commit message specified.)\n";
+	} else if (git_message_prettify(&prettified_message, lpComment, 1, '#') != 0) {
 		LGitLog(" ! Failed to prettify commit, using original text\n");
 		comment = lpComment;
 	} else {
@@ -72,6 +75,7 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 		git_signature_free(signature);
 		return SCC_E_NONSPECIFICERROR;
 	}
+	LGitLog(" ! Made commit\n");
 	git_buf_dispose(&prettified_message);
 	git_tree_free(tree);
 	git_signature_free(signature);
@@ -117,7 +121,7 @@ SCCRTN SccCheckin (LPVOID context,
 		/* Translate because libgit2 operates with forward slashes */
 		strncpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Adding %s\n", lpFileNames[i]);
+		LGitLog("    Adding %s\n", path);
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}
@@ -173,7 +177,7 @@ SCCRTN SccAdd (LPVOID context,
 		/* Translate because libgit2 operates with forward slashes */
 		strncpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Adding %s\n", lpFileNames[i]);
+		LGitLog("    Adding %s\n", path);
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}
@@ -221,7 +225,7 @@ SCCRTN SccRemove (LPVOID context,
 		/* Translate because libgit2 operates with forward slashes */
 		strncpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Removing %s\n", lpFileNames[i]);
+		LGitLog("    Removing %s\n", path);
 		if (git_index_remove_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}

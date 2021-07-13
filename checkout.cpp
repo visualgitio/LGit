@@ -5,18 +5,18 @@
  *
  * If an IDE supports multiple checkouts, we can perhaps map SccCheckout to
  * a "controlled" "git checkout" dialog, so they can pick the thing to pull
- * the file from, same with SccGet?
+ * the file from.
  */
 
 #include "stdafx.h"
 #include "LGit.h"
 
-SCCRTN SccUncheckout (LPVOID context, 
-					  HWND hWnd, 
-					  LONG nFiles, 
-					  LPCSTR* lpFileNames, 
-					  LONG dwFlags,
-					  LPCMDOPTS pvOptions)
+static SCCRTN LGitCheckoutInternal (LPVOID context, 
+									HWND hWnd, 
+									LONG nFiles, 
+									LPCSTR* lpFileNames, 
+									LONG dwFlags,
+									LPCMDOPTS pvOptions)
 {
 	int i, path_count;
 	const char *raw_path;
@@ -24,7 +24,6 @@ SCCRTN SccUncheckout (LPVOID context,
 	git_checkout_options co_opts;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccUncheckout**\n");
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
 
@@ -68,10 +67,28 @@ SCCRTN SccUncheckout (LPVOID context,
 	return SCC_OK;
 }
 
-/*
- * Nops.
+/**
+ * Basically undoes modified changes by doing equivalent of "git checkout".
  */
+SCCRTN SccUncheckout (LPVOID context, 
+					  HWND hWnd, 
+					  LONG nFiles, 
+					  LPCSTR* lpFileNames, 
+					  LONG dwFlags,
+					  LPCMDOPTS pvOptions)
+{
+	LGitLog("**SccUncheckout**\n");
+	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
+}
 
+/**
+ * Also a "git checkout", but can be done for unmodified/deleted/etc. files,
+ * because SccUncheckout will only be shown for files that SccQueryInfo
+ * returned checked out on (modified).
+ *
+ * As an example, if a file has been just "rm"ed, then SccGit may be the only
+ * option exposed in the IDE.
+ */
 SCCRTN SccGet (LPVOID context, 
 			   HWND hWnd, 
 			   LONG nFiles, 
@@ -79,9 +96,8 @@ SCCRTN SccGet (LPVOID context,
 			   LONG dwFlags,
 			   LPCMDOPTS pvOptions)
 {
-	OutputDebugString("**SccGet**\n");
-	// In our case, we should have get be a nop.
-	return SCC_OK;
+	LGitLog("**SccGet**\n");
+	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
 }
 
 SCCRTN SccCheckout (LPVOID context, 
