@@ -54,6 +54,7 @@ static BOOL FillAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 		lvi.mask = LVIF_TEXT;
 		lvi.pszText = (char*)entry->path;
 		lvi.iSubItem = 0;
+		lvi.iItem = i;
 		/* XXX: Icons? or does checkboxes disable that? */
 
 		lvi.iItem = ListView_InsertItem(lv, &lvi);
@@ -97,6 +98,7 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 		strncpy(path, params->ctx->workdir_path, 1024);
 
 		ZeroMemory(&lvi, sizeof(LVITEM));
+		lvi.iItem = i;
 		lvi.pszText = relative_path;
 		lvi.cchTextMax = 1024;
 		SendMessage(lv, LVM_GETITEMTEXT, i, (LPARAM)&lvi);

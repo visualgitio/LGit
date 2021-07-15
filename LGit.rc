@@ -114,8 +114,10 @@ CAPTION "Diff"
 FONT 8, "MS Sans Serif"
 BEGIN
     DEFPUSHBUTTON   "OK",IDOK,344,224,50,14
-    LISTBOX         IDC_DIFFTEXT,7,7,387,212,LBS_NOINTEGRALHEIGHT | 
-                    LBS_NOSEL | WS_VSCROLL | WS_HSCROLL | WS_TABSTOP
+    CONTROL         "List1",IDC_DIFFTEXT,"SysListView32",LVS_REPORT | 
+                    LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | 
+                    WS_TABSTOP,7,7,387,212
+    PUSHBUTTON      "&Copy",IDC_DIFF_COPY,7,224,50,14
 END
 
 IDD_FILEPROPS DIALOG DISCARDABLE  0, 0, 188, 205
@@ -165,7 +167,8 @@ BEGIN
     LTEXT           "The files below are known by Git and can be added into your project.",
                     IDC_STATIC,7,7,388,10
     CONTROL         "List1",IDC_ADDSCC_LIST,"SysListView32",LVS_REPORT | 
-                    WS_BORDER | WS_TABSTOP,7,22,388,197
+                    LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | 
+                    WS_TABSTOP,7,22,388,197
 END
 
 
@@ -238,6 +241,21 @@ BEGIN
 END
 #endif    // APSTUDIO_INVOKED
 
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Icon
+//
+
+// Icon with lowest ID value placed first to ensure application icon
+// remains consistent on all systems.
+IDI_LGIT                ICON    DISCARDABLE     "lgit.ico"
+IDI_DIFF_FILE_A         ICON    DISCARDABLE     "difffila.ico"
+IDI_DIFF_BINARY         ICON    DISCARDABLE     "diffbin.ico"
+IDI_DIFF_HUNK           ICON    DISCARDABLE     "diffhunk.ico"
+IDI_DIFF_ADD            ICON    DISCARDABLE     "diffadd.ico"
+IDI_DIFF_DEL            ICON    DISCARDABLE     "diffdel.ico"
+IDI_DIFF_FILE_B         ICON    DISCARDABLE     "difffilb.ico"
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

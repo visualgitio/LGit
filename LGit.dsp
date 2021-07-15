@@ -164,6 +164,34 @@ SOURCE=.\StdAfx.h
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 # Begin Source File
 
+SOURCE=.\diffadd.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\diffbin.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\diffdel.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\difffile.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\diffhunk.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\icon1.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\lgit.ico
+# End Source File
+# Begin Source File
+
 SOURCE=.\LGit.rc
 # End Source File
 # End Group

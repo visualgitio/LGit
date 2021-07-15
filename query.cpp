@@ -40,16 +40,131 @@ static long LGitConvertFlags(unsigned int flags)
 	return sccFlags;
 }
 
-SCCRTN SccQueryInfo (LPVOID context, 
-					 LONG nFiles, 
-					 LPCSTR* lpFileNames, 
-					 LPLONG lpStatus)
+static void LGitCallPopulateAction(enum SCCCOMMAND nCommand,
+								   LPCSTR fileName,
+								   unsigned int sccFlags,
+								   POPLISTFUNC pfnPopulate,
+								   LPVOID pvCallerData)
+{
+	/* Check what command */
+	switch (nCommand) {
+	case SCC_COMMAND_CHECKOUT:
+		/* Nothing should be in the list here. */
+		LGitLog(" ! Unpopulate for checkout\n");
+		pfnPopulate(pvCallerData, FALSE, sccFlags, fileName);
+		break;
+	case SCC_COMMAND_GET:
+	case SCC_COMMAND_CHECKIN:
+	case SCC_COMMAND_UNCHECKOUT:
+	case SCC_COMMAND_ADD:
+	case SCC_COMMAND_REMOVE:
+	/*
+	 * case SCC_COMMAND_DIFF:
+	 * case SCC_COMMAND_HISTORY:
+	 * case SCC_COMMAND_RENAME:
+	 * case SCC_COMMAND_PROPERTIES:
+	 * case SCC_COMMAND_OPTIONS:
+	 */
+	default:
+		/* Commented commands won't call populate, AFAIK */
+		break;
+	}
+}
+
+typedef struct _LGitStatusCallbackParams {
+	LGitContext *ctx;
+	/* To Microsoft functions */
+	enum SCCCOMMAND nCommand;
+	POPLISTFUNC pfnPopulate;
+	LPVOID pvCallerData;
+} LGitStatusCallbackParams;
+
+static int LGitStatusCallback(const char *relative_path,
+							  unsigned int flags,
+							  void *context)
+{
+	LGitStatusCallbackParams *params = (LGitStatusCallbackParams*)context;
+	long sccFlags = LGitConvertFlags(flags);
+	LGitLog(" ! Entry \"%s\" (%x -> %x)\n", relative_path, flags, sccFlags);
+	/* Merge for absolute path */
+	char path[2048];
+	strncpy(path, params->ctx->workdir_path, 1024);
+	strncat(path, relative_path, 1024);
+	LGitTranslateStringChars(path, '/', '\\');
+
+	LGitLog(" ! Pushing absolute path \"%s\"", path);
+	LGitCallPopulateAction(params->nCommand,
+		path,
+		sccFlags,
+		params->pfnPopulate,
+		params->pvCallerData);
+	return 0;
+}
+
+static SCCRTN LGitPopulateDirs (LPVOID context,
+								enum SCCCOMMAND nCommand, 
+								LONG nFiles, 
+								LPCSTR* lpFileNames, 
+								POPLISTFUNC pfnPopulate, 
+								LPVOID pvCallerData)
+{
+	LGitContext *ctx = (LGitContext*)context;
+	char **paths = NULL;
+
+	git_status_options sopts;
+	LGitStatusCallbackParams cbp;
+
+	git_status_options_init(&sopts, GIT_STATUS_OPTIONS_VERSION);
+
+	/* If there's filenames, generate a pathspec, otherwise all files. */
+	if (nFiles > 0) {
+		paths = (char**)calloc(sizeof(char*), nFiles);
+		if (paths == NULL) {
+			return SCC_E_NONSPECIFICERROR;
+		}
+		int i, path_count;
+		const char *raw_path;
+		for (i = 0; i < nFiles; i++) {
+			char *path;
+			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+			if (raw_path == NULL) {
+				LGitLog("    Couldn't get base path for dir %s\n", lpFileNames[i]);
+				continue;
+			}
+			/* Translate because libgit2 operates with forward slashes */
+			path = strdup(raw_path);
+			LGitTranslateStringChars(path, '\\', '/');
+			LGitLog("    Dir %s\n", path);
+			paths[path_count++] = path;
+		}
+		sopts.pathspec.strings = paths;
+		sopts.pathspec.count = path_count;
+	}
+
+	cbp.ctx = ctx;
+	cbp.nCommand = nCommand;
+	cbp.pfnPopulate = pfnPopulate;
+	cbp.pvCallerData = pvCallerData;
+	git_status_foreach_ext(ctx->repo, &sopts, LGitStatusCallback, &cbp);
+
+	if (paths != NULL) {
+		free(paths);
+	}
+	return SCC_OK;
+}
+
+static SCCRTN LGitPopulateFiles(LPVOID context,
+								enum SCCCOMMAND nCommand, 
+								LONG nFiles, 
+								LPCSTR* lpFileNames, 
+								POPLISTFUNC pfnPopulate, 
+								LPVOID pvCallerData,
+								LPLONG lpStatus)
 {
 	LGitContext *ctx = (LGitContext*)context;
 	int i, rc;
 	long sccFlags;
 	unsigned int flags;
-	LGitLog("**SccQueryInfo** count %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
 		const char *raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
 		if (raw_path == NULL) {
@@ -82,8 +197,31 @@ SCCRTN SccQueryInfo (LPVOID context,
 			continue;
 		}
 		LGitLog("      Success, flags %x\n", lpStatus[i]);
+		if (pfnPopulate != NULL) {
+			LGitCallPopulateAction(nCommand, lpFileNames[i], sccFlags, pfnPopulate, pvCallerData);
+		}
 	}
 	return SCC_OK;
+}
+
+/**
+ * SccQueryInfo is purely a subset of PopulateList, so...
+ */
+static SCCRTN LGitPopulateList(LPVOID context, 
+						enum SCCCOMMAND nCommand, 
+						LONG nFiles, 
+						LPCSTR* lpFileNames, 
+						POPLISTFUNC pfnPopulate, 
+						LPVOID pvCallerData,
+						LPLONG lpStatus, 
+						LONG dwFlags)
+{
+	if (dwFlags & SCC_PL_DIR) {
+		/* Seems lpStatus is ignored with directories, as we push instead */
+		return LGitPopulateDirs(context, nCommand, nFiles, lpFileNames, pfnPopulate, pvCallerData);
+	} else {
+		return LGitPopulateFiles(context, nCommand, nFiles, lpFileNames, pfnPopulate, pvCallerData, lpStatus);
+	}
 }
 
 SCCRTN SccPopulateList (LPVOID context, 
@@ -95,75 +233,17 @@ SCCRTN SccPopulateList (LPVOID context,
 						LPLONG lpStatus, 
 						LONG dwFlags)
 {
-	LGitContext *ctx = (LGitContext*)context;
-	int i, rc;
-	long sccFlags;
-	unsigned int flags;
 	LGitLog("**SccPopulateList** command %x, flags %x count %d\n", nCommand, dwFlags, nFiles);
-	/* First, look at the list and see what needs to be removed or added */
-	for (i = 0; i < nFiles; i++) {
-		if (dwFlags & SCC_PL_DIR) {
-			LGitLog("    Not supported adding directory %s\n", lpFileNames[i]);
-			lpStatus[i] = SCC_STATUS_INVALID;
-			continue;
-		}
-		const char *raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (raw_path == NULL) {
-			LGitLog("    Error stripping %s\n", lpFileNames[i]);
-			lpStatus[i] = SCC_STATUS_NOTCONTROLLED;
-			continue;
-		}
-		/* Translate because libgit2 operates with forward slashes */
-		char path[1024];
-		strncpy(path, raw_path, 1024);
-		LGitTranslateStringChars(path, '\\', '/');
-		rc = git_status_file(&flags, ctx->repo, path);
-		LGitLog("    Adding %s, git status flags %x\n", path, flags);
-		switch (rc) {
-		case 0:
-			sccFlags = LGitConvertFlags(flags);
-			break;
-		case GIT_ENOTFOUND:
-			sccFlags = SCC_STATUS_NOTCONTROLLED;
-			LGitLog("      Not found\n");
-			break;
-		default:
-			sccFlags = SCC_STATUS_INVALID;
-			LGitLibraryError(NULL, "Populate list");
-			LGitLog("      Error (%x)\n", rc);
-			break;
-		}
-		lpStatus[i] = sccFlags;
-		if (rc != 0) {
-			continue;
-		}
-		LGitLog("      Success, flags %x\n", lpStatus[i]);
-		/* Check what command */
-		switch (nCommand) {
-		case SCC_COMMAND_CHECKOUT:
-			/* Nothing should be in the list here. */
-			LGitLog(" ! Unpopulate for checkout\n");
-			pfnPopulate(pvCallerData, FALSE, sccFlags, lpFileNames[i]);
-			break;
-		case SCC_COMMAND_GET:
-		case SCC_COMMAND_CHECKIN:
-		case SCC_COMMAND_UNCHECKOUT:
-		case SCC_COMMAND_ADD:
-		case SCC_COMMAND_REMOVE:
-		/*
-		 * case SCC_COMMAND_DIFF:
-		 * case SCC_COMMAND_HISTORY:
-		 * case SCC_COMMAND_RENAME:
-		 * case SCC_COMMAND_PROPERTIES:
-		 * case SCC_COMMAND_OPTIONS:
-		 */
-		default:
-			/* Commented commands won't call populate, AFAIK */
-			break;
-		}
-	}
-	/* This is when we should list files the IDE didn't suggest */
-	return dwFlags & SCC_PL_DIR ? SCC_E_OPNOTSUPPORTED : SCC_OK;
+	return LGitPopulateList(context, nCommand, nFiles, lpFileNames, pfnPopulate, pvCallerData, lpStatus, dwFlags);
+}
+
+SCCRTN SccQueryInfo (LPVOID context, 
+					 LONG nFiles, 
+					 LPCSTR* lpFileNames, 
+					 LPLONG lpStatus)
+{
+	LGitLog("**SccQueryInfo** count %d\n", nFiles);
+	return LGitPopulateList(context, (enum SCCCOMMAND)-1, nFiles, lpFileNames, NULL, NULL, lpStatus, 0);
 }
 
 SCCRTN SccGetEvents (LPVOID context, 

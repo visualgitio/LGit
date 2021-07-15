@@ -113,7 +113,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 	HWND lv;
 	git_oid oid;
 	git_commit *commit = NULL;
-	int parents, i;
+	int parents, i, index;
 
 	LGitContext *ctx = param->ctx;
 	git_revwalk *walker = param->walker;
@@ -122,7 +122,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 
 	lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
 
-	for (; !git_revwalk_next(&oid, walker); git_commit_free(commit)) {
+	for (index = 0; !git_revwalk_next(&oid, walker); git_commit_free(commit)) {
 		const git_signature *author, *committer;
 		const char *message;
 		char *oid_str; /* owned by library statically, do not free */
@@ -178,6 +178,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
 		lvi.pszText = oid_str;
+		lvi.iItem = index++;
 		lvi.iSubItem = 0;
 
 		lvi.iItem = ListView_InsertItem(lv, &lvi);
@@ -301,7 +302,7 @@ SCCRTN SccHistory (LPVOID context,
 		LGitFreePathList(paths, path_count);
 		return SCC_E_NONSPECIFICERROR;
 	}
-	git_revwalk_sorting(walker, GIT_SORT_TIME | GIT_SORT_REVERSE);
+	git_revwalk_sorting(walker, GIT_SORT_TIME);
 
 	params.ctx = ctx;
 	params.walker = walker;

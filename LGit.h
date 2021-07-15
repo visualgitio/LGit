@@ -34,3 +34,15 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
 /* format.cpp */
 BOOL LGitTimeToString(const git_time *time, char *buf, int bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, int bufsz);
+
+/* diffwin.cpp */
+
+typedef struct _LGitDiffDialogParams {
+	LGitContext *ctx;
+	git_diff *diff;
+
+	/* Only likely relevant for single-file SccDiff */
+	const char *path;
+} LGitDiffDialogParams;
+
+int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
