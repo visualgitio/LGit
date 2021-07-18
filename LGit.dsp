@@ -107,6 +107,10 @@ SOURCE=.\diff.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\diffwin.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\format.cpp
 # End Source File
 # Begin Source File
@@ -173,6 +177,14 @@ SOURCE=.\diffbin.ico
 # Begin Source File
 
 SOURCE=.\diffdel.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\difffila.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\difffilb.ico
 # End Source File
 # Begin Source File
 

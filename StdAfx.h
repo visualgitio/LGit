@@ -61,6 +61,7 @@
 #include <git2/pathspec.h>
 #include <git2/revwalk.h>
 #include <git2/oid.h>
+#include <git2/clone.h>
 
 // our own stuff
 #include "resource.h"

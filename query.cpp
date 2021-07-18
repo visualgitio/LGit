@@ -50,10 +50,12 @@ static void LGitCallPopulateAction(enum SCCCOMMAND nCommand,
 	switch (nCommand) {
 	case SCC_COMMAND_CHECKOUT:
 		/* Nothing should be in the list here. */
-		LGitLog(" ! Unpopulate for checkout\n");
 		pfnPopulate(pvCallerData, FALSE, sccFlags, fileName);
 		break;
 	case SCC_COMMAND_GET:
+		/* Everything should be in the list here, it's called by clone */
+		pfnPopulate(pvCallerData, TRUE, sccFlags, fileName);
+		break;
 	case SCC_COMMAND_CHECKIN:
 	case SCC_COMMAND_UNCHECKOUT:
 	case SCC_COMMAND_ADD:
@@ -118,12 +120,14 @@ static SCCRTN LGitPopulateDirs (LPVOID context,
 
 	/* If there's filenames, generate a pathspec, otherwise all files. */
 	if (nFiles > 0) {
+		LGitLog(" ! Populating directories\n");
 		paths = (char**)calloc(sizeof(char*), nFiles);
 		if (paths == NULL) {
 			return SCC_E_NONSPECIFICERROR;
 		}
 		int i, path_count;
 		const char *raw_path;
+		path_count = 0;
 		for (i = 0; i < nFiles; i++) {
 			char *path;
 			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
@@ -139,13 +143,27 @@ static SCCRTN LGitPopulateDirs (LPVOID context,
 		}
 		sopts.pathspec.strings = paths;
 		sopts.pathspec.count = path_count;
+	} else {
+		LGitLog(" ! Populating repo root\n");
 	}
+
+	/*
+	 * Arguably, status isn't the best API for enumerating everything, but it
+	 * provides the all-important status. Just widen the net we cast. It's
+	 * mostly important to clone, so it can determine if there's any project
+	 * files to look for.
+	 */
+	sopts.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
+	sopts.flags = GIT_STATUS_OPT_DEFAULTS
+		| GIT_STATUS_OPT_INCLUDE_UNREADABLE
+		| GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
 
 	cbp.ctx = ctx;
 	cbp.nCommand = nCommand;
 	cbp.pfnPopulate = pfnPopulate;
 	cbp.pvCallerData = pvCallerData;
 	git_status_foreach_ext(ctx->repo, &sopts, LGitStatusCallback, &cbp);
+	LGitLog(" ! Done enumerating\n");
 
 	if (paths != NULL) {
 		free(paths);
@@ -165,6 +183,7 @@ static SCCRTN LGitPopulateFiles(LPVOID context,
 	int i, rc;
 	long sccFlags;
 	unsigned int flags;
+	LGitLog(" ! Populating files\n");
 	for (i = 0; i < nFiles; i++) {
 		const char *raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
 		if (raw_path == NULL) {

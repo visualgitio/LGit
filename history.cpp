@@ -129,7 +129,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 		char formatted[256];
 		LVITEM lvi;
 
-		LGitLog("!! Revwalk next\n");
+		/*LGitLog("!! Revwalk next\n");*/
 		if (git_commit_lookup(&commit, ctx->repo, &oid) != 0) {
 			LGitLibraryError(hwnd, "SccHistory git_commit_lookup");
 			git_commit_free(commit);

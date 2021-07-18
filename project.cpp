@@ -6,6 +6,79 @@
 #include "stdafx.h"
 #include "LGit.h"
 
+static SCCRTN LGitInitRepo(HWND hWnd, LPSTR lpProjName, LPCSTR lpLocalPath)
+{
+	/* The repository is created, but we'll re-open in SccOpenProject */
+	git_repository *temp_repo;
+	int res;
+	char msg[512];
+	LGitLog(" ! Init/Import\n");
+	_snprintf(msg, 512,
+		"There is no Git repository in '%s' for the project '%s'. "
+		"Would you like to create one?",
+		lpLocalPath, lpProjName);
+	res = MessageBox(hWnd, msg, "Initialize Git Repository",
+		MB_ICONQUESTION | MB_YESNO);
+	switch (res) {
+	case IDYES:
+		/* XXX: use the _ext variant */
+		if (git_repository_init(&temp_repo, lpLocalPath, 0) != 0) {
+			LGitLibraryError(hWnd, "Repo Init");
+			return SCC_E_UNKNOWNERROR;
+		}
+		git_repository_free(temp_repo);
+		return SCC_OK;
+	case IDNO:
+		return SCC_I_OPERATIONCANCELED;
+	default:
+		return SCC_E_UNKNOWNERROR;
+	}
+}
+
+static SCCRTN LGitClone(LGitContext *ctx,
+						HWND hWnd,
+						LPSTR lpProjName, 
+						LPSTR lpLocalPath,
+						LPBOOL pbNew)
+{
+	/* The repository is created, but we'll re-open in SccOpenProject */
+	git_repository *temp_repo;
+	git_clone_options clone_opts;
+	git_checkout_options co_opts;
+	git_fetch_options fetch_opts;
+
+	char *url, *path, *project;
+	url = "https://github.com/NattyNarwhal/timer";
+	//url = "git://git.musl-libc.org/musl";
+	/* Must be Windows style path */
+	//path = "C:\\sandbox\\musl";
+	path = "C:\\sandbox\\timer";
+	//project = "musl";
+	project = "timer";
+
+	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	co_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+	git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
+	git_clone_options_init(&clone_opts, GIT_CLONE_OPTIONS_VERSION);
+	clone_opts.checkout_opts = co_opts;
+	clone_opts.fetch_opts = fetch_opts;
+
+	LGitLog(" ! Clone\n");
+
+	if (git_clone(&temp_repo, url, path, &clone_opts) != 0) {
+		LGitLibraryError(hWnd, "Repo Init");
+		return SCC_E_UNKNOWNERROR;
+	}
+
+	git_repository_free(temp_repo);
+
+	strncpy(lpProjName, project, SCC_PRJPATH_SIZE);
+	strncpy(lpLocalPath, path, _MAX_PATH);
+	/* XXX: Should we set pbNew? */
+
+	return SCC_OK;
+}
+
 SCCRTN SccOpenProject (LPVOID context,
 					   HWND hWnd, 
 					   LPSTR lpUser,
@@ -110,10 +183,7 @@ SCCRTN SccGetProjPath (LPVOID context,
 	/* XXX: Also deref pbNew since it can be set incoming */
 	if (bAllowChangePath) {
 		// Can change path, probably clone
-		LGitLog(" ! Clone\n");
-		MessageBox(hWnd, "Not implemented yet", "Clone Git Repository",
-			MB_ICONWARNING);
-		return SCC_E_UNKNOWNERROR;
+		return LGitClone(ctx, hWnd, lpProjName, lpLocalPath, pbNew);
 	}
 
 	// If bAllowChangePath is called, we're likely cloning.
@@ -126,27 +196,7 @@ SCCRTN SccGetProjPath (LPVOID context,
 		git_repository_free(temp_repo);
 	} else if (rc == GIT_ENOTFOUND && !bAllowChangePath) {
 		// Can't change path, probably initing and importing existing files
-		int res;
-		char msg[512];
-		LGitLog(" ! Init/Import\n");
-		_snprintf(msg, 512,
-			"There is no Git repository in '%s' for the project '%s'. "
-			"Would you like to create one?",
-			lpLocalPath, lpProjName);
-		res = MessageBox(hWnd, msg, "Initialize Git Repository",
-			MB_ICONQUESTION | MB_YESNO);
-		switch (res) {
-		case IDYES:
-			/* XXX: Break into sep func, use the _ext variant */
-			if (git_repository_init(&temp_repo, lpLocalPath, 0) != 0) {
-				LGitLibraryError(hWnd, "SccGetProjPath Repo Init");
-				return SCC_E_UNKNOWNERROR;
-			}
-			git_repository_free(temp_repo);
-			return SCC_OK;
-		case IDNO:
-			return SCC_I_OPERATIONCANCELED;
-		}
+		return LGitInitRepo(hWnd, lpProjName, lpLocalPath);
 	} else if (rc == -1) {
 		// Error opening
 		LGitLibraryError(hWnd, "SccGetProjPath");
