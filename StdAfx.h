@@ -18,6 +18,7 @@
 #include <commctrl.h>
 #include <shlwapi.h>
 #include <shellapi.h>
+#include <shlobj.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -62,6 +63,7 @@
 #include <git2/revwalk.h>
 #include <git2/oid.h>
 #include <git2/clone.h>
+#include <git2/branch.h>
 
 // our own stuff
 #include "resource.h"

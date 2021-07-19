@@ -99,6 +99,10 @@ SOURCE=.\checkout.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\clone.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\commit.cpp
 # End Source File
 # Begin Source File

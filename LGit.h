@@ -30,13 +30,16 @@ void LGitLibraryError(HWND hWnd, LPCSTR title);
 void LGitFreePathList(char **paths, int path_count);
 void LGitTranslateStringChars(char *buf, int char1, int char2);
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
+BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 
 /* format.cpp */
 BOOL LGitTimeToString(const git_time *time, char *buf, int bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, int bufsz);
 
-/* diffwin.cpp */
+/* clone.cpp */
+SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
 
+/* diffwin.cpp */
 typedef struct _LGitDiffDialogParams {
 	LGitContext *ctx;
 	git_diff *diff;

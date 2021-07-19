@@ -35,50 +35,6 @@ static SCCRTN LGitInitRepo(HWND hWnd, LPSTR lpProjName, LPCSTR lpLocalPath)
 	}
 }
 
-static SCCRTN LGitClone(LGitContext *ctx,
-						HWND hWnd,
-						LPSTR lpProjName, 
-						LPSTR lpLocalPath,
-						LPBOOL pbNew)
-{
-	/* The repository is created, but we'll re-open in SccOpenProject */
-	git_repository *temp_repo;
-	git_clone_options clone_opts;
-	git_checkout_options co_opts;
-	git_fetch_options fetch_opts;
-
-	char *url, *path, *project;
-	url = "https://github.com/NattyNarwhal/timer";
-	//url = "git://git.musl-libc.org/musl";
-	/* Must be Windows style path */
-	//path = "C:\\sandbox\\musl";
-	path = "C:\\sandbox\\timer";
-	//project = "musl";
-	project = "timer";
-
-	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
-	co_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
-	git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
-	git_clone_options_init(&clone_opts, GIT_CLONE_OPTIONS_VERSION);
-	clone_opts.checkout_opts = co_opts;
-	clone_opts.fetch_opts = fetch_opts;
-
-	LGitLog(" ! Clone\n");
-
-	if (git_clone(&temp_repo, url, path, &clone_opts) != 0) {
-		LGitLibraryError(hWnd, "Repo Init");
-		return SCC_E_UNKNOWNERROR;
-	}
-
-	git_repository_free(temp_repo);
-
-	strncpy(lpProjName, project, SCC_PRJPATH_SIZE);
-	strncpy(lpLocalPath, path, _MAX_PATH);
-	/* XXX: Should we set pbNew? */
-
-	return SCC_OK;
-}
-
 SCCRTN SccOpenProject (LPVOID context,
 					   HWND hWnd, 
 					   LPSTR lpUser,

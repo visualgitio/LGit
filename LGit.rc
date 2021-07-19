@@ -171,6 +171,24 @@ BEGIN
                     WS_TABSTOP,7,22,388,197
 END
 
+IDD_CLONE DIALOG DISCARDABLE  0, 0, 254, 99
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Clone Git Repository"
+FONT 8, "MS Sans Serif"
+BEGIN
+    LTEXT           "Enter the repository to clone and the location to put it.",
+                    IDC_STATIC,7,7,240,8
+    LTEXT           "&URL",IDC_STATIC,7,21,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_URL,47,21,200,14,ES_AUTOHSCROLL
+    LTEXT           "&Path",IDC_STATIC,7,40,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_PATH,47,40,145,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_CLONE_BROWSE,197,40,50,14
+    LTEXT           "B&ranch",IDC_STATIC,7,59,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_BRANCH,47,59,200,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "OK",IDOK,141,78,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,78,50,14
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -237,6 +255,17 @@ BEGIN
         HORZGUIDE, 22
         HORZGUIDE, 219
         HORZGUIDE, 224
+    END
+
+    IDD_CLONE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 247
+        VERTGUIDE, 47
+        VERTGUIDE, 192
+        VERTGUIDE, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 92
     END
 END
 #endif    // APSTUDIO_INVOKED
