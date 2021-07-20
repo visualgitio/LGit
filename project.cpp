@@ -107,6 +107,8 @@ SCCRTN SccCloseProject (LPVOID context)
 			ctx->repo = NULL;
 		}
 		ctx->renameCb = NULL;
+		ctx->renameData = NULL;
+		ctx->textoutCb = NULL;
 		ZeroMemory(ctx->path, MAX_PATH + 1);
 		ZeroMemory(ctx->workdir_path, MAX_PATH + 1);
 		ctx->active = FALSE;

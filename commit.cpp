@@ -95,7 +95,7 @@ SCCRTN SccCheckin (LPVOID context,
 				   LONG dwFlags,
 				   LPCMDOPTS pvOptions)
 {
-	git_index *index;		
+	git_index *index;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -142,7 +142,7 @@ SCCRTN SccAdd (LPVOID context,
 			   LONG * pdwFlags,
 			   LPCMDOPTS pvOptions)
 {
-	git_index *index;		
+	git_index *index;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -199,7 +199,7 @@ SCCRTN SccRemove (LPVOID context,
 				  LONG dwFlags,
 				  LPCMDOPTS pvOptions)
 {
-	git_index *index;		
+	git_index *index;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -240,7 +240,53 @@ SCCRTN SccRename (LPVOID context,
 				  LPCSTR lpFileName,
 				  LPCSTR lpNewName)
 {
-	LGitLog("**SccRename** %s -> %s", lpFileName, lpNewName);
-	// https://github.com/libgit2/libgit2/blob/508361401fbb5d87118045eaeae3356a729131aa/tests/index/rename.c#L4
-	return SCC_E_OPNOTSUPPORTED;
+	LGitContext *ctx = (LGitContext*)context;
+	git_index *index;
+	SCCRTN inner_ret;
+	const char *o_raw_path, *n_raw_path;
+	char o_path[1024], n_path[1024], comment[1024];
+
+	LGitLog("**SccRename**\n");
+	o_raw_path = LGitStripBasePath(ctx, lpFileName);
+	if (o_raw_path == NULL) {
+		LGitLog("    Couldn't get base path for %s\n", lpFileName);
+		return SCC_E_OPNOTPERFORMED;
+	}
+	strncpy(o_path, o_raw_path, 1024);
+	LGitTranslateStringChars(o_path, '\\', '/');
+	LGitLog("  Old %s\n", o_path);
+	n_raw_path = LGitStripBasePath(ctx, lpNewName);
+	if (n_raw_path == NULL) {
+		LGitLog("    Couldn't get base path for %s\n", lpNewName);
+		return SCC_E_OPNOTPERFORMED;
+	}
+	strncpy(n_path, n_raw_path, 1024);
+	LGitTranslateStringChars(n_path, '\\', '/');
+	LGitLog("  New %s\n", n_path);
+	/* Take a slightly roundabout method */
+	if (git_repository_index(&index, ctx->repo) != 0) {
+		LGitLibraryError(hWnd, "Remove (getting index)");
+		return SCC_E_NONSPECIFICERROR;
+	}
+	const git_index_entry *old_entry;
+	git_index_entry new_entry;
+	old_entry = git_index_get_bypath(index, o_path, 0);
+	memcpy(&new_entry, old_entry, sizeof(git_index_entry));
+	new_entry.path = n_path;
+	if (git_index_add(index, &new_entry) != 0) {
+		LGitLibraryError(hWnd, "SccRename git_index_add");
+		inner_ret = SCC_E_NONSPECIFICERROR;
+		goto fail;
+	}
+	if (git_index_remove_bypath(index, o_path) != 0) {
+		LGitLibraryError(hWnd, "SccRename git_index_remove_bypath");
+		inner_ret = SCC_E_NONSPECIFICERROR;
+		goto fail;
+	}
+	/* XXX: Add a trailer? */
+	_snprintf(comment, 1024, "Rename %s to %s\n", o_path, n_path);
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, comment);
+fail:
+	git_index_free(index);
+	return inner_ret;
 }

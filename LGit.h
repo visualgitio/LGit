@@ -12,10 +12,17 @@
 #endif
 
 typedef struct _LGitContext {
+	/* housekeeping */
 	BOOL active;
+	int refcount;
 	HINSTANCE dllInst;
+	/* With shared SCC subproject, so we don't free IDE provided dir string */
+	BOOL addSccSuccess;
+	/* git state */
 	git_repository *repo;
+	/* callbacks and such provided by IDE */
 	OPTNAMECHANGEPFN renameCb;
+	LPVOID renameData;
 	LPTEXTOUTPROC textoutCb;
 	/* big in case of Windows 10 */
 	char path[1024], workdir_path[1024];

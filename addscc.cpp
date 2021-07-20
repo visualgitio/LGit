@@ -16,6 +16,7 @@ static LVCOLUMN path_column = {
 typedef struct _LGitAddFromDialogParams {
 	LGitContext *ctx;
 	git_index *index;
+	char *restraint_path;
 	const char ***output;
 	long *output_size;
 } LGitAddFromDialogParams;
@@ -23,6 +24,12 @@ typedef struct _LGitAddFromDialogParams {
 static void InitAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 {
 	HWND lv;
+	char title[1024];
+
+	if (params->restraint_path != NULL) {
+		_snprintf(title, 1024, "Add files from Git (%s)", params->restraint_path);
+		SetWindowText(hwnd, title);
+	}
 
 	lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
 
@@ -38,23 +45,30 @@ static void InitAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 static BOOL FillAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 {
 	const git_index_entry *entry;
-	size_t entry_count, i;
+	size_t entry_count, i, insert_index;
 	HWND lv;
 
 	lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
 
 	entry_count = git_index_entrycount(params->index);
+	insert_index = 0;
 	/* XXX: How do we skip files the IDE already knows about? */
 	for (i = 0; i < entry_count; i++) {
 		LVITEM lvi;
 		entry = git_index_get_byindex(params->index, i);
+		/* XXX */
+		if (params->restraint_path != NULL &&
+			strstr(entry->path, params->restraint_path) != entry->path) {
+			LGitLog(" ! Prefix not shared ('%s' in '%s')\n", params->restraint_path, entry->path);
+			continue;
+		}
 		LGitLog(" ! Adding %s to list\n", entry->path);
 
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
 		lvi.pszText = (char*)entry->path;
 		lvi.iSubItem = 0;
-		lvi.iItem = i;
+		lvi.iItem = insert_index++;
 		/* XXX: Icons? or does checkboxes disable that? */
 
 		lvi.iItem = ListView_InsertItem(lv, &lvi);
@@ -73,13 +87,14 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 	size_t entry_count, i;
 	long to_set;
 	const char **output;
-
-	entry_count = git_index_entrycount(params->index);
-	/* We won't use all of it; set a NULL as the last for the sake of free */
-	output = (const char**)calloc(entry_count + 1, sizeof(char*));
 	HWND lv;
 
 	lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
+
+	/* There may not be as many LV entries as there are index entries */
+	entry_count = ListView_GetItemCount(lv);
+	/* We won't use all of it; set a NULL as the last for the sake of free */
+	output = (const char**)calloc(entry_count + 1, sizeof(char*));
 
 	to_set = 0;
 	for (i = 0; i < entry_count; i++) {
@@ -152,6 +167,7 @@ SCCRTN SccAddFromScc (LPVOID context,
 					  LPCSTR** lplpFileNames)
 {
 	git_index *index;
+	SCCRTN ret = SCC_OK;
 	
 	LGitAddFromDialogParams params;
 
@@ -160,12 +176,16 @@ SCCRTN SccAddFromScc (LPVOID context,
 	LGitLog("**SccAddFromScc**\n");
 
 	if (pnFiles == NULL) {
+		/*
+		 * Make sure we don't free the initial value that we were given.
+		 * XXX: Can we check this without setting it in the context? Null OK?
+		 */
 		LGitLog("  Freeing %p?\n", lplpFileNames);
-		if (*lplpFileNames != NULL) {
+		if (*lplpFileNames != NULL && ctx->addSccSuccess) {
 			const char **files = *lplpFileNames;
 			int i = 0;
 			while (files[i] != NULL) {
-				LGitLog("  Freeing item %p[%d]\n", files, i);
+				LGitLog("  Freeing item %p[%d] = %s\n", files, i, files[i]);
 				free((void*)files[i]);
 				i++;
 			}
@@ -174,8 +194,34 @@ SCCRTN SccAddFromScc (LPVOID context,
 		}
 		return SCC_OK;
 	}
+	LGitLog("  files %d\n", *pnFiles);
+	ctx->addSccSuccess = FALSE;
+	/*
+	 * Only subdirectories are an acceptable constraint. Anything outside of
+	 * the workdir doesn't make sense.
+	 */
+	char *path = NULL;
+	const char *raw_path;
+	if (*pnFiles == 1 && lplpFileNames != NULL) {
+		raw_path = LGitStripBasePath(ctx, **lplpFileNames);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", **lplpFileNames);
+			return SCC_E_NONSPECIFICERROR;
+		}
+		/* Translate because libgit2 operates with forward slashes */
+		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog(" ! Destination is '%s'\n", path);
+		/* If it's just the root workdir directory, don't bother */
+		if (strlen(path) == 0) {
+			free(path);
+			path = NULL;
+		} else if (path[strlen(path) - 1] != '/') {
+			/* Make sure it has a / */
+			strcat(path, "/");
+		}
+	}
 
-	*lplpFileNames = NULL;
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		return SCC_E_NONSPECIFICERROR;
 	}
@@ -184,6 +230,7 @@ SCCRTN SccAddFromScc (LPVOID context,
 	params.index = index;
 	params.output_size = pnFiles;
 	params.output = lplpFileNames;
+	params.restraint_path = path;
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_ADDFROM),
 		hWnd,
@@ -191,17 +238,22 @@ SCCRTN SccAddFromScc (LPVOID context,
 		(LPARAM)&params)) {
 	case 0:
 		LGitLog(" ! Uh-oh, dialog error\n");
-		git_index_free(index);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	case 1:
-		git_index_free(index);
-		return SCC_I_OPERATIONCANCELED;
+		LGitLog(" ! Cancelled\n");
+		ret = SCC_I_OPERATIONCANCELED;
+		goto fin;
 	case 2:
+		ctx->addSccSuccess = TRUE;
 		break;
 	}
-	
+fin:
+	if (path) {
+		free(path);
+	}
 	git_index_free(index);
-	return SCC_OK;
+	return ret;
 }
 
 /* There is the AddFilesFromSCC which is a 1.3 thing used by VS2003/2005. */

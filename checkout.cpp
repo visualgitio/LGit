@@ -24,6 +24,11 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	git_checkout_options co_opts;
 	LGitContext *ctx = (LGitContext*)context;
 
+	/*
+	 * Flags mean files under a directory or recursive directory. This handles
+	 * the latter; the former could be done with adjustments in pathspec?
+	 * (That is, SCC_GET_ALL or SCC_GET_RECURSIVE)
+	 */
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
 
@@ -108,8 +113,23 @@ SCCRTN SccCheckout (LPVOID context,
 					LONG dwFlags,
 					LPCMDOPTS pvOptions)
 {
-	OutputDebugString("**SccCheckout**\n");
-	// Nop, we pretend all files are checked out
-	// Because they have to with git
+	int i;
+	LGitLog("**SccCheckout**\n");
+	LGitLog("  flags %x", dwFlags);
+	LGitLog("  files %d", nFiles);
+	/*
+	 * VB6 and especially VS.NET will mark files read-only after checkin or
+	 * uncheckout. Try to unmark the files and see if the IDE is OK with it.
+	 * XXX: Maybe not the best fix
+	 */
+	for (i = 0; i < nFiles; i++) {
+		DWORD attr;
+		attr = GetFileAttributes(lpFileNames[i]);
+		if (attr == INVALID_FILE_ATTRIBUTES) {
+			continue;
+		}
+		attr &= ~FILE_ATTRIBUTE_READONLY;
+		SetFileAttributes(lpFileNames[i], attr);
+	}
 	return SCC_OK;
 }
