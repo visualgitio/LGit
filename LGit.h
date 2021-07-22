@@ -26,7 +26,9 @@ typedef struct _LGitContext {
 	LPTEXTOUTPROC textoutCb;
 	/* big in case of Windows 10 */
 	char path[1024], workdir_path[1024];
-	char appName[SCC_NAME_LEN];
+	char appName[SCC_NAME_SIZE];
+	/* SCC provided username, used for some remote contexts */
+	char username[SCC_USER_SIZE];
 } LGitContext;
 
 /* logging.cpp */
@@ -56,3 +58,6 @@ typedef struct _LGitDiffDialogParams {
 } LGitDiffDialogParams;
 
 int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
+
+/* remotecb.cpp */
+void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb);

@@ -91,6 +91,7 @@ SCCRTN SccOpenProject (LPVOID context,
 
 	ctx->active = TRUE;
 	ctx->textoutCb = lpTextOutProc;
+	strncpy(ctx->username, lpUser, SCC_USER_LEN);
 
 	return SCC_OK;
 }

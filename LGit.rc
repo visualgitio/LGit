@@ -189,6 +189,21 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,197,78,50,14
 END
 
+IDD_AUTH_USERPASS DIALOG DISCARDABLE  0, 0, 254, 81
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Authenticate for Repository"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,142,60,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,60,50,14
+    LTEXT           "Credentials",IDC_AUTH_USERPASS_DESC,7,7,240,8
+    LTEXT           "&Username",IDC_STATIC,7,21,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_AUTH_USERNAME,47,21,200,14,ES_AUTOHSCROLL
+    LTEXT           "&Password",IDC_STATIC,7,40,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_AUTH_PASSWORD,47,40,200,14,ES_PASSWORD | 
+                    ES_AUTOHSCROLL
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -266,6 +281,18 @@ BEGIN
         VERTGUIDE, 197
         TOPMARGIN, 7
         BOTTOMMARGIN, 92
+    END
+
+    IDD_AUTH_USERPASS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 247
+        VERTGUIDE, 192
+        VERTGUIDE, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 74
+        HORZGUIDE, 54
+        HORZGUIDE, 59
     END
 END
 #endif    // APSTUDIO_INVOKED

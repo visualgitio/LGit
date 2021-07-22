@@ -11,6 +11,7 @@ typedef struct _LGitCloneDialogParams {
 	char url[256];
 	char path[_MAX_PATH];
 	char branch[128];
+	BOOL pathWritten;
 } LGitCloneDialogParams;
 
 static void InitCloneView(HWND hwnd, LGitCloneDialogParams* params)
@@ -33,7 +34,7 @@ static int CALLBACK BrowseCallbackProc(HWND hwnd,
 
 static void BrowseForFolder(HWND hwnd, LGitCloneDialogParams* params)
 {
-	char path[MAX_PATH];
+	char path[_MAX_PATH];
 	BROWSEINFO bi;
 	ZeroMemory(&bi, sizeof(BROWSEINFO));
 	bi.lpszTitle = "Browse for Repository Folder";
@@ -51,6 +52,8 @@ static void BrowseForFolder(HWND hwnd, LGitCloneDialogParams* params)
 	}
 	SHGetPathFromIDList(pidl, path);
 	SetDlgItemText(hwnd, IDC_CLONE_PATH, path);
+	/* for the sake of updating */
+	strncpy(params->path, path, _MAX_PATH);
 	CoTaskMemFree(pidl);
 }
 
@@ -89,6 +92,44 @@ static BOOL ValidateAndSetParams(HWND hwnd, LGitCloneDialogParams* params)
 	return TRUE;
 }
 
+#if 0
+/**
+ * Tries to append the most important component of the URL to the path.
+ * Disabled because there's no way to call it from a dialog that I know of.
+ */
+static void BuildPath(HWND hwnd, LGitCloneDialogParams* params)
+{
+	HWND focused;
+	if (params->pathWritten == TRUE) {
+		return;
+	}
+	focused = GetFocus();
+	if (GetDlgItem(hwnd, IDC_CLONE_PATH) == focused) {
+		LGitLog(" ! Path written to custom, ignore it now\n");
+		params->pathWritten = TRUE;
+	} else if (GetDlgItem(hwnd, IDC_CLONE_URL) != focused) {
+		return;
+	}
+	char new_path[_MAX_PATH], url[256], *url_begin, *suffix;
+	GetDlgItemText(hwnd, IDC_CLONE_URL, url, 256);
+	LGitLog("!! %s\n", url);
+	url_begin = strrchr(url, '/');
+	if (url_begin == NULL || strlen(url_begin) == 0) {
+		return;
+	}
+	LGitLog("!! %s\n", url_begin);
+	/* remove the .git often seen on SSH urls */
+	suffix = strrchr(url_begin, '.');
+	if (suffix != NULL) {
+		suffix[0] = '\0';
+	}
+	LGitLog("!! %s\n", suffix);
+	strncpy(new_path, params->path, _MAX_PATH);
+	strcat(new_path, url_begin);
+	SetDlgItemText(hwnd, IDC_CLONE_PATH, new_path);
+}
+#endif
+
 static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 									 unsigned int iMsg,
 									 WPARAM wParam,
@@ -99,6 +140,7 @@ static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitCloneDialogParams*)lParam;
+		param->pathWritten = FALSE;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitCloneView(hwnd, param);
 		return TRUE;
@@ -129,6 +171,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 				 LPSTR lpLocalPath,
 				 LPBOOL pbNew)
 {
+	SCCRTN ret = SCC_OK;
 	/* The repository is created, but we'll re-open in SccOpenProject */
 	git_repository *temp_repo;
 	git_clone_options clone_opts;
@@ -142,12 +185,14 @@ SCCRTN LGitClone(LGitContext *ctx,
 	git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
 	git_clone_options_init(&clone_opts, GIT_CLONE_OPTIONS_VERSION);
 	clone_opts.checkout_opts = co_opts;
+	LGitInitRemoteCallbacks(ctx, hWnd, &fetch_opts.callbacks);
 	clone_opts.fetch_opts = fetch_opts;
 
 	LGitLog(" ! Clone\n");
 
 	ZeroMemory(&params, sizeof(LGitCloneDialogParams));
 	params.ctx = ctx;
+	strncpy(params.path, lpLocalPath, _MAX_PATH);
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_CLONE),
 		hWnd,
@@ -155,9 +200,11 @@ SCCRTN LGitClone(LGitContext *ctx,
 		(LPARAM)&params)) {
 	case 0:
 		LGitLog(" ! Uh-oh, dialog error\n");
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	case 1:
-		return SCC_I_OPERATIONCANCELED;
+		ret = SCC_I_OPERATIONCANCELED;
+		goto fin;
 	case 2:
 		break;
 	}
@@ -170,7 +217,8 @@ SCCRTN LGitClone(LGitContext *ctx,
 	LGitTranslateStringChars(params.path, '\\', '/');
 	if (git_clone(&temp_repo, params.url, params.path, &clone_opts) != 0) {
 		LGitLibraryError(hWnd, "Repo Init");
-		return SCC_E_UNKNOWNERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	git_repository_free(temp_repo);
 
@@ -181,7 +229,8 @@ SCCRTN LGitClone(LGitContext *ctx,
 		MessageBox(hWnd,
 			"The project name couldn't be derived from the path.",
 			"Error Cloning", MB_ICONERROR);
-		return SCC_E_UNKNOWNERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	LGitLog(" ! Project name: %s\n", project);
 
@@ -189,5 +238,9 @@ SCCRTN LGitClone(LGitContext *ctx,
 	strncpy(lpLocalPath, params.path, _MAX_PATH);
 	/* XXX: Should we set pbNew? */
 
-	return SCC_OK;
+fin:
+	if (fetch_opts.callbacks.payload != NULL) {
+		free(fetch_opts.callbacks.payload);
+	}
+	return ret;
 }
