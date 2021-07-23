@@ -50,7 +50,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 	}
 	LGitLog("**SccInitialize** initialization count: %d (by %s)\n", init_count, callerName);
 
-	strcpy(sccName, "LGit");
+	strcpy(sccName, "Visual Git");
 
 	*sccCaps = SCC_CAP_REMOVE | /* SccRemove */
 				SCC_CAP_RENAME | /* SccRename */
@@ -69,11 +69,13 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 				SCC_CAP_HISTORY | /* SccHistory */
 				SCC_CAP_HISTORY_MULTFILE | /* multiple files with ^ */
 				SCC_CAP_POPULATELIST | /* List files not known by IDE */
+				SCC_CAP_DIRECTORYSTATUS | /* SccDirQueryInfo */
 				SCC_CAP_ADDFROMSCC | /* Seems to be share button? */
 				SCC_OPT_SHARESUBPROJ | /* Changed AddFromScc semantics */
 				//SCC_CAP_GETCOMMANDOPTIONS | /* Advanced button/addtl arg? */
 				//SCC_CAP_ADD_STORELATEST | /* Storing without deltas? */
 				SCC_CAP_DIRECTORYDIFF | /* Directory diff */
+				SCC_CAP_DIFFALWAYS | /* Can always diff in any state */
 				SCC_CAP_IGNORESPACE | /* Can ignore whitespace in files */
 				SCC_CAP_REENTRANT; /* Thread-safe, VC++6 demands it */
 
@@ -143,14 +145,55 @@ SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext,
 															 LONG lSccExCap,
 															 LPBOOL pbSupported)
 {
-	LGitLog("**SccGetExtendedCapabilities** %x\n", lSccExCap);
+	LGitLog("**SccGetExtendedCapabilities**\n");
 	switch (lSccExCap)
 	{
+	case SCC_EXCAP_CHECKOUT_LOCALVER:
+		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_BACKGROUND_GET:
+		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_ENUM_CHANGED_FILES:
+		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_POPULATELIST_DIR:
+		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_QUERYCHANGES:
+		LGitLog("  SCC_EXCAP_QUERYCHANGES\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_ADD_FILES_FROM_SCC:
+		LGitLog("  SCC_EXCAP_ADD_FILES_FROM_SCC\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_GET_USER_OPTIONS:
+		LGitLog("  SCC_EXCAP_GET_USER_OPTIONS\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_THREADSAFE_QUERY_INFO:
+		LGitLog("  SCC_EXCAP_THREADSAFE_QUERY_INFO\n");
+		*pbSupported = FALSE;
+		break;
+	case SCC_EXCAP_REMOVE_DIR:
+		LGitLog("  SCC_EXCAP_REMOVE_DIR\n");
+		*pbSupported = FALSE;
+		break;
 	case SCC_EXCAP_DELETE_CHECKEDOUT:
+		LGitLog("  SCC_EXCAP_DELETE_CHECKEDOUT\n");
+		*pbSupported = TRUE;
+		break;
 	case SCC_EXCAP_RENAME_CHECKEDOUT:
+		LGitLog("  SCC_EXCAP_RENAME_CHECKEDOUT\n");
 		*pbSupported = TRUE;
 		break;
 	default:
+		LGitLog("  ? %x\n", lSccExCap);
 		*pbSupported = FALSE;
 		break;
 	}

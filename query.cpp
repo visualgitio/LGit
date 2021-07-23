@@ -265,6 +265,49 @@ SCCRTN SccQueryInfo (LPVOID context,
 	return LGitPopulateList(context, (enum SCCCOMMAND)-1, nFiles, lpFileNames, NULL, NULL, lpStatus, 0);
 }
 
+SCCRTN SccDirQueryInfo(LPVOID context,
+					   LONG nDirs,
+					   LPCSTR* lpDirNames,
+					   LPLONG lpStatus)
+{
+	LGitContext *ctx = (LGitContext*)context;
+	int i, rc;
+	unsigned int flags;
+	const char *raw_path;
+	LGitLog("**SccQueryInfo** count %d\n", nDirs);
+	for (i = 0; i < nDirs; i++) {
+		char *path;
+		raw_path = LGitStripBasePath(ctx, lpDirNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for dir %s\n", lpDirNames[i]);
+			continue;
+		}
+		/* Translate because libgit2 operates with forward slashes */
+		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog("    Dir %s\n", path);
+		/* XXX: This should be a tree lookup instead of status */
+		rc = git_status_file(&flags, ctx->repo, path);
+		LGitLog("    Adding %s, git status flags %x\n", path, flags);
+		switch (rc) {
+		case 0:
+			lpStatus[i] = SCC_DIRSTATUS_CONTROLLED;
+			break;
+		case GIT_ENOTFOUND:
+			lpStatus[i] = SCC_DIRSTATUS_NOTCONTROLLED;
+			LGitLog("      Not found\n");
+			break;
+		default:
+			lpStatus[i] = SCC_DIRSTATUS_INVALID;
+			LGitLibraryError(NULL, "Populate list");
+			LGitLog("      Error (%x)\n", rc);
+			break;
+		}
+	}
+	return SCC_OK;
+}
+
+
 SCCRTN SccGetEvents (LPVOID context, 
 					 LPSTR lpFileName,
 					 LPLONG lpStatus,

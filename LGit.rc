@@ -46,14 +46,14 @@ BEGIN
         BEGIN
             VALUE "Comments", "\0"
             VALUE "CompanyName", "Terminal Dogma\0"
-            VALUE "FileDescription", "LGit\0"
+            VALUE "FileDescription", "Visual Git\0"
             VALUE "FileVersion", "1, 0, 0, 1\0"
-            VALUE "InternalName", "LGit\0"
+            VALUE "InternalName", "Visual Git\0"
             VALUE "LegalCopyright", "Copyright © 2021\0"
             VALUE "LegalTrademarks", "\0"
             VALUE "OriginalFilename", "LGit.dll\0"
             VALUE "PrivateBuild", "\0"
-            VALUE "ProductName", "Terminal Dogma LGit\0"
+            VALUE "ProductName", "Visual Git\0"
             VALUE "ProductVersion", "1, 0, 0, 1\0"
             VALUE "SpecialBuild", "\0"
         END

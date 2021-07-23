@@ -27,6 +27,8 @@ static SCCRTN LGitInitRepo(HWND hWnd, LPSTR lpProjName, LPCSTR lpLocalPath)
 			return SCC_E_UNKNOWNERROR;
 		}
 		git_repository_free(temp_repo);
+		LGitGetProjectNameFromPath(lpProjName, lpLocalPath, SCC_PRJPATH_SIZE);
+		LGitLog(" ! New proj name is %s\n", lpProjName);
 		return SCC_OK;
 	case IDNO:
 		return SCC_I_OPERATIONCANCELED;
@@ -92,6 +94,8 @@ SCCRTN SccOpenProject (LPVOID context,
 	ctx->active = TRUE;
 	ctx->textoutCb = lpTextOutProc;
 	strncpy(ctx->username, lpUser, SCC_USER_LEN);
+	LGitGetProjectNameFromPath(lpProjName, ctx->workdir_path, SCC_PRJPATH_SIZE);
+	LGitLog(" ! New proj name is %s\n", lpProjName);
 
 	return SCC_OK;
 }
@@ -153,6 +157,8 @@ SCCRTN SccGetProjPath (LPVOID context,
 		// Repo already exists, connect to it
 		LGitLog(" ! Repo exists, connecting\n");
 		git_repository_free(temp_repo);
+		LGitGetProjectNameFromPath(lpProjName, lpLocalPath, SCC_PRJPATH_SIZE);
+		LGitLog(" ! New proj name is %s\n", lpProjName);
 	} else if (rc == GIT_ENOTFOUND && !bAllowChangePath) {
 		// Can't change path, probably initing and importing existing files
 		return LGitInitRepo(hWnd, lpProjName, lpLocalPath);

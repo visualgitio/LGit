@@ -1,0 +1,1 @@
+This application switches between SCC providers.
