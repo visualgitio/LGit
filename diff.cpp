@@ -21,7 +21,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	char path[1024], *path_ptr;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccDiffInternal** Flags %x, %s\n", dwFlags, lpFileName);
+	LGitLog("  Flags %x, %s\n", dwFlags, lpFileName);
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
@@ -31,7 +31,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 		return SCC_E_NONSPECIFICERROR;
 	}
 	/* Translate because libgit2 operates with forward slashes */
-	strncpy(path, raw_path, 1024);
+	strlcpy(path, raw_path, 1024);
 	LGitTranslateStringChars(path, '\\', '/');
 
 	/* Work around a very weird C quirk where &array == array are the same */
@@ -95,6 +95,7 @@ SCCRTN SccDiff (LPVOID context,
 				LONG dwFlags,
 				LPCMDOPTS pvOptions)
 {
+	LGitLog("**SccDiff**\n");
 	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
 }
 
@@ -104,5 +105,6 @@ SCCRTN SccDirDiff (LPVOID context,
 				   LONG dwFlags,
 				   LPCMDOPTS pvOptions)
 {
+	LGitLog("**SccDirDiff**\n");
 	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
 }

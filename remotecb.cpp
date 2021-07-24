@@ -151,18 +151,8 @@ static int LastChanceVerify(git_cert *cert,
 		return 0;
 	}
 	LGitRemoteParams *params = (LGitRemoteParams*)payload;
-	int ret;
-	char msg[2048];
-	/*
-	 * XXX: Display a better dialog that can provide us the X.509 DER.
-	 */
-	_snprintf(msg, 2048,
-		"The certificate for '%s' was considered invalid. "
-		"Do you want to connect anyways?",
-		host);
-	ret = MessageBox(params->parent, msg, "Invalid Certificate",
-		MB_ICONWARNING | MB_YESNO);
-	return ret == IDYES ? 0 : GIT_ECERTIFICATE;
+	int ret = LGitCertificatePrompt(params->ctx, params->parent, cert, host);
+	return ret == IDOK ? 0 : GIT_ECERTIFICATE;
 }
 
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb)

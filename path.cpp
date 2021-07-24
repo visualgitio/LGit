@@ -28,15 +28,20 @@ void LGitTranslateStringChars(char *buf, int char1, int char2)
 
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 {
-	int common;
-	char common_path[MAX_PATH];
-	if (ctx == NULL) {
+	if (ctx == NULL || strlen(ctx->workdir_path) < 1) {
 		return NULL;
 	}
-	// Maybe PathRelativePathToA instead?
-	common = PathCommonPrefixA(ctx->workdir_path, abs, common_path);
-	abs += common;
-	if (abs[0]) {
+	char path[_MAX_PATH];
+	/* strip trailing backslash, then accomodate if we need to bump later */
+	strlcpy(path, ctx->workdir_path, _MAX_PATH);
+	LGitTranslateStringChars(path, '//', '\\');
+	PathRemoveBackslash(path);
+	const char *begin = strcasestr(abs, path);
+	if (begin != abs) {
+		return NULL;
+	}
+	abs += strlen(path);
+	if (abs[0] == '\\') {
 		abs++;
 	}
 	return abs;
@@ -67,8 +72,7 @@ BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz)
 		goto fin;
 	}
 	ZeroMemory(project, bufsz);
-	strncpy(project, temp_path + begin,
-		__min(strlen(temp_path + begin), bufsz));
+	strlcpy(project, temp_path + begin, bufsz);
 fin:
 	free(temp_path);
 	return begin != -1;

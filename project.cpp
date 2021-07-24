@@ -64,7 +64,7 @@ SCCRTN SccOpenProject (LPVOID context,
 	if (rc == 0) {
 		LGitLog("    Got it\n");
 		// Repo already exists, connect to it
-		strcpy(ctx->path, lpLocalProjPath);
+		strlcpy(ctx->path, lpLocalProjPath, 1024);
 	} else if (rc == GIT_ENOTFOUND) {
 		// No repository, create/clone depending on bAllowChangePath
 		LGitLog("    No git repo\n");
@@ -82,7 +82,7 @@ SCCRTN SccOpenProject (LPVOID context,
 			MB_ICONERROR);
 		return SCC_E_INVALIDFILEPATH;
 	}
-	strncpy(ctx->workdir_path, workdir, 1024);
+	strlcpy(ctx->workdir_path, workdir, 1024);
 	/*
 	 * Translate the path to Windows-style backslashes. The IDE will return us
 	 * backslashes, which will confuse PathCommonPrefix. We translate them back
@@ -93,7 +93,7 @@ SCCRTN SccOpenProject (LPVOID context,
 
 	ctx->active = TRUE;
 	ctx->textoutCb = lpTextOutProc;
-	strncpy(ctx->username, lpUser, SCC_USER_LEN);
+	strlcpy(ctx->username, lpUser, SCC_USER_LEN);
 	LGitGetProjectNameFromPath(lpProjName, ctx->workdir_path, SCC_PRJPATH_SIZE);
 	LGitLog(" ! New proj name is %s\n", lpProjName);
 

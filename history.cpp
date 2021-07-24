@@ -89,7 +89,7 @@ static int match_with_parent(HWND hwnd, git_commit *commit, int i, git_diff_opti
 		return -1;
 	}
 	if (git_diff_tree_to_tree(&diff, git_commit_owner(commit), a, b, opts) != 0) {
-		LGitLibraryError(hwnd, "match_with_parent git_commit_tree B");
+		LGitLibraryError(hwnd, "match_with_parent git_diff_tree_to_tree");
 		git_tree_free(a);
 		git_tree_free(b);
 		git_commit_free(parent);

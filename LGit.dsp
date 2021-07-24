@@ -96,6 +96,10 @@ SOURCE=.\addscc.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\cert.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\checkout.cpp
 # End Source File
 # Begin Source File
@@ -154,6 +158,10 @@ SOURCE=.\status.cpp
 
 SOURCE=.\StdAfx.cpp
 # ADD CPP /Yc"stdafx.h"
+# End Source File
+# Begin Source File
+
+SOURCE=.\string.cpp
 # End Source File
 # End Group
 # Begin Group "Header Files"

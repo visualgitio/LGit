@@ -184,7 +184,7 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 	for (base_indent = 0, i = 0; i < 2048 && i < line->content_len; i++) {
 		if (line->content[i] == '\t') {
 			/* Two spaces because I say so */
-			strcat(msg, "  ");
+			strlcat(msg, "  ", 2048);
 			base_indent++;
 		}
 	}

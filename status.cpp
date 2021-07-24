@@ -102,7 +102,7 @@ SCCRTN SccProperties (LPVOID context,
 		return SCC_E_NONSPECIFICERROR;
 	}
 	/* Translate because libgit2 operates with forward slashes */
-	strncpy(path, raw_path, 1024);
+	strlcpy(path, raw_path, 1024);
 	LGitTranslateStringChars(path, '\\', '/');
 
 	rc = git_status_file(&params.flags, ctx->repo, path);

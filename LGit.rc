@@ -204,6 +204,19 @@ BEGIN
                     ES_AUTOHSCROLL
 END
 
+IDD_CERT_PROMPT DIALOG DISCARDABLE  0, 0, 202, 59
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Trust Certificate?"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,90,38,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,145,38,50,14
+    PUSHBUTTON      "&View Certificate...",IDC_VIEW_CERT,7,38,77,14
+    ICON            "",IDC_CERT_PROMPT_ICON,7,7,20,20
+    LTEXT           "The certificate for ""%s"" couldn't be verified. Do you want to trust it anyways?",
+                    IDC_CERT_MESSAGE,32,7,163,25
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -293,6 +306,23 @@ BEGIN
         BOTTOMMARGIN, 74
         HORZGUIDE, 54
         HORZGUIDE, 59
+    END
+
+    IDD_CERT_PROMPT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 195
+        VERTGUIDE, 27
+        VERTGUIDE, 32
+        VERTGUIDE, 84
+        VERTGUIDE, 90
+        VERTGUIDE, 140
+        VERTGUIDE, 145
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 52
+        HORZGUIDE, 27
+        HORZGUIDE, 32
+        HORZGUIDE, 38
     END
 END
 #endif    // APSTUDIO_INVOKED

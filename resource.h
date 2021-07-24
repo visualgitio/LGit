@@ -15,6 +15,7 @@
 #define IDI_DIFF_FILE_B                 111
 #define IDD_CLONE                       112
 #define IDD_AUTH_USERPASS               113
+#define IDD_CERT_PROMPT                 114
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -34,8 +35,11 @@
 #define IDC_STATUS_WT_NEW               1015
 #define IDC_AUTH_USERPASS_DESC          1015
 #define IDC_STATUS_WT_MODIFIED          1016
+#define IDC_VIEW_CERT                   1016
 #define IDC_STATUS_WT_DELETED           1017
+#define IDC_CERT_MESSAGE                1017
 #define IDC_STATUS_WT_RENAMED           1018
+#define IDC_CERT_PROMPT_ICON            1018
 #define IDC_STATUS_WT_TYPECHANGE        1019
 #define IDC_STATUS_WT_UNREADABLE        1020
 #define IDC_STATUS_IGNORED              1021
@@ -45,9 +49,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        114
+#define _APS_NEXT_RESOURCE_VALUE        115
 #define _APS_NEXT_COMMAND_VALUE         40001
-#define _APS_NEXT_CONTROL_VALUE         1016
+#define _APS_NEXT_CONTROL_VALUE         1019
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

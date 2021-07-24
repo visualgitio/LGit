@@ -90,8 +90,8 @@ static int LGitStatusCallback(const char *relative_path,
 	LGitLog(" ! Entry \"%s\" (%x -> %x)\n", relative_path, flags, sccFlags);
 	/* Merge for absolute path */
 	char path[2048];
-	strncpy(path, params->ctx->workdir_path, 1024);
-	strncat(path, relative_path, 1024);
+	strlcpy(path, params->ctx->workdir_path, 2048);
+	strlcat(path, relative_path, 2048);
 	LGitTranslateStringChars(path, '/', '\\');
 
 	LGitLog(" ! Pushing absolute path \"%s\"", path);
@@ -193,7 +193,7 @@ static SCCRTN LGitPopulateFiles(LPVOID context,
 		}
 		/* Translate because libgit2 operates with forward slashes */
 		char path[1024];
-		strncpy(path, raw_path, 1024);
+		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
 		rc = git_status_file(&flags, ctx->repo, path);
 		LGitLog("    Adding %s, git status flags %x\n", path, flags);

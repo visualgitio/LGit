@@ -110,7 +110,7 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 			continue;
 		}
 		/* We may need to provide an absolute path. */
-		strncpy(path, params->ctx->workdir_path, 1024);
+		strlcpy(path, params->ctx->workdir_path, 2048);
 
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.iItem = i;
@@ -118,7 +118,7 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 		lvi.cchTextMax = 1024;
 		SendMessage(lv, LVM_GETITEMTEXT, i, (LPARAM)&lvi);
 		/* Combine and ranslate yet again */
-		strncat(path, relative_path, 1024);
+		strlcat(path, relative_path, 2048);
 		LGitTranslateStringChars(path, '/', '\\');
 		LGitLog(" ! Using %s\n", path);
 		output[to_set++] = path;
@@ -209,17 +209,18 @@ SCCRTN SccAddFromScc (LPVOID context,
 			return SCC_E_NONSPECIFICERROR;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
-		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog(" ! Destination is '%s'\n", path);
+		char temp_path[_MAX_PATH];
+		strlcpy(temp_path, raw_path, _MAX_PATH);
+		LGitTranslateStringChars(temp_path, '\\', '/');
+		LGitLog(" ! Destination is '%s'\n", temp_path);
 		/* If it's just the root workdir directory, don't bother */
-		if (strlen(path) == 0) {
-			free(path);
+		if (strlen(temp_path) == 0) {
 			path = NULL;
-		} else if (path[strlen(path) - 1] != '/') {
+		} else if (path[strlen(temp_path) - 1] != '/') {
 			/* Make sure it has a / */
-			strcat(path, "/");
+			strlcat(temp_path, "/", _MAX_PATH);
 		}
+		path = strdup(raw_path);
 	}
 
 	if (git_repository_index(&index, ctx->repo) != 0) {

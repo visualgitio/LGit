@@ -16,18 +16,21 @@ BOOL LGitTimeToString(const git_time *time, char *buf, int bufsz)
 {
 	FILETIME ft;
 	SYSTEMTIME st;
-	int written, time_would_write;
+	int written;
+	char strdate[128], strtime[128];
 	TimetToFileTime(time->time, &ft);
 	FileTimeToSystemTime(&ft, &st);
-	written = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, buf, bufsz);
+	written = GetDateFormat(LOCALE_USER_DEFAULT, DATE_SHORTDATE, &st, NULL, strdate, 128);
 	if (written == -1) {
 		return FALSE;
 	}
-	time_would_write = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, NULL, 128);
-	if (bufsz - written > time_would_write + 1) {
-		strcat(buf, " ");
-		written = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buf + strlen(buf), 128);
+	strlcpy(buf, strdate, bufsz);
+	strlcat(buf, " ", bufsz);
+	written = GetTimeFormat(LOCALE_USER_DEFAULT, TIME_NOSECONDS, &st, NULL, buf + strlen(buf), 128);
+	if (written == -1) {
+		return FALSE;
 	}
+	strlcat(buf, strtime, bufsz);
 	return TRUE;
 }
 

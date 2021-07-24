@@ -50,7 +50,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 	}
 	LGitLog("**SccInitialize** initialization count: %d (by %s)\n", init_count, callerName);
 
-	strcpy(sccName, "Visual Git");
+	strlcpy(sccName, "Visual Git", SCC_NAME_LEN);
 
 	*sccCaps = SCC_CAP_REMOVE | /* SccRemove */
 				SCC_CAP_RENAME | /* SccRename */
@@ -84,7 +84,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 	*commentLen = 1024;
 
 	// XXX
-	strcpy (auxPathLabel, "LGitProject:");
+	strlcpy (auxPathLabel, "LGitProject:", SCC_AUXLABEL_LEN);
 
 	LGitLog("  LPVOID* Context=%p\n", context);
 	LGitLog("         *Context=%p\n", *context);
@@ -97,7 +97,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		}
 		LGitLog("     New *Context=%p\n", *context);
 		ZeroMemory(*context, sizeof(LGitContext));
-		strncpy(ctx->appName, callerName, SCC_NAME_LEN);
+		strlcpy(ctx->appName, callerName, SCC_NAME_LEN);
 		ctx->dllInst = dllInstance;
 		ctx->refcount = 1;
 	} else if (context) {

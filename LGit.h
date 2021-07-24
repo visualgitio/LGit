@@ -61,3 +61,11 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 
 /* remotecb.cpp */
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb);
+
+/* cert.cpp */
+BOOL LGitCertificatePrompt(LGitContext *ctx, HWND parent, git_cert *cert, const char *host);
+
+/* string.cpp */
+char *strcasestr(const char *s, const char *find);
+size_t strlcat(char *dst, const char *src, size_t siz);
+size_t strlcpy(char *dst, const char *src, size_t siz);

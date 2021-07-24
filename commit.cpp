@@ -119,7 +119,7 @@ SCCRTN SccCheckin (LPVOID context,
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strncpy(path, raw_path, 1024);
+		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Adding %s\n", path);
 		if (git_index_add_bypath(index, path) != 0) {
@@ -175,7 +175,7 @@ SCCRTN SccAdd (LPVOID context,
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strncpy(path, raw_path, 1024);
+		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Adding %s\n", path);
 		if (git_index_add_bypath(index, path) != 0) {
@@ -223,7 +223,7 @@ SCCRTN SccRemove (LPVOID context,
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strncpy(path, raw_path, 1024);
+		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Removing %s\n", path);
 		if (git_index_remove_bypath(index, path) != 0) {
@@ -252,7 +252,7 @@ SCCRTN SccRename (LPVOID context,
 		LGitLog("    Couldn't get base path for %s\n", lpFileName);
 		return SCC_E_OPNOTPERFORMED;
 	}
-	strncpy(o_path, o_raw_path, 1024);
+	strlcpy(o_path, o_raw_path, 1024);
 	LGitTranslateStringChars(o_path, '\\', '/');
 	LGitLog("  Old %s\n", o_path);
 	n_raw_path = LGitStripBasePath(ctx, lpNewName);
@@ -260,7 +260,7 @@ SCCRTN SccRename (LPVOID context,
 		LGitLog("    Couldn't get base path for %s\n", lpNewName);
 		return SCC_E_OPNOTPERFORMED;
 	}
-	strncpy(n_path, n_raw_path, 1024);
+	strlcpy(n_path, n_raw_path, 1024);
 	LGitTranslateStringChars(n_path, '\\', '/');
 	LGitLog("  New %s\n", n_path);
 	/* Take a slightly roundabout method */

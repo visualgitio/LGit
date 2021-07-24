@@ -53,7 +53,7 @@ static void BrowseForFolder(HWND hwnd, LGitCloneDialogParams* params)
 	SHGetPathFromIDList(pidl, path);
 	SetDlgItemText(hwnd, IDC_CLONE_PATH, path);
 	/* for the sake of updating */
-	strncpy(params->path, path, _MAX_PATH);
+	strlcpy(params->path, path, _MAX_PATH);
 	CoTaskMemFree(pidl);
 }
 
@@ -124,8 +124,8 @@ static void BuildPath(HWND hwnd, LGitCloneDialogParams* params)
 		suffix[0] = '\0';
 	}
 	LGitLog("!! %s\n", suffix);
-	strncpy(new_path, params->path, _MAX_PATH);
-	strcat(new_path, url_begin);
+	strlcpy(new_path, params->path, _MAX_PATH);
+	strlcat(new_path, url_begin, _MAX_PATH);
 	SetDlgItemText(hwnd, IDC_CLONE_PATH, new_path);
 }
 #endif
@@ -192,7 +192,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 
 	ZeroMemory(&params, sizeof(LGitCloneDialogParams));
 	params.ctx = ctx;
-	strncpy(params.path, lpLocalPath, _MAX_PATH);
+	strlcpy(params.path, lpLocalPath, _MAX_PATH);
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_CLONE),
 		hWnd,
@@ -234,8 +234,8 @@ SCCRTN LGitClone(LGitContext *ctx,
 	}
 	LGitLog(" ! Project name: %s\n", project);
 
-	strncpy(lpProjName, project, SCC_PRJPATH_SIZE);
-	strncpy(lpLocalPath, params.path, _MAX_PATH);
+	strlcpy(lpProjName, project, SCC_PRJPATH_LEN);
+	strlcpy(lpLocalPath, params.path, _MAX_PATH);
 	/* XXX: Should we set pbNew? */
 
 fin:
