@@ -125,6 +125,7 @@ SCCRTN SccCheckin (LPVOID context,
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}
+		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
 	git_index_free(index);
@@ -181,6 +182,7 @@ SCCRTN SccAdd (LPVOID context,
 		if (git_index_add_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}
+		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
 	git_index_free(index);
@@ -229,6 +231,7 @@ SCCRTN SccRemove (LPVOID context,
 		if (git_index_remove_bypath(index, path) != 0) {
 			LGitLibraryError(hWnd, path);
 		}
+		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
 	git_index_free(index);
@@ -286,6 +289,7 @@ SCCRTN SccRename (LPVOID context,
 	/* XXX: Add a trailer? */
 	_snprintf(comment, 1024, "Rename %s to %s\n", o_path, n_path);
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, comment);
+	LGitPopCheckout(ctx, o_path);
 fail:
 	git_index_free(index);
 	return inner_ret;

@@ -28,6 +28,12 @@
 #include <wchar.h>
 #include <stdarg.h>
 
+// STL
+/* i love C++! STL templates spew "truncated name" warnings. only relevant for debugging... */
+#pragma warning(disable: 4786)
+#include <string>
+#include <set>
+
 #if _DEBUG
 #include <crtdbg.h>
 #endif

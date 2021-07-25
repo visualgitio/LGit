@@ -11,6 +11,9 @@
 #define LGIT_API __declspec(dllimport)
 #endif
 
+/* XXX: Use a case-insensitive comparator */
+typedef std::set<std::string> CheckoutQueue;
+
 typedef struct _LGitContext {
 	/* housekeeping */
 	BOOL active;
@@ -20,6 +23,8 @@ typedef struct _LGitContext {
 	BOOL addSccSuccess;
 	/* git state */
 	git_repository *repo;
+	/* used for faking checkout status */
+	CheckoutQueue *checkouts;
 	/* callbacks and such provided by IDE */
 	OPTNAMECHANGEPFN renameCb;
 	LPVOID renameData;
@@ -30,6 +35,12 @@ typedef struct _LGitContext {
 	/* SCC provided username, used for some remote contexts */
 	char username[SCC_USER_SIZE];
 } LGitContext;
+
+/* LGit.cpp */
+const char* LGitCommandName(enum SCCCOMMAND command);
+
+/* caps.cpp */
+LONG LGitGetCaps(void);
 
 /* logging.cpp */
 void LGitLog(const char *format_str, ...);
@@ -44,6 +55,11 @@ BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 /* format.cpp */
 BOOL LGitTimeToString(const git_time *time, char *buf, int bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, int bufsz);
+
+/* checkout.cpp */
+void LGitPushCheckout(LGitContext *ctx, const char *fileName);
+BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
+BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
 /* clone.cpp */
 SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);

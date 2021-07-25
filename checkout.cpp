@@ -53,6 +53,7 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    %s\n", path);
 		paths[path_count++] = path;
+		LGitPopCheckout(ctx, path);
 	}
 	/*
 	for (i = 0; i < path_count; i++) {
@@ -105,6 +106,37 @@ SCCRTN SccGet (LPVOID context,
 	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
 }
 
+static void LGitUnmarkReadOnly(LPCSTR fileName)
+{
+	DWORD attr;
+	attr = GetFileAttributes(fileName);
+	if (attr == INVALID_FILE_ATTRIBUTES) {
+		return;
+	}
+	attr &= ~FILE_ATTRIBUTE_READONLY;
+	SetFileAttributes(fileName, attr);
+}
+
+void LGitPushCheckout(LGitContext *ctx, const char *fileName)
+{
+	ctx->checkouts->insert(std::string(fileName));
+}
+
+BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName)
+{
+	std::string name = std::string(fileName);
+	BOOL exists = ctx->checkouts->count(name);
+	if (exists) {
+		ctx->checkouts->erase(name);
+	}
+	return exists;
+}
+
+BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName)
+{
+	return ctx->checkouts->count(std::string(fileName));
+}
+
 SCCRTN SccCheckout (LPVOID context, 
 					HWND hWnd, 
 					LONG nFiles, 
@@ -113,23 +145,30 @@ SCCRTN SccCheckout (LPVOID context,
 					LONG dwFlags,
 					LPCMDOPTS pvOptions)
 {
+	LGitContext *ctx = (LGitContext*)context;
 	int i;
 	LGitLog("**SccCheckout**\n");
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
 	/*
 	 * VB6 and especially VS.NET will mark files read-only after checkin or
-	 * uncheckout. Try to unmark the files and see if the IDE is OK with it.
-	 * XXX: Maybe not the best fix
+	 * uncheckout. VS.NET will *also* try to check the read-only status of
+	 * files, so what we'll do is just temporarily add them to a list.
 	 */
+	const char *raw_path;
 	for (i = 0; i < nFiles; i++) {
-		DWORD attr;
-		attr = GetFileAttributes(lpFileNames[i]);
-		if (attr == INVALID_FILE_ATTRIBUTES) {
+		char path[1024];
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
-		attr &= ~FILE_ATTRIBUTE_READONLY;
-		SetFileAttributes(lpFileNames[i], attr);
+		/* Translate because libgit2 operates with forward slashes */
+		strlcpy(path, raw_path, 1024);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog("    Checking out %s\n", path);
+		LGitPushCheckout(ctx, path);
+		LGitUnmarkReadOnly(lpFileNames[i]);
 	}
 	return SCC_OK;
 }

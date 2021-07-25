@@ -5,7 +5,9 @@
 #include "stdafx.h"
 #include "LGit.h"
 
-static long LGitConvertFlags(unsigned int flags)
+static long LGitConvertFlags(LGitContext *ctx,
+							 const char *fileName,
+							 unsigned int flags)
 {
 	/*
 	 * Protip: changes relative from HEAD to stage/index are INDEX.
@@ -36,30 +38,67 @@ static long LGitConvertFlags(unsigned int flags)
 		|| (flags & GIT_STATUS_INDEX_DELETED)) {
 		sccFlags |= SCC_STATUS_DELETED;
 	}
+	/* Append fake checkout marker, since VB6 and VS.NET want to see them */
+	if (LGitIsCheckout(ctx, fileName)) {
+		LGitLog(" ! Fake checkout flag for %s\n", fileName);
+		sccFlags |= SCC_STATUS_OUTBYUSER;
+		sccFlags |= SCC_STATUS_CHECKEDOUT;
+		/* Little marker so we now it's not really modified */
+		sccFlags |= SCC_STATUS_OUTEXCLUSIVE;
+	}
 	/* XXX: How do we map other things? Is what we have correct? */
 	return sccFlags;
 }
 
 static void LGitCallPopulateAction(enum SCCCOMMAND nCommand,
 								   LPCSTR fileName,
-								   unsigned int sccFlags,
+								   unsigned int lg2flags,
+								   long sccFlags,
 								   POPLISTFUNC pfnPopulate,
 								   LPVOID pvCallerData)
 {
+	BOOL allow = FALSE;
 	/* Check what command */
 	switch (nCommand) {
 	case SCC_COMMAND_CHECKOUT:
-		/* Nothing should be in the list here. */
-		pfnPopulate(pvCallerData, FALSE, sccFlags, fileName);
+		/* Since we fake checkout, we're obligated. Before, always not. */
+		if (!(sccFlags & SCC_STATUS_CHECKEDOUT)) {
+			allow = TRUE;
+		}
+		pfnPopulate(pvCallerData, allow, sccFlags, fileName);
 		break;
 	case SCC_COMMAND_GET:
 		/* Everything should be in the list here, it's called by clone */
 		pfnPopulate(pvCallerData, TRUE, sccFlags, fileName);
 		break;
 	case SCC_COMMAND_CHECKIN:
+		/* Use same comparison as Convert, so we can ignore fake checkouts */
+		if ((lg2flags & GIT_STATUS_WT_MODIFIED)
+			|| (lg2flags & GIT_STATUS_WT_TYPECHANGE)
+			|| (lg2flags & GIT_STATUS_INDEX_MODIFIED)
+			|| (lg2flags & GIT_STATUS_INDEX_TYPECHANGE)) {
+			allow = TRUE;
+		}
+		pfnPopulate(pvCallerData, allow, sccFlags, fileName);
+		break;
 	case SCC_COMMAND_UNCHECKOUT:
+		if (sccFlags & SCC_STATUS_CHECKEDOUT) {
+			allow = TRUE;
+		}
+		pfnPopulate(pvCallerData, allow, sccFlags, fileName);
+		break;
 	case SCC_COMMAND_ADD:
+		if (!(sccFlags & SCC_STATUS_CONTROLLED)) {
+			allow = TRUE;
+		}
+		pfnPopulate(pvCallerData, allow, sccFlags, fileName);
+		break;
 	case SCC_COMMAND_REMOVE:
+		if (sccFlags & SCC_STATUS_CONTROLLED) {
+			allow = TRUE;
+		}
+		pfnPopulate(pvCallerData, allow, sccFlags, fileName);
+		break;
 	/*
 	 * case SCC_COMMAND_DIFF:
 	 * case SCC_COMMAND_HISTORY:
@@ -86,7 +125,7 @@ static int LGitStatusCallback(const char *relative_path,
 							  void *context)
 {
 	LGitStatusCallbackParams *params = (LGitStatusCallbackParams*)context;
-	long sccFlags = LGitConvertFlags(flags);
+	long sccFlags = LGitConvertFlags(params->ctx, relative_path, flags);
 	LGitLog(" ! Entry \"%s\" (%x -> %x)\n", relative_path, flags, sccFlags);
 	/* Merge for absolute path */
 	char path[2048];
@@ -97,6 +136,7 @@ static int LGitStatusCallback(const char *relative_path,
 	LGitLog(" ! Pushing absolute path \"%s\"", path);
 	LGitCallPopulateAction(params->nCommand,
 		path,
+		flags,
 		sccFlags,
 		params->pfnPopulate,
 		params->pvCallerData);
@@ -199,7 +239,7 @@ static SCCRTN LGitPopulateFiles(LPVOID context,
 		LGitLog("    Adding %s, git status flags %x\n", path, flags);
 		switch (rc) {
 		case 0:
-			sccFlags = LGitConvertFlags(flags);
+			sccFlags = LGitConvertFlags(ctx, path, flags);
 			break;
 		case GIT_ENOTFOUND:
 			sccFlags = SCC_STATUS_NOTCONTROLLED;
@@ -217,7 +257,7 @@ static SCCRTN LGitPopulateFiles(LPVOID context,
 		}
 		LGitLog("      Success, flags %x\n", lpStatus[i]);
 		if (pfnPopulate != NULL) {
-			LGitCallPopulateAction(nCommand, lpFileNames[i], sccFlags, pfnPopulate, pvCallerData);
+			LGitCallPopulateAction(nCommand, lpFileNames[i], flags, sccFlags, pfnPopulate, pvCallerData);
 		}
 	}
 	return SCC_OK;
@@ -252,7 +292,7 @@ SCCRTN SccPopulateList (LPVOID context,
 						LPLONG lpStatus, 
 						LONG dwFlags)
 {
-	LGitLog("**SccPopulateList** command %x, flags %x count %d\n", nCommand, dwFlags, nFiles);
+	LGitLog("**SccPopulateList** command %s, flags %x count %d\n", LGitCommandName(nCommand), dwFlags, nFiles);
 	return LGitPopulateList(context, nCommand, nFiles, lpFileNames, pfnPopulate, pvCallerData, lpStatus, dwFlags);
 }
 
@@ -274,7 +314,7 @@ SCCRTN SccDirQueryInfo(LPVOID context,
 	int i, rc;
 	unsigned int flags;
 	const char *raw_path;
-	LGitLog("**SccQueryInfo** count %d\n", nDirs);
+	LGitLog("**SccDirQueryInfo** count %d\n", nDirs);
 	for (i = 0; i < nDirs; i++) {
 		char *path;
 		raw_path = LGitStripBasePath(ctx, lpDirNames[i]);
@@ -307,6 +347,94 @@ SCCRTN SccDirQueryInfo(LPVOID context,
 	return SCC_OK;
 }
 
+static DWORD LGitConvertQueryChangesFlags(unsigned int flags)
+{
+	/*
+	 * Protip: changes relative from HEAD to stage/index are INDEX.
+	 * Changes relative from stage/index to the working directory are WT.
+	 */
+	DWORD sccFlags = SCC_CHANGE_UNCHANGED;
+	/* Files new to the working tree */
+	if (flags & GIT_STATUS_WT_NEW) {
+		sccFlags = SCC_CHANGE_LOCAL_ADDED;
+	}
+	/* Modifications. */
+	if ((flags & GIT_STATUS_WT_MODIFIED)
+		|| (flags & GIT_STATUS_WT_TYPECHANGE)
+		|| (flags & GIT_STATUS_INDEX_MODIFIED)
+		|| (flags & GIT_STATUS_INDEX_TYPECHANGE)) {
+		sccFlags = SCC_CHANGE_DIFFERENT;
+	}
+	/* Files deleted by plain delete (rm) or index/stage delete (git rm) */
+	if (flags & GIT_STATUS_WT_DELETED) {
+		sccFlags = SCC_CHANGE_LOCAL_DELETED; /* or DATABASE_ADDED */
+	}
+	if (flags & GIT_STATUS_INDEX_DELETED) {
+		sccFlags = SCC_CHANGE_DATABASE_DELETED;
+	}
+	/* XXX: Rename? Is this mapping correct */
+	return sccFlags;
+}
+
+static int LGitQueryChangesFile(LPCSTR fileName,
+								unsigned int lg2flags,
+								int lg2rc,
+								QUERYCHANGESFUNC cb,
+								LPVOID cbData)
+{
+	QUERYCHANGESDATA qcd;
+	ZeroMemory(&qcd, sizeof(QUERYCHANGESDATA));
+	qcd.dwSize = sizeof(QUERYCHANGESDATA);
+	qcd.lpFileName = fileName;
+	switch (lg2rc) {
+	case 0:
+		qcd.dwChangeType = LGitConvertQueryChangesFlags(lg2flags);
+		break;
+	case GIT_ENOTFOUND:
+		qcd.dwChangeType = SCC_CHANGE_NONEXISTENT;
+		LGitLog("      Not found\n");
+		break;
+	default:
+		qcd.dwChangeType = SCC_CHANGE_UNKNOWN;
+		LGitLibraryError(NULL, "Populate list");
+		LGitLog("      Error (%x)\n", lg2rc);
+		break;
+	}
+	return cb(cbData, &qcd);
+}
+
+SCCRTN SccQueryChanges(LPVOID context,
+					   LONG nFiles,
+					   LPCSTR *lpFileNames,
+					   QUERYCHANGESFUNC pfnCallback,
+					   LPVOID pvCallerData)
+{
+	LGitContext *ctx = (LGitContext*)context;
+	int i, rc;
+	unsigned int flags;
+	const char *raw_path;
+	LGitLog("**SccQueryChanges** count %d\n", nFiles);
+	for (i = 0; i < nFiles; i++) {
+		char *path;
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			continue;
+		}
+		/* Translate because libgit2 operates with forward slashes */
+		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog("    %s\n", path);
+		rc = git_status_file(&flags, ctx->repo, path);
+		LGitLog("    Adding %s, git status flags %x\n", path, flags);
+		int ret = LGitQueryChangesFile(path, flags, rc, pfnCallback, pvCallerData);
+		if (ret == SCC_I_OPERATIONCANCELED || ret < 0) {
+			LGitLog(" ! Callback returned %d\n", ret);
+			break;
+		}
+	}
+	return SCC_OK;
+}
 
 SCCRTN SccGetEvents (LPVOID context, 
 					 LPSTR lpFileName,

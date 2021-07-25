@@ -52,35 +52,10 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 
 	strlcpy(sccName, "Visual Git", SCC_NAME_LEN);
 
-	*sccCaps = SCC_CAP_REMOVE | /* SccRemove */
-				SCC_CAP_RENAME | /* SccRename */
-				SCC_CAP_DIFF | /* SccDiff */
-				SCC_CAP_PROPERTIES | /* SccProperties */
-				SCC_CAP_RUNSCC | /* SccRunScc */
-				SCC_CAP_QUERYINFO | /* SccQueryInfo */
-				SCC_CAP_COMMENTPROJECT | /* Comment on creating new project */
-				SCC_CAP_COMMENTCHECKIN | /* ...comment on checkin */
-				SCC_CAP_COMMENTREMOVE | /* ...comment on removing files */
-				SCC_CAP_COMMENTADD | /* ...comment on adding files */
-				//SCC_CAP_GET_NOUI | /* removes the UI for SccGet; no open from SCC opt if so */
-				SCC_CAP_GETPROJPATH | /* SccGetProjPath */
-				SCC_CAP_TEXTOUT | /* Output through IDE */
-				//SCC_CAP_MULTICHECKOUT | /* Multiple checkouts? */
-				SCC_CAP_HISTORY | /* SccHistory */
-				SCC_CAP_HISTORY_MULTFILE | /* multiple files with ^ */
-				SCC_CAP_POPULATELIST | /* List files not known by IDE */
-				SCC_CAP_DIRECTORYSTATUS | /* SccDirQueryInfo */
-				SCC_CAP_ADDFROMSCC | /* Seems to be share button? */
-				SCC_OPT_SHARESUBPROJ | /* Changed AddFromScc semantics */
-				//SCC_CAP_GETCOMMANDOPTIONS | /* Advanced button/addtl arg? */
-				//SCC_CAP_ADD_STORELATEST | /* Storing without deltas? */
-				SCC_CAP_DIRECTORYDIFF | /* Directory diff */
-				SCC_CAP_DIFFALWAYS | /* Can always diff in any state */
-				SCC_CAP_IGNORESPACE | /* Can ignore whitespace in files */
-				SCC_CAP_REENTRANT; /* Thread-safe, VC++6 demands it */
+	*sccCaps = LGitGetCaps();
 
 	/* XXX: What are the /real/ limits? */
-	*checkoutCommentLen = 1024;
+	*checkoutCommentLen = 0; /* checkout comments are nonsensical */
 	*commentLen = 1024;
 
 	// XXX
@@ -141,65 +116,6 @@ SCCRTN SccUninitialize (LPVOID context)
 	return SCC_OK;
 }
 
-SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext, 
-															 LONG lSccExCap,
-															 LPBOOL pbSupported)
-{
-	LGitLog("**SccGetExtendedCapabilities**\n");
-	switch (lSccExCap)
-	{
-	case SCC_EXCAP_CHECKOUT_LOCALVER:
-		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_BACKGROUND_GET:
-		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_ENUM_CHANGED_FILES:
-		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_POPULATELIST_DIR:
-		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_QUERYCHANGES:
-		LGitLog("  SCC_EXCAP_QUERYCHANGES\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_ADD_FILES_FROM_SCC:
-		LGitLog("  SCC_EXCAP_ADD_FILES_FROM_SCC\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_GET_USER_OPTIONS:
-		LGitLog("  SCC_EXCAP_GET_USER_OPTIONS\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_THREADSAFE_QUERY_INFO:
-		LGitLog("  SCC_EXCAP_THREADSAFE_QUERY_INFO\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_REMOVE_DIR:
-		LGitLog("  SCC_EXCAP_REMOVE_DIR\n");
-		*pbSupported = FALSE;
-		break;
-	case SCC_EXCAP_DELETE_CHECKEDOUT:
-		LGitLog("  SCC_EXCAP_DELETE_CHECKEDOUT\n");
-		*pbSupported = TRUE;
-		break;
-	case SCC_EXCAP_RENAME_CHECKEDOUT:
-		LGitLog("  SCC_EXCAP_RENAME_CHECKEDOUT\n");
-		*pbSupported = TRUE;
-		break;
-	default:
-		LGitLog("  ? %x\n", lSccExCap);
-		*pbSupported = FALSE;
-		break;
-	}
-	return SCC_OK;
-}
-
 SCCRTN SccRunScc(LPVOID context, 
 				 HWND hWnd, 
 				 LONG nFiles, 
@@ -210,7 +126,7 @@ SCCRTN SccRunScc(LPVOID context,
 	for (i = 0; i < nFiles; i++) {
 		LGitLog("  %s\n", lpFileNames[i]);
 	}
-	MessageBox(hWnd, "Not implemented yet.", "LGit", MB_ICONWARNING);
+	MessageBox(hWnd, "Not implemented yet.", "Visual Git", MB_ICONWARNING);
 	return SCC_E_OPNOTSUPPORTED;
 }
 
@@ -219,65 +135,39 @@ SCCRTN SccGetCommandOptions (LPVOID context,
 							 enum SCCCOMMAND nCommand,
 							 LPCMDOPTS * ppvOptions)
 {
-	LGitLog("**SccGetCommandOptions** Command %d\n", nCommand);
+	LGitLog("**SccGetCommandOptions** Command %s\n", LGitCommandName(nCommand));
 	return SCC_E_OPNOTSUPPORTED;
 }
 
-SCCRTN SccSetOption (LPVOID context,
-					 LONG nOption,
-					 LONG dwVal)
+const char* LGitCommandName(enum SCCCOMMAND command)
 {
-	LGitContext *ctx = (LGitContext*)context;
-	switch (nOption) {
-	case SCC_OPT_NAMECHANGEPFN:
-		LGitLog("**SccSetOption** SCC_OPT_NAMECHANGEPFN <- %p\n", dwVal);
-		// XXX: How will this ever work on 64-bit?
-		ctx->renameCb = (OPTNAMECHANGEPFN)dwVal;
-		return SCC_OK;
-	case SCC_OPT_USERDATA:
-		LGitLog("**SccSetOption** SCC_OPT_USERDATA <- %p\n", dwVal);
-		ctx->renameData = (LPVOID)dwVal;
-		return SCC_OK;
-	case SCC_OPT_SHARESUBPROJ:
-		LGitLog("**SccSetOption** SCC_OPT_SHARESUBPROJ <- %x\n", dwVal);
-		return SCC_I_SHARESUBPROJOK;
-	case SCC_OPT_EVENTQUEUE:
-		LGitLog("**SccSetOption** SCC_OPT_EVENTQUEUE <- %x\n", dwVal);
-		// Don't care
-		return SCC_E_OPNOTSUPPORTED;
-	case SCC_OPT_SCCCHECKOUTONLY:
-		LGitLog("**SccSetOption** SCC_OPT_SCCCHECKOUTONLY <- %x\n", dwVal);
-		/* We don't offer "checkout" through RunScc */
-		return SCC_E_OPNOTSUPPORTED;
-	case SCC_OPT_HASCANCELMODE:
-		LGitLog("**SccSetOption** SCC_OPT_HASCANCELMODE <- %x\n", dwVal);
-		/* We don't support cancellation */
-		return SCC_E_OPNOTSUPPORTED;
+	switch (command) {
+	case -1:
+		return "(No command)";
+	case SCC_COMMAND_CHECKOUT:
+		return "Checkout";
+	case SCC_COMMAND_GET:
+		return "Get";
+	case SCC_COMMAND_CHECKIN:
+		return "Checkin";
+	case SCC_COMMAND_UNCHECKOUT:
+		return "Uncheckout";
+	case SCC_COMMAND_ADD:
+		return "Add";
+	case SCC_COMMAND_REMOVE:
+		return "Remove";
+	case SCC_COMMAND_DIFF:
+		return "Diff";
+	case SCC_COMMAND_HISTORY:
+		return "History";
+	case SCC_COMMAND_RENAME:
+		return "Rename";
+	case SCC_COMMAND_PROPERTIES:
+		return "Properties";
+	case SCC_COMMAND_OPTIONS:
+		return "Options";
 	default:
-		LGitLog("**SccSetOption** %x <- %x\n", nOption, dwVal);
-		return SCC_E_OPNOTSUPPORTED;
+		/* should be able to return printed string, but I digress */
+		return "Unknown";
 	}
-}
-
-SCCRTN SccIsMultiCheckoutEnabled (LPVOID pContext, 
-								  LPBOOL pbMultiCheckout)
-{
-	LGitLog("**SccIsMultiCheckoutEnabled**\n");
-	*pbMultiCheckout = FALSE;
-	return SCC_OK;
-}
-
-SCCRTN SccWillCreateSccFile (LPVOID pContext, 
-							 LONG nFiles, 
-							 LPCSTR* lpFileNames,
-							 LPBOOL pbSccFiles)
-{
-	int i;
-	LGitLog("**SccWillCreateSccFile** count %d\n", nFiles);
-	for (i = 0; i < nFiles; i++) {
-		// Don't make SCC droppings
-		pbSccFiles [i] = FALSE;
-		LGitLog("  %s\n", lpFileNames[i]);
-	}
-	return SCC_OK;
 }

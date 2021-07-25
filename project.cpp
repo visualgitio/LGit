@@ -97,6 +97,9 @@ SCCRTN SccOpenProject (LPVOID context,
 	LGitGetProjectNameFromPath(lpProjName, ctx->workdir_path, SCC_PRJPATH_SIZE);
 	LGitLog(" ! New proj name is %s\n", lpProjName);
 
+	/* XXX: should init/deinit at project level? */
+	ctx->checkouts = new CheckoutQueue();
+
 	return SCC_OK;
 }
 
@@ -110,6 +113,9 @@ SCCRTN SccCloseProject (LPVOID context)
 		if (ctx->repo) {
 			git_repository_free(ctx->repo);
 			ctx->repo = NULL;
+		}
+		if (ctx->checkouts) {
+			delete ctx->checkouts;
 		}
 		ctx->renameCb = NULL;
 		ctx->renameData = NULL;

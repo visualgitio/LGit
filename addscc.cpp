@@ -26,7 +26,7 @@ static void InitAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 	HWND lv;
 	char title[1024];
 
-	if (params->restraint_path != NULL) {
+	if (params->restraint_path != NULL && strlen(params->restraint_path) > 0) {
 		_snprintf(title, 1024, "Add files from Git (%s)", params->restraint_path);
 		SetWindowText(hwnd, title);
 	}
@@ -198,9 +198,11 @@ SCCRTN SccAddFromScc (LPVOID context,
 	ctx->addSccSuccess = FALSE;
 	/*
 	 * Only subdirectories are an acceptable constraint. Anything outside of
-	 * the workdir doesn't make sense.
+	 * the workdir doesn't make sense. We only need the path for the add
+	 * dialog, so keep it stack local.
 	 */
-	char *path = NULL;
+	char path[_MAX_PATH];
+	path[0] = '\0';
 	const char *raw_path;
 	if (*pnFiles == 1 && lplpFileNames != NULL) {
 		raw_path = LGitStripBasePath(ctx, **lplpFileNames);
@@ -209,20 +211,20 @@ SCCRTN SccAddFromScc (LPVOID context,
 			return SCC_E_NONSPECIFICERROR;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		char temp_path[_MAX_PATH];
-		strlcpy(temp_path, raw_path, _MAX_PATH);
-		LGitTranslateStringChars(temp_path, '\\', '/');
-		LGitLog(" ! Destination is '%s'\n", temp_path);
+		strlcpy(path, raw_path, _MAX_PATH);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog(" ! Destination is '%s'\n", path);
 		/* If it's just the root workdir directory, don't bother */
-		if (strlen(temp_path) == 0) {
-			path = NULL;
-		} else if (path[strlen(temp_path) - 1] != '/') {
+		if (strlen(path) == 0) {
+			LGitLog(" ! Empty path, not using\n");
+		} else if (path[strlen(path) - 1] != '/') {
 			/* Make sure it has a / */
-			strlcat(temp_path, "/", _MAX_PATH);
+			strlcat(path, "/", _MAX_PATH);
+			LGitLog(" ! Appended slash\n");
 		}
-		path = strdup(raw_path);
 	}
 
+	LGitLog (" ! Getting index for share\n");
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		return SCC_E_NONSPECIFICERROR;
 	}
@@ -250,9 +252,6 @@ SCCRTN SccAddFromScc (LPVOID context,
 		break;
 	}
 fin:
-	if (path) {
-		free(path);
-	}
 	git_index_free(index);
 	return ret;
 }
