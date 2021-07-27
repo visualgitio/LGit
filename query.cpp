@@ -312,25 +312,39 @@ SCCRTN SccDirQueryInfo(LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 	int i, rc;
-	unsigned int flags;
 	const char *raw_path;
 	LGitLog("**SccDirQueryInfo** count %d\n", nDirs);
+	/* We need a tree to use, since that has directories unlike indices. */
+	git_tree *head_tree = NULL;
+	/* But first, we need to parse it to get it... */
+	git_object *obj = NULL;
+	if (git_revparse_single(&obj, ctx->repo, "HEAD") != 0) {
+		LGitLibraryError(NULL, "SccDirQueryInfo git_revparse_single");
+		return SCC_E_NONSPECIFICERROR;
+	}
+	if (git_object_peel((git_object **)head_tree, obj, GIT_OBJECT_TREE) != 0) {
+		LGitLibraryError(NULL, "SccDirQueryInfo git_revparse_single");
+		git_object_free(obj);
+		return SCC_E_NONSPECIFICERROR;
+	}
+	git_object_free(obj);
 	for (i = 0; i < nDirs; i++) {
-		char *path;
+		char path[1024];
 		raw_path = LGitStripBasePath(ctx, lpDirNames[i]);
 		if (raw_path == NULL) {
 			LGitLog("    Couldn't get base path for dir %s\n", lpDirNames[i]);
 			continue;
 		}
+		strlcpy(path, raw_path, 1024);
 		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    Dir %s\n", path);
-		/* XXX: This should be a tree lookup instead of status */
-		rc = git_status_file(&flags, ctx->repo, path);
-		LGitLog("    Adding %s, git status flags %x\n", path, flags);
+		/* if the obj exists, it's under control, otherwise... */
+		git_tree_entry *tree_entry = NULL;
+		rc = git_tree_entry_bypath(&tree_entry, head_tree, path);
 		switch (rc) {
 		case 0:
+			/* XXX: should test if it's a dir */
 			lpStatus[i] = SCC_DIRSTATUS_CONTROLLED;
 			break;
 		case GIT_ENOTFOUND:
@@ -343,7 +357,11 @@ SCCRTN SccDirQueryInfo(LPVOID context,
 			LGitLog("      Error (%x)\n", rc);
 			break;
 		}
+		if (tree_entry != NULL) {
+			git_tree_entry_free(tree_entry);
+		}
 	}
+	git_tree_free(head_tree);
 	return SCC_OK;
 }
 
@@ -377,6 +395,7 @@ static DWORD LGitConvertQueryChangesFlags(unsigned int flags)
 }
 
 static int LGitQueryChangesFile(LPCSTR fileName,
+								LPCSTR fullFileName,
 								unsigned int lg2flags,
 								int lg2rc,
 								QUERYCHANGESFUNC cb,
@@ -385,10 +404,16 @@ static int LGitQueryChangesFile(LPCSTR fileName,
 	QUERYCHANGESDATA qcd;
 	ZeroMemory(&qcd, sizeof(QUERYCHANGESDATA));
 	qcd.dwSize = sizeof(QUERYCHANGESDATA);
-	qcd.lpFileName = fileName;
+	/* VS2005 needs the full path, I think */
+	qcd.lpFileName = fullFileName;
+	qcd.lpLatestName = NULL;
 	switch (lg2rc) {
 	case 0:
 		qcd.dwChangeType = LGitConvertQueryChangesFlags(lg2flags);
+		LGitLog("    Adding %s, git flags %x sccQC flags %x\n",
+			fileName,
+			lg2flags,
+			qcd.dwChangeType);
 		break;
 	case GIT_ENOTFOUND:
 		qcd.dwChangeType = SCC_CHANGE_NONEXISTENT;
@@ -403,6 +428,9 @@ static int LGitQueryChangesFile(LPCSTR fileName,
 	return cb(cbData, &qcd);
 }
 
+/*
+ * Triggered in VS2005 by the Get dialog.
+ */
 SCCRTN SccQueryChanges(LPVOID context,
 					   LONG nFiles,
 					   LPCSTR *lpFileNames,
@@ -415,21 +443,74 @@ SCCRTN SccQueryChanges(LPVOID context,
 	const char *raw_path;
 	LGitLog("**SccQueryChanges** count %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
-		char *path;
+		char path[1024];
 		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
 		if (raw_path == NULL) {
 			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
 			continue;
 		}
+		strlcpy(path, raw_path, 1024);
 		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
+		LGitTranslateStringChars(path, '\\', '/');
+		LGitLog("    %s\n", path);
+		rc = git_status_file(&flags, ctx->repo, path);
+		int ret = LGitQueryChangesFile(path,
+			lpFileNames[i],
+			flags,
+			rc,
+			pfnCallback,
+			pvCallerData);
+		if (ret == SCC_I_OPERATIONCANCELED || ret < 0) {
+			LGitLog(" ! Callback returned %d\n", ret);
+			break;
+		}
+	}
+	return SCC_OK;
+}
+
+SCCRTN SccEnumChangedFiles(LPVOID context,
+						   HWND hWnd,
+						   LONG nFiles,
+						   LPCSTR *lpFileNames,
+						   LONG *different)
+{
+	LGitContext *ctx = (LGitContext*)context;
+	int i, rc;
+	unsigned int flags;
+	const char *raw_path;
+	LGitLog("**SccEnumChangedFiles** count %d\n", nFiles);
+	for (i = 0; i < nFiles; i++) {
+		char path[1024];
+		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		if (raw_path == NULL) {
+			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			continue;
+		}
+		strlcpy(path, raw_path, 1024);
+		/* Translate because libgit2 operates with forward slashes */
 		LGitTranslateStringChars(path, '\\', '/');
 		LGitLog("    %s\n", path);
 		rc = git_status_file(&flags, ctx->repo, path);
 		LGitLog("    Adding %s, git status flags %x\n", path, flags);
-		int ret = LGitQueryChangesFile(path, flags, rc, pfnCallback, pvCallerData);
-		if (ret == SCC_I_OPERATIONCANCELED || ret < 0) {
-			LGitLog(" ! Callback returned %d\n", ret);
+		switch (rc) {
+		case 0:
+			/* Does add/remove count too? */
+			different[i] = (flags & GIT_STATUS_WT_MODIFIED)
+				|| (flags & GIT_STATUS_WT_TYPECHANGE)
+				|| (flags & GIT_STATUS_INDEX_MODIFIED)
+				|| (flags & GIT_STATUS_INDEX_TYPECHANGE)
+				|| (flags & GIT_STATUS_WT_NEW)
+				|| (flags & GIT_STATUS_WT_DELETED)
+				|| (flags & GIT_STATUS_INDEX_DELETED);
+			break;
+		case GIT_ENOTFOUND:
+			different[i] = FALSE;
+			LGitLog("      Not found\n");
+			break;
+		default:
+			different[i] = FALSE;
+			LGitLibraryError(hWnd, "Populate list");
+			LGitLog("      Error (%x)\n", rc);
 			break;
 		}
 	}

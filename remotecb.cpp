@@ -155,6 +155,72 @@ static int LastChanceVerify(git_cert *cert,
 	return ret == IDOK ? 0 : GIT_ECERTIFICATE;
 }
 
+static int SidebandProgress(const char *msg, int len, void *payload)
+{
+	LGitRemoteParams *params = (LGitRemoteParams*)payload;
+	if (LGitProgressCancelled(params->ctx)) {
+		return GIT_EUSER;
+	}
+	LGitProgressText(params->ctx, msg, 0);
+	return 0;
+}
+
+static int TransferProgress(const git_indexer_progress *progress, void *payload)
+{
+	LGitRemoteParams *params = (LGitRemoteParams*)payload;
+	if (LGitProgressCancelled(params->ctx)) {
+		return GIT_EUSER;
+	}
+	char msg[256];
+	if (progress->total_objects &&
+		progress->received_objects == progress->total_objects) {
+		_snprintf(msg, 256, "Resolving deltas %u/%u",
+			progress->indexed_deltas,
+			progress->total_deltas);
+		LGitProgressText(params->ctx, msg, 1);
+		LGitProgressSet(params->ctx,
+			progress->indexed_deltas,
+			progress->total_deltas);
+	} else {
+		_snprintf(msg, 256, "Resolving objects %u/%u (%u recv, %u local)",
+			progress->indexed_objects,
+			progress->total_objects,
+			progress->received_objects,
+			progress->local_objects);
+		LGitProgressText(params->ctx, msg, 1);
+		LGitProgressSet(params->ctx,
+			progress->indexed_objects,
+			progress->total_objects);
+	}
+	return 0;
+}
+
+static int PackProgress(int stage, uint32_t current, uint32_t total, void *payload)
+{
+	LGitRemoteParams *params = (LGitRemoteParams*)payload;
+	if (LGitProgressCancelled(params->ctx)) {
+		return GIT_EUSER;
+	}
+	char msg[256];
+	_snprintf(msg, 256, "Packing %u/%u", current, total);
+	LGitProgressText(params->ctx, msg, 1);
+	LGitProgressSet(params->ctx, current, total);
+	return 0;
+}
+
+static int PushProgress(unsigned int current, unsigned int total, size_t bytes, void *payload)
+{
+	LGitRemoteParams *params = (LGitRemoteParams*)payload;
+	if (LGitProgressCancelled(params->ctx)) {
+		return GIT_EUSER;
+	}
+	char msg[256];
+	_snprintf(msg, 256, "Pushing %u/%u", current, total);
+	LGitProgressText(params->ctx, msg, 1);
+	LGitProgressSet(params->ctx, current, total);
+	return 0;
+}
+
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb)
 {
 	/* must be freed by caller */
@@ -165,6 +231,10 @@ void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *
 	git_remote_init_callbacks(cb, GIT_REMOTE_CALLBACKS_VERSION);
 	cb->credentials = AcquireCredentials;
 	cb->certificate_check = LastChanceVerify;
-	/* XXX: Progress callbacks */
+	/* Progress */
+	cb->sideband_progress = SidebandProgress;
+	cb->transfer_progress = TransferProgress;
+	cb->pack_progress = PackProgress;
+	cb->push_transfer_progress = PushProgress;
 	cb->payload = params;
 }

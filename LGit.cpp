@@ -32,6 +32,65 @@ LONG SccGetVersion (void)
 	return SCC_VER_NUM;
 }
 
+static void LGitInitOpts(void)
+{
+	/* Options are global to the libgit2 singleton. */
+
+	/* XXX: versions (us, lg2, Windows)? */
+	git_libgit2_opts(GIT_OPT_SET_USER_AGENT,
+		"VisualGit");
+	/* Load options that are config-time from the registry. */
+	HKEY key;
+	DWORD valueLen, type = REG_SZ;
+	BYTE value[255];
+	int ret;
+
+	/* Global system-wide, hence HKLM. We can load user settings later. */
+	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+		"Software\\Visual Git\\Visual Git",
+		0,
+		KEY_READ,
+		&key);
+	if (ret != ERROR_SUCCESS) {
+		LGitLog(" ! Opening the primary registry config failed\n");
+		/* Try the old path */
+		ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+			"Software\\LGit\\LGit",
+			0,
+			KEY_READ,
+			&key);
+		if (ret != ERROR_SUCCESS) {
+			LGitLog(" ! Opening the fallback registry config failed\n");
+			return;
+		}
+	}
+
+	/*
+	 * OpenSSL setting, ignored for WinHTTP. This is because OpenSSL defaults
+	 * to loading from a hardcoded path, which is ridiculous. Load from a path
+	 * specified in the registry (by our installer ideally) instead.
+	 */
+	ret = RegQueryValueEx(key,
+		"CertificateBundlePath",
+		NULL,
+		&type,
+		value,
+		&valueLen);
+	if (ret == ERROR_SUCCESS) {
+		/* Ignore return value since our transport may not use this */
+		ret = git_libgit2_opts(GIT_OPT_SET_SSL_CERT_LOCATIONS,
+			(const char*)value,
+			NULL);
+		if (ret != 0) {
+			LGitLog(" ! Failed to set certificate path (may be harmless)\n");
+		}
+	} else {
+		LGitLog(" ! Failed to load certificate bundle value\n");
+	}
+
+	RegCloseKey(key);
+}
+
 SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex 
 					  HWND hWnd,					// IDE window
 					  LPCSTR callerName,			// IDE name
@@ -49,6 +108,9 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		return SCC_E_INITIALIZEFAILED;
 	}
 	LGitLog("**SccInitialize** initialization count: %d (by %s)\n", init_count, callerName);
+
+	/* Should this be only on the first init count? */
+	LGitInitOpts();
 
 	strlcpy(sccName, "Visual Git", SCC_NAME_LEN);
 

@@ -82,46 +82,57 @@ SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext,
 	switch (lSccExCap)
 	{
 	case SCC_EXCAP_CHECKOUT_LOCALVER:
+		/* SCC_CHECKOUT_LOCALVER, whatever that does */
 		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_BACKGROUND_GET:
+		/* SccBackgroundGet (no need with git, also thread safety issues?) */
 		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_ENUM_CHANGED_FILES:
-		LGitLog("  SCC_EXCAP_CHECKOUT_LOCALVER\n");
-		*pbSupported = FALSE;
+		/* SccEnumChangedFiles */
+		LGitLog("  SCC_EXCAP_ENUM_CHANGED_FILES\n");
+		*pbSupported = TRUE;
 		break;
 	case SCC_EXCAP_POPULATELIST_DIR:
-		LGitLog("  SCC_EXCAP_BACKGROUND_GET\n");
+		/* SccPopulateDirList */
+		LGitLog("  SCC_EXCAP_POPULATELIST_DIR\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_QUERYCHANGES:
+		/* SccQueryChanges */
 		LGitLog("  SCC_EXCAP_QUERYCHANGES\n");
 		*pbSupported = TRUE;
 		break;
 	case SCC_EXCAP_ADD_FILES_FROM_SCC:
+		/* SccAddFilesFromSCC */
 		LGitLog("  SCC_EXCAP_ADD_FILES_FROM_SCC\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_GET_USER_OPTIONS:
+		/* SccGetUserOption (just for localver) */
 		LGitLog("  SCC_EXCAP_GET_USER_OPTIONS\n");
-		*pbSupported = FALSE;
+		*pbSupported = TRUE;
 		break;
 	case SCC_EXCAP_THREADSAFE_QUERY_INFO:
+		/* If SccQueryInfo can be done from another thread. Unsure for lg2 */
 		LGitLog("  SCC_EXCAP_THREADSAFE_QUERY_INFO\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_REMOVE_DIR:
+		/* SccRemoveDir... documented in the header, undocumented in MSDN. */
 		LGitLog("  SCC_EXCAP_REMOVE_DIR\n");
 		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_DELETE_CHECKEDOUT:
+		/* If we can delete files that are checked out (sensical) */
 		LGitLog("  SCC_EXCAP_DELETE_CHECKEDOUT\n");
 		*pbSupported = TRUE;
 		break;
 	case SCC_EXCAP_RENAME_CHECKEDOUT:
+		/* If we can rename files that are checked out (sensical) */
 		LGitLog("  SCC_EXCAP_RENAME_CHECKEDOUT\n");
 		*pbSupported = TRUE;
 		break;
@@ -138,33 +149,49 @@ SCCRTN SccSetOption (LPVOID context,
 					 LONG dwVal)
 {
 	LGitContext *ctx = (LGitContext*)context;
+	LGitLog("**SccSetOption**\n");
 	switch (nOption) {
 	case SCC_OPT_NAMECHANGEPFN:
-		LGitLog("**SccSetOption** SCC_OPT_NAMECHANGEPFN <- %p\n", dwVal);
+		LGitLog("  SCC_OPT_NAMECHANGEPFN <- %p\n", dwVal);
 		// XXX: How will this ever work on 64-bit?
 		ctx->renameCb = (OPTNAMECHANGEPFN)dwVal;
 		return SCC_OK;
 	case SCC_OPT_USERDATA:
-		LGitLog("**SccSetOption** SCC_OPT_USERDATA <- %p\n", dwVal);
+		LGitLog("  SCC_OPT_USERDATA <- %p\n", dwVal);
 		ctx->renameData = (LPVOID)dwVal;
 		return SCC_OK;
 	case SCC_OPT_SHARESUBPROJ:
-		LGitLog("**SccSetOption** SCC_OPT_SHARESUBPROJ <- %x\n", dwVal);
+		LGitLog("  SCC_OPT_SHARESUBPROJ <- %x\n", dwVal);
 		return SCC_I_SHARESUBPROJOK;
 	case SCC_OPT_EVENTQUEUE:
-		LGitLog("**SccSetOption** SCC_OPT_EVENTQUEUE <- %x\n", dwVal);
+		LGitLog("  SCC_OPT_EVENTQUEUE <- %x\n", dwVal);
 		// Don't care
 		return SCC_E_OPNOTSUPPORTED;
 	case SCC_OPT_SCCCHECKOUTONLY:
-		LGitLog("**SccSetOption** SCC_OPT_SCCCHECKOUTONLY <- %x\n", dwVal);
+		LGitLog("  SCC_OPT_SCCCHECKOUTONLY <- %x\n", dwVal);
 		/* We don't offer "checkout" through RunScc */
 		return SCC_E_OPNOTSUPPORTED;
 	case SCC_OPT_HASCANCELMODE:
-		LGitLog("**SccSetOption** SCC_OPT_HASCANCELMODE <- %x\n", dwVal);
+		LGitLog("  SCC_OPT_HASCANCELMODE <- %x\n", dwVal);
 		/* We don't support cancellation */
 		return SCC_E_OPNOTSUPPORTED;
 	default:
-		LGitLog("**SccSetOption** %x <- %x\n", nOption, dwVal);
+		LGitLog("  %x <- %x\n", nOption, dwVal);
+		return SCC_E_OPNOTSUPPORTED;
+	}
+}
+
+SCCRTN SccGetUserOption(LPVOID context,
+						LONG option,
+						LONG val)
+{
+	LGitLog("**SccGetUserOption**\n");
+	switch (option) {
+	case SCC_USEROPT_CHECKOUT_LOCALVER:
+		LGitLog("  SCC_USEROPT_CHECKOUT_LOCALVER <- %x\n", val);
+		return SCC_E_OPNOTSUPPORTED;
+	default:
+		LGitLog("  %x <- %x\n", option, val);
 		return SCC_E_OPNOTSUPPORTED;
 	}
 }

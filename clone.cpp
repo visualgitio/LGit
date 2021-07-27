@@ -182,6 +182,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
 	co_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
 	git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
 	git_clone_options_init(&clone_opts, GIT_CLONE_OPTIONS_VERSION);
 	clone_opts.checkout_opts = co_opts;
@@ -215,7 +216,11 @@ SCCRTN LGitClone(LGitContext *ctx,
 
 	/* Translate path for libgit2 */
 	LGitTranslateStringChars(params.path, '\\', '/');
+
+	LGitProgressInit(ctx, "Cloning Git Repository", 0);
+	LGitProgressStart(ctx, hWnd);
 	if (git_clone(&temp_repo, params.url, params.path, &clone_opts) != 0) {
+		LGitProgressDeinit(ctx);
 		LGitLibraryError(hWnd, "Repo Init");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
@@ -226,6 +231,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 	LGitTranslateStringChars(params.path, '/', '\\');
 	char project[SCC_PRJPATH_SIZE];
 	if (!LGitGetProjectNameFromPath(project, params.path, SCC_PRJPATH_SIZE)) {
+		LGitProgressDeinit(ctx);
 		MessageBox(hWnd,
 			"The project name couldn't be derived from the path.",
 			"Error Cloning", MB_ICONERROR);
@@ -238,6 +244,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 	strlcpy(lpLocalPath, params.path, _MAX_PATH);
 	/* XXX: Should we set pbNew? */
 
+	LGitProgressDeinit(ctx);
 fin:
 	if (fetch_opts.callbacks.payload != NULL) {
 		free(fetch_opts.callbacks.payload);

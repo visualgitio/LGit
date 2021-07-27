@@ -29,10 +29,11 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	 * the latter; the former could be done with adjustments in pathspec?
 	 * (That is, SCC_GET_ALL or SCC_GET_RECURSIVE)
 	 */
-	LGitLog("  flags %x", dwFlags);
-	LGitLog("  files %d", nFiles);
+	LGitLog("  files %x", dwFlags);
+	LGitLog("  flags %d", nFiles);
 
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
 	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
 	/* XXX: Apply GIT_CHECKOUT_DONT_WRITE_INDEX? */
 
@@ -63,12 +64,16 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	co_opts.paths.strings = paths;
 	co_opts.paths.count = path_count;
 
+	LGitProgressInit(ctx, "Checking Out Files", 0);
+	LGitProgressStart(ctx, hWnd);
 	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
+		LGitProgressDeinit(ctx);
 		LGitLibraryError(hWnd, "SccUncheckout git_checkout_head");
 		LGitFreePathList(paths, path_count);
 		return SCC_E_NONSPECIFICERROR;
 	}
 
+	LGitProgressDeinit(ctx);
 	LGitFreePathList(paths, path_count);
 	return SCC_OK;
 }

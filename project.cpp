@@ -176,3 +176,40 @@ SCCRTN SccGetProjPath (LPVOID context,
 
 	return SCC_OK;
 }
+
+/* Here be dragons (subprojects) */
+SCCRTN SccGetParentProjectPath(LPVOID context,
+							   HWND hWnd,
+							   LPSTR lpUser,
+							   LPCSTR lpProjPath,
+							   LPSTR  lpAuxProjPath,
+							   LPSTR  lpParentProjPath)
+{
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**SccGetParentProjectPath**\n");
+	LGitLog("  user %s\n", lpUser);
+	LGitLog("  proj path %s\n", lpProjPath);
+	LGitLog("  aux path (inout) %s\n", lpAuxProjPath);
+	LGitLog("  parent proj path (inout) %s\n", lpParentProjPath);
+	return SCC_E_OPNOTSUPPORTED;
+}
+
+SCCRTN SccCreateSubProject(LPVOID context,
+						   HWND hWnd,
+						   LPSTR lpUser,
+						   LPCSTR lpParentProjPath,
+						   LPCSTR lpSubProjName,
+						   LPSTR lpAuxProjPath,
+						   LPSTR lpSubProjPath)
+{
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**SccCreateSubProject**\n");
+	LGitLog("  user %s\n", lpUser);
+	LGitLog("  parent proj path %s\n", lpParentProjPath);
+	LGitLog("  subproject name %s\n", lpSubProjName);
+	LGitLog("  aux path (inout) %s\n", lpAuxProjPath);
+	LGitLog("  subproject path (inout) %s\n", lpSubProjPath);
+	return SCC_E_OPNOTSUPPORTED;
+}

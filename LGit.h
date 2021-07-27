@@ -29,6 +29,9 @@ typedef struct _LGitContext {
 	OPTNAMECHANGEPFN renameCb;
 	LPVOID renameData;
 	LPTEXTOUTPROC textoutCb;
+	/* Progress dialog, used and destroyed on demand */
+	IProgressDialog *progress;
+	BOOL progressCancelled;
 	/* big in case of Windows 10 */
 	char path[1024], workdir_path[1024];
 	char appName[SCC_NAME_SIZE];
@@ -74,6 +77,15 @@ typedef struct _LGitDiffDialogParams {
 } LGitDiffDialogParams;
 
 int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
+
+/* progress.cpp */
+BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim);
+BOOL LGitProgressStart(LGitContext *ctx, HWND parent);
+BOOL LGitProgressDeinit(LGitContext *ctx);
+BOOL LGitProgressSet(LGitContext *ctx, ULONGLONG x, ULONGLONG outof);
+BOOL LGitProgressText(LGitContext *ctx, const char *text, int line);
+BOOL LGitProgressCancelled(LGitContext *ctx);
+void LGitInitCheckoutProgressCallback(LGitContext *ctx, git_checkout_options *co_opts);
 
 /* remotecb.cpp */
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb);

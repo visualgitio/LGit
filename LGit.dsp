@@ -96,6 +96,10 @@ SOURCE=.\addscc.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\caps.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\cert.cpp
 # End Source File
 # Begin Source File
@@ -137,6 +141,10 @@ SOURCE=.\logging.cpp
 # Begin Source File
 
 SOURCE=.\path.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\progress.cpp
 # End Source File
 # Begin Source File
 
