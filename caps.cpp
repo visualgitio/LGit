@@ -78,7 +78,7 @@ SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext,
 															 LONG lSccExCap,
 															 LPBOOL pbSupported)
 {
-	LGitLog("**SccGetExtendedCapabilities**\n");
+	LGitLog("**SccGetExtendedCapabilities** Context=%p\n", pContext);
 	switch (lSccExCap)
 	{
 	case SCC_EXCAP_CHECKOUT_LOCALVER:
@@ -149,7 +149,7 @@ SCCRTN SccSetOption (LPVOID context,
 					 LONG dwVal)
 {
 	LGitContext *ctx = (LGitContext*)context;
-	LGitLog("**SccSetOption**\n");
+	LGitLog("**SccSetOption** Context=%p\n", context);
 	switch (nOption) {
 	case SCC_OPT_NAMECHANGEPFN:
 		LGitLog("  SCC_OPT_NAMECHANGEPFN <- %p\n", dwVal);
@@ -185,7 +185,7 @@ SCCRTN SccGetUserOption(LPVOID context,
 						LONG option,
 						LONG val)
 {
-	LGitLog("**SccGetUserOption**\n");
+	LGitLog("**SccGetUserOption** Context=%p\n", context);
 	switch (option) {
 	case SCC_USEROPT_CHECKOUT_LOCALVER:
 		LGitLog("  SCC_USEROPT_CHECKOUT_LOCALVER <- %x\n", val);
@@ -199,7 +199,7 @@ SCCRTN SccGetUserOption(LPVOID context,
 SCCRTN SccIsMultiCheckoutEnabled (LPVOID pContext, 
 								  LPBOOL pbMultiCheckout)
 {
-	LGitLog("**SccIsMultiCheckoutEnabled**\n");
+	LGitLog("**SccIsMultiCheckoutEnabled** Context=%p\n", pContext);
 	*pbMultiCheckout = FALSE;
 	return SCC_OK;
 }
@@ -210,7 +210,8 @@ SCCRTN SccWillCreateSccFile (LPVOID pContext,
 							 LPBOOL pbSccFiles)
 {
 	int i;
-	LGitLog("**SccWillCreateSccFile** count %d\n", nFiles);
+	LGitLog("**SccWillCreateSccFile** Context=%p\n", pContext);
+	LGitLog("  files %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
 		// Don't make SCC droppings
 		pbSccFiles [i] = FALSE;

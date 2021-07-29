@@ -11,10 +11,12 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 							  LPCSTR lpComment)
 {
 	git_oid commit_oid,tree_oid;
-	git_tree *tree;
+	git_tree *tree = NULL;
 	git_object *parent = NULL;
 	git_reference *ref = NULL;
-	git_signature *signature;
+	git_signature *signature = NULL;
+
+	SCCRTN ret = SCC_OK;
 
 	const char *comment;
 	git_buf prettified_message = {0};
@@ -33,31 +35,42 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 		comment = prettified_message.ptr;
 	}
 
-	// Harmless if it fails, it means first commit
+	/* Harmless if it fails, it means first commit. Need to free after. */
 	if (git_revparse_ext(&parent, &ref, ctx->repo, "HEAD") != 0) {
 		LGitLog(" ! Failed to get HEAD, likely the first commit\n");
 	}
 
 	if (git_index_write_tree(&tree_oid, index) != 0) {
 		LGitLibraryError(hWnd, "Commit (writing tree from index)");
-		git_buf_dispose(&prettified_message);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	if (git_index_write(index) != 0) {
 		LGitLibraryError(hWnd, "Commit (writing tree from index)");
-		git_buf_dispose(&prettified_message);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	if (git_tree_lookup(&tree, ctx->repo, &tree_oid) != 0) {
 		LGitLibraryError(hWnd, "Commit (tree lookup)");
-		git_buf_dispose(&prettified_message);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	if (git_signature_default(&signature, ctx->repo) != 0) {
-		LGitLibraryError(hWnd, "Commit (signature)");
-		git_buf_dispose(&prettified_message);
-		git_tree_free(tree);
-		return SCC_E_NONSPECIFICERROR;
+		/* The git config is empty, so prompt for a signature */
+		char name[128], mail[128];
+		if (LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128)) {
+			if (git_signature_now(&signature, name, mail) != 0) {
+				/* You tried */
+				LGitLibraryError(hWnd, "Commit (new signature)");
+				ret = SCC_E_NONSPECIFICERROR;
+				goto fin;
+			}
+		} else {
+			/* You tried */
+			LGitLibraryError(hWnd, "Commit (existing signature)");
+			ret = SCC_E_NONSPECIFICERROR;
+			goto fin;
+		}
 	}
 	if (git_commit_create_v(
 			&commit_oid,
@@ -70,16 +83,25 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 			tree,
 			parent ? 1 : 0, parent)) {
 		LGitLibraryError(hWnd, "Commit (create)");
-		git_buf_dispose(&prettified_message);
-		git_tree_free(tree);
-		git_signature_free(signature);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	LGitLog(" ! Made commit\n");
+fin:
 	git_buf_dispose(&prettified_message);
-	git_tree_free(tree);
-	git_signature_free(signature);
-	return SCC_OK;
+	if (parent != NULL) {
+		git_object_free(parent);
+	}
+	if (ref != NULL) {
+		git_reference_free(ref);
+	}
+	if (tree != NULL) {
+		git_tree_free(tree);
+	}
+	if (signature != NULL) {
+		git_signature_free(signature);
+	}
+	return ret;
 }
 
 /**
@@ -100,7 +122,7 @@ SCCRTN SccCheckin (LPVOID context,
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccCheckin**\n");
+	LGitLog("**SccCheckin** Context=%p\n", context);
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
@@ -148,7 +170,7 @@ SCCRTN SccAdd (LPVOID context,
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccAdd**\n");
+	LGitLog("**SccAdd** Context=%p\n", context);
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  files %d", nFiles);
 
@@ -206,7 +228,7 @@ SCCRTN SccRemove (LPVOID context,
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccRemove**\n");
+	LGitLog("**SccRemove** Context=%p\n", context);
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
@@ -249,7 +271,7 @@ SCCRTN SccRename (LPVOID context,
 	const char *o_raw_path, *n_raw_path;
 	char o_path[1024], n_path[1024], comment[1024];
 
-	LGitLog("**SccRename**\n");
+	LGitLog("**SccRename** Context=%p\n", context);
 	o_raw_path = LGitStripBasePath(ctx, lpFileName);
 	if (o_raw_path == NULL) {
 		LGitLog("    Couldn't get base path for %s\n", lpFileName);

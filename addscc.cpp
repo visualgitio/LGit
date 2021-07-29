@@ -173,7 +173,7 @@ SCCRTN SccAddFromScc (LPVOID context,
 
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccAddFromScc**\n");
+	LGitLog("**SccAddFromScc** Context=%p\n", context);
 
 	if (pnFiles == NULL) {
 		/*

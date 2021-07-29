@@ -28,6 +28,8 @@ static void SetDiffTitleBar(HWND hwnd, LGitDiffDialogParams* params)
 
 static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 {
+	SetMenu(hwnd, params->menu);
+
 	HWND lv;
 	/* XXX: It's unclear if we need to free this. */
 	HIMAGELIST icons;
@@ -68,6 +70,14 @@ static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 	font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
 
 	SendMessage(lv, WM_SETFONT, (WPARAM)font, TRUE);
+}
+
+static void ResizeDiffDialog(HWND hwnd)
+{
+	RECT rect;
+	HWND lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
+	GetClientRect(hwnd, &rect);
+	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
 }
 
 static int LGitDiffFileCallback(const git_diff_delta *delta,
@@ -249,6 +259,50 @@ static void CopyDiff(HWND hwnd, LGitDiffDialogParams* params)
 	git_buf_dispose(&blob);
 }
 
+static BOOL SaveDiff(HWND hwnd,
+					 LGitDiffDialogParams *params,
+					 const char *fileName)
+{
+	/* Binary because the diff is LF, not CRLF */
+	FILE *f = fopen(fileName, "wb");
+	if (f == NULL) {
+		return FALSE;
+	}
+	git_buf blob = {0, 0};
+	if (git_diff_to_buf(&blob, params->diff, GIT_DIFF_FORMAT_PATCH) != 0) {
+		LGitLog("!! Couldn't put diff into buffer\n");
+		return FALSE;
+	}
+	size_t written = fwrite(blob.ptr, blob.size, 1, f);
+	if (written < blob.size) {
+		fclose(f);
+		git_buf_dispose(&blob);
+		return FALSE;
+	}
+	fclose(f);
+	git_buf_dispose(&blob);
+	return TRUE;
+}
+
+static void SaveDiffDialog(HWND hwnd, LGitDiffDialogParams *params)
+{
+	OPENFILENAME ofn;
+	TCHAR fileName[MAX_PATH];
+	ZeroMemory(&ofn, sizeof(ofn));
+	ZeroMemory(fileName, MAX_PATH);
+	ofn.lStructSize = sizeof(ofn);
+	ofn.lpstrFilter = "Diff\0*.diff;*.patch\0";
+	ofn.lpstrTitle = "Save Diff";
+	ofn.lpstrDefExt = "diff";
+	ofn.lpstrFile = fileName;
+	ofn.nMaxFile = MAX_PATH;
+	/* For help, |= OFN_SHOWHELP | OFN_ENABLEHOOK (and hook) */
+	ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
+	if (GetSaveFileName(&ofn)) {
+		SaveDiff(hwnd, params, fileName);
+	}
+}
+
 static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 									unsigned int iMsg,
 									WPARAM wParam,
@@ -264,13 +318,22 @@ static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 		if (!FillDiffView(hwnd, param)) {
 			EndDialog(hwnd, 0);
 		}
+		ResizeDiffDialog(hwnd);
+		return TRUE;
+	case WM_SIZE:
+		ResizeDiffDialog(hwnd);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitDiffDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
-		case IDC_DIFF_COPY:
+			/* These could copy formatted patches once we get commits here */
+		case ID_DIFF_COPY:
 			CopyDiff(hwnd, param);
 			break;
+		case ID_DIFF_SAVE:
+			SaveDiffDialog(hwnd, param);
+			break;
+		case ID_DIFF_CLOSE:
 		case IDOK:
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
@@ -287,9 +350,12 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params)
 	if (params == NULL) {
 		return 0;
 	}
-	return DialogBoxParam(params->ctx->dllInst,
+	params->menu = LoadMenu(params->ctx->dllInst, MAKEINTRESOURCE(IDR_DIFF_MENU));
+	int ret = DialogBoxParam(params->ctx->dllInst,
 		MAKEINTRESOURCE(IDD_DIFF),
 		parent,
 		DiffDialogProc,
 		(LPARAM)params);
+	DestroyMenu(params->menu);
+	return ret;
 }

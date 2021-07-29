@@ -51,14 +51,22 @@ BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim)
 	return TRUE;
 }
 
-BOOL LGitProgressStart(LGitContext *ctx, HWND parent)
+BOOL LGitProgressStart(LGitContext *ctx, HWND parent, BOOL quantifiable)
 {
 	if (ctx == NULL || ctx->progress == NULL) {
 		return FALSE;
 	}
+	/* XXX: Does hardcoding these flags make sense? */
+	DWORD flags = PROGDLG_NOMINIMIZE | PROGDLG_NOMINIMIZE | PROGDLG_NOTIME;
+	if (!quantifiable) {
+#if _WIN32_WINNT >= 0x0600
+		flags |= PROGDLG_MARQUEEPROGRESS;
+#else
+		flags |= PROGDLG_NOPROGRESSBAR;
+#endif
+	}
 	ctx->progress->StartProgressDialog(parent, NULL,
-		/* XXX: Does hardcoding these flags make sense? */
-		PROGDLG_NOMINIMIZE | PROGDLG_NOMINIMIZE | PROGDLG_NOTIME,
+		flags,
 		NULL);
 	return TRUE;
 }
@@ -139,7 +147,7 @@ static void CheckoutProgress(const char *path, size_t current, size_t total, voi
 	} else {
 		_snprintf(msg, 256, "Checking out %u/%u", current, total);
 	}
-	LGitProgressText(ctx, msg, 1);
+	LGitProgressText(ctx, msg, 2);
 	LGitProgressSet(ctx, current, total);
 }
 

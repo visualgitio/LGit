@@ -16,6 +16,7 @@
 
 #include <windows.h>
 #include <commctrl.h>
+#include <commdlg.h>
 #include <shlwapi.h>
 #include <shellapi.h>
 #include <shlobj.h>

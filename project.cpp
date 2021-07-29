@@ -51,7 +51,7 @@ SCCRTN SccOpenProject (LPVOID context,
 	const char *workdir;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccOpenProject** context %p\n", ctx);
+	LGitLog("**SccOpenProject** Context=%p\n", ctx);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj name %s\n", lpProjName);
 	LGitLog("  local proj path %s\n", lpLocalProjPath);
@@ -106,7 +106,7 @@ SCCRTN SccOpenProject (LPVOID context,
 SCCRTN SccCloseProject (LPVOID context)
 {
 	LGitContext *ctx = (LGitContext*)context;
-	LGitLog("**SccCloseProject** context %p\n", ctx);
+	LGitLog("**SccCloseProject** Context=%p\n", ctx);
 	LGitLog("    Active? %d\n", ctx->active);
 	if (context) {
 		LGitContext *ctx = (LGitContext*)context;
@@ -140,7 +140,7 @@ SCCRTN SccGetProjPath (LPVOID context,
 	git_repository *temp_repo;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccGetProjPath**\n");
+	LGitLog("**SccGetProjPath** Context=%p\n", context);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj name %s\n", lpProjName);
 	LGitLog("  local path %s\n", lpLocalPath);
@@ -187,7 +187,7 @@ SCCRTN SccGetParentProjectPath(LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccGetParentProjectPath**\n");
+	LGitLog("**SccGetParentProjectPath** Context=%p\n", context);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj path %s\n", lpProjPath);
 	LGitLog("  aux path (inout) %s\n", lpAuxProjPath);
@@ -205,7 +205,7 @@ SCCRTN SccCreateSubProject(LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccCreateSubProject**\n");
+	LGitLog("**SccCreateSubProject** Context=%p\n", context);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  parent proj path %s\n", lpParentProjPath);
 	LGitLog("  subproject name %s\n", lpSubProjName);

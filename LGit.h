@@ -74,13 +74,18 @@ typedef struct _LGitDiffDialogParams {
 
 	/* Only likely relevant for single-file SccDiff */
 	const char *path;
+	/* Internal done by LGitDiffWindow */
+	HMENU menu;
 } LGitDiffDialogParams;
 
 int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 
+/* sigwin.cpp */
+BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz);
+
 /* progress.cpp */
 BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim);
-BOOL LGitProgressStart(LGitContext *ctx, HWND parent);
+BOOL LGitProgressStart(LGitContext *ctx, HWND parent, BOOL quantifiable);
 BOOL LGitProgressDeinit(LGitContext *ctx);
 BOOL LGitProgressSet(LGitContext *ctx, ULONGLONG x, ULONGLONG outof);
 BOOL LGitProgressText(LGitContext *ctx, const char *text, int line);

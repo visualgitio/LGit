@@ -218,7 +218,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 	LGitTranslateStringChars(params.path, '\\', '/');
 
 	LGitProgressInit(ctx, "Cloning Git Repository", 0);
-	LGitProgressStart(ctx, hWnd);
+	LGitProgressStart(ctx, hWnd, TRUE);
 	if (git_clone(&temp_repo, params.url, params.path, &clone_opts) != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hWnd, "Repo Init");

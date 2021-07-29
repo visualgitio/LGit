@@ -155,9 +155,8 @@ SCCRTN SccUninitialize (LPVOID context)
 	int uninit_count;
 
 	uninit_count = git_libgit2_shutdown();
-	LGitLog("**SccUninitialize**\n");
+	LGitLog("**SccUninitialize** Context=%p\n", context);
 	LGitLog("  Uninit count  =%d\n", uninit_count);
-	LGitLog("  LPVOID Context=%p\n", context);
 	if (uninit_count < 0) {
 		LGitLibraryError(NULL, "Error ending LGit");
 	}
@@ -184,7 +183,8 @@ SCCRTN SccRunScc(LPVOID context,
 				 LPCSTR* lpFileNames)
 {
 	int i;
-	LGitLog("**SccRunScc** count %d\n", nFiles);
+	LGitLog("**SccRunScc** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
 		LGitLog("  %s\n", lpFileNames[i]);
 	}
@@ -197,7 +197,8 @@ SCCRTN SccGetCommandOptions (LPVOID context,
 							 enum SCCCOMMAND nCommand,
 							 LPCMDOPTS * ppvOptions)
 {
-	LGitLog("**SccGetCommandOptions** Command %s\n", LGitCommandName(nCommand));
+	LGitLog("**SccGetCommandOptions** Context=%p\n", context);
+	LGitLog("  command %s\n", LGitCommandName(nCommand));
 	return SCC_E_OPNOTSUPPORTED;
 }
 

@@ -95,7 +95,7 @@ SCCRTN SccDiff (LPVOID context,
 				LONG dwFlags,
 				LPCMDOPTS pvOptions)
 {
-	LGitLog("**SccDiff**\n");
+	LGitLog("**SccDiff** Context=%p\n", context);
 	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
 }
 
@@ -105,6 +105,6 @@ SCCRTN SccDirDiff (LPVOID context,
 				   LONG dwFlags,
 				   LPCMDOPTS pvOptions)
 {
-	LGitLog("**SccDirDiff**\n");
+	LGitLog("**SccDirDiff** Context=%p\n", context);
 	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
 }

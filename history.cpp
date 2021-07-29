@@ -31,10 +31,14 @@ typedef struct _LGitHistoryDialogParams {
 	
 	char **paths;
 	int path_count;
+
+	/* window sundry */
+	HMENU menu;
 } LGitHistoryDialogParams;
 
-static void SetFileCountTitleBar(HWND hwnd, LGitHistoryDialogParams *params)
-{
+static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
+{	
+	SetMenu(hwnd, params->menu);
 	char title[256];
 	/* XXX: Load string resources */
 	if (params->path_count == 1) {
@@ -122,6 +126,12 @@ static BOOL FillHistoryListView(HWND hwnd,
 
 	lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
 
+	/*
+	 * We can only get the revision count by walking it like we're doing now,
+	 * so it's unquantifiable.
+	 */
+	LGitProgressInit(param->ctx, "Walking History", 0);
+	LGitProgressStart(param->ctx, hwnd, FALSE);
 	for (index = 0; !git_revwalk_next(&oid, walker); git_commit_free(commit)) {
 		const git_signature *author, *committer;
 		const char *message;
@@ -129,7 +139,11 @@ static BOOL FillHistoryListView(HWND hwnd,
 		char formatted[256];
 		LVITEM lvi;
 
-		/*LGitLog("!! Revwalk next\n");*/
+		if (LGitProgressCancelled(param->ctx)) {
+			/* We'll work with what we have. */
+			break;
+		}
+
 		if (git_commit_lookup(&commit, ctx->repo, &oid) != 0) {
 			LGitLibraryError(hwnd, "SccHistory git_commit_lookup");
 			git_commit_free(commit);
@@ -175,6 +189,9 @@ static BOOL FillHistoryListView(HWND hwnd,
 		committer = git_commit_committer(commit);
 		message = git_commit_message(commit);
 
+		/* Let's inform the dialog. May spam TextOut tho */
+		LGitProgressText(param->ctx, oid_str, 1);
+
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
 		lvi.pszText = oid_str;
@@ -201,9 +218,18 @@ static BOOL FillHistoryListView(HWND hwnd,
 		lvi.pszText = (char*)git_commit_summary(commit);
 		ListView_SetItem(lv, &lvi);
 	}
+	LGitProgressDeinit(param->ctx);
 	/* Recalculate after adding because of scroll bars */
 	ListView_SetColumnWidth(lv, 3, LVSCW_AUTOSIZE_USEHEADER);
 	return TRUE;
+}
+
+static void ResizeHistoryDialog(HWND hwnd)
+{
+	RECT rect;
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	GetClientRect(hwnd, &rect);
+	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
 }
 
 static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
@@ -215,14 +241,19 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitHistoryDialogParams*)lParam;
-		SetFileCountTitleBar(hwnd, param);
+		InitializeHistoryWindow(hwnd, param);
 		InitializeHistoryListView(hwnd);
 		if (!FillHistoryListView(hwnd, param, param->path_count == 0)) {
 			EndDialog(hwnd, 0);
 		}
+		ResizeHistoryDialog(hwnd);
+		return TRUE;
+	case WM_SIZE:
+		ResizeHistoryDialog(hwnd);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
+		case ID_HISTORY_CLOSE:
 		case IDOK:
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
@@ -245,18 +276,21 @@ SCCRTN SccHistory (LPVOID context,
 				   LONG dwFlags,
 				   LPCMDOPTS pvOptions)
 {
+	SCCRTN ret = SCC_OK;
 	git_diff_options diffopts;
 	git_pathspec *ps = NULL;
-	git_revwalk *walker;
+	git_revwalk *walker = NULL;
 
 	LGitHistoryDialogParams params;
 
 	int i, path_count;
 	const char *raw_path;
-	char **paths;
+	char **paths = NULL;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccHistory** Flags %x, count %d\n", dwFlags, nFiles);
+	LGitLog("**SccHistory** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
+	LGitLog("  flags %x\n", dwFlags);
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
@@ -284,23 +318,20 @@ SCCRTN SccHistory (LPVOID context,
 	if (path_count > 0) {
 		if (git_pathspec_new(&ps, &diffopts.pathspec) != 0) {
 			LGitLibraryError(hWnd, "SccHistory git_pathspec_new");
-			LGitFreePathList(paths, path_count);
-			return SCC_E_NONSPECIFICERROR;
+			ret = SCC_E_NONSPECIFICERROR;
+			goto fin;
 		}
 	}
 
 	if (git_revwalk_new(&walker, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_new");
-		git_pathspec_free(ps);
-		LGitFreePathList(paths, path_count);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	if (git_revwalk_push_head(walker) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
-		git_pathspec_free(ps);
-		git_revwalk_free(walker);
-		LGitFreePathList(paths, path_count);
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	}
 	git_revwalk_sorting(walker, GIT_SORT_TIME);
 
@@ -310,6 +341,7 @@ SCCRTN SccHistory (LPVOID context,
 	params.diffopts = &diffopts;
 	params.paths = paths;
 	params.path_count = path_count;
+	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_HISTORY_MENU));
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_COMMITHISTORY),
 		hWnd,
@@ -317,13 +349,21 @@ SCCRTN SccHistory (LPVOID context,
 		(LPARAM)&params)) {
 	case 0:
 		LGitLog(" ! Uh-oh, dialog error\n");
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
 	default:
 		break;
 	}
-
-	git_pathspec_free(ps);
-	git_revwalk_free(walker);
-	LGitFreePathList(paths, path_count);
-	return SCC_OK;
+fin:
+	DestroyMenu(params.menu);
+	if (ps != NULL) {
+		git_pathspec_free(ps);
+	}
+	if (walker != NULL) {
+		git_revwalk_free(walker);
+	}
+	if (paths != NULL) {
+		LGitFreePathList(paths, path_count);
+	}
+	return ret;
 }

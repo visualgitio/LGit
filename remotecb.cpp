@@ -161,7 +161,7 @@ static int SidebandProgress(const char *msg, int len, void *payload)
 	if (LGitProgressCancelled(params->ctx)) {
 		return GIT_EUSER;
 	}
-	LGitProgressText(params->ctx, msg, 0);
+	LGitProgressText(params->ctx, msg, 1);
 	return 0;
 }
 
@@ -177,7 +177,7 @@ static int TransferProgress(const git_indexer_progress *progress, void *payload)
 		_snprintf(msg, 256, "Resolving deltas %u/%u",
 			progress->indexed_deltas,
 			progress->total_deltas);
-		LGitProgressText(params->ctx, msg, 1);
+		LGitProgressText(params->ctx, msg, 2);
 		LGitProgressSet(params->ctx,
 			progress->indexed_deltas,
 			progress->total_deltas);
@@ -187,7 +187,7 @@ static int TransferProgress(const git_indexer_progress *progress, void *payload)
 			progress->total_objects,
 			progress->received_objects,
 			progress->local_objects);
-		LGitProgressText(params->ctx, msg, 1);
+		LGitProgressText(params->ctx, msg, 2);
 		LGitProgressSet(params->ctx,
 			progress->indexed_objects,
 			progress->total_objects);
@@ -203,7 +203,7 @@ static int PackProgress(int stage, uint32_t current, uint32_t total, void *paylo
 	}
 	char msg[256];
 	_snprintf(msg, 256, "Packing %u/%u", current, total);
-	LGitProgressText(params->ctx, msg, 1);
+	LGitProgressText(params->ctx, msg, 2);
 	LGitProgressSet(params->ctx, current, total);
 	return 0;
 }
@@ -216,7 +216,7 @@ static int PushProgress(unsigned int current, unsigned int total, size_t bytes, 
 	}
 	char msg[256];
 	_snprintf(msg, 256, "Pushing %u/%u", current, total);
-	LGitProgressText(params->ctx, msg, 1);
+	LGitProgressText(params->ctx, msg, 2);
 	LGitProgressSet(params->ctx, current, total);
 	return 0;
 }

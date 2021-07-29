@@ -292,7 +292,10 @@ SCCRTN SccPopulateList (LPVOID context,
 						LPLONG lpStatus, 
 						LONG dwFlags)
 {
-	LGitLog("**SccPopulateList** command %s, flags %x count %d\n", LGitCommandName(nCommand), dwFlags, nFiles);
+	LGitLog("**SccPopulateList** Context=%p\n", context);
+	LGitLog("command %s\n", LGitCommandName(nCommand));
+	LGitLog("  files %d\n", nFiles);
+	LGitLog("  flags %x\n", dwFlags);
 	return LGitPopulateList(context, nCommand, nFiles, lpFileNames, pfnPopulate, pvCallerData, lpStatus, dwFlags);
 }
 
@@ -301,7 +304,8 @@ SCCRTN SccQueryInfo (LPVOID context,
 					 LPCSTR* lpFileNames, 
 					 LPLONG lpStatus)
 {
-	LGitLog("**SccQueryInfo** count %d\n", nFiles);
+	LGitLog("**SccQueryInfo** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
 	return LGitPopulateList(context, (enum SCCCOMMAND)-1, nFiles, lpFileNames, NULL, NULL, lpStatus, 0);
 }
 
@@ -313,7 +317,8 @@ SCCRTN SccDirQueryInfo(LPVOID context,
 	LGitContext *ctx = (LGitContext*)context;
 	int i, rc;
 	const char *raw_path;
-	LGitLog("**SccDirQueryInfo** count %d\n", nDirs);
+	LGitLog("**SccDirQueryInfo** Context=%p\n", context);
+	LGitLog("  dirs %d\n", nDirs);
 	/* We need a tree to use, since that has directories unlike indices. */
 	git_tree *head_tree = NULL;
 	/* But first, we need to parse it to get it... */
@@ -441,7 +446,8 @@ SCCRTN SccQueryChanges(LPVOID context,
 	int i, rc;
 	unsigned int flags;
 	const char *raw_path;
-	LGitLog("**SccQueryChanges** count %d\n", nFiles);
+	LGitLog("**SccQueryChanges** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
 		char path[1024];
 		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
@@ -478,7 +484,8 @@ SCCRTN SccEnumChangedFiles(LPVOID context,
 	int i, rc;
 	unsigned int flags;
 	const char *raw_path;
-	LGitLog("**SccEnumChangedFiles** count %d\n", nFiles);
+	LGitLog("**SccEnumChangedFiles** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
 	for (i = 0; i < nFiles; i++) {
 		char path[1024];
 		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
@@ -522,6 +529,7 @@ SCCRTN SccGetEvents (LPVOID context,
 					 LPLONG lpStatus,
 					 LPLONG pnEventsRemaining)
 {
-	LGitLog("**SccGetEvents** %s\n", lpFileName);
+	LGitLog("**SccGetEvents** Context=%p\n", context);
+	LGitLog("  %s\n", lpFileName);
 	return SCC_E_OPNOTSUPPORTED;
 }

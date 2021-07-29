@@ -99,25 +99,22 @@ END
 //
 
 IDD_COMMITHISTORY DIALOG DISCARDABLE  0, 0, 402, 245
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Commit History"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,345,223,50,15
     CONTROL         "List1",IDC_COMMITHISTORY,"SysListView32",LVS_REPORT | 
-                    LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,7,7,388,211
+                    LVS_SINGLESEL | WS_BORDER | WS_TABSTOP,7,7,388,231
 END
 
 IDD_DIFF DIALOG DISCARDABLE  0, 0, 402, 245
-STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+STYLE WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
 CAPTION "Diff"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,344,224,50,14
     CONTROL         "List1",IDC_DIFFTEXT,"SysListView32",LVS_REPORT | 
                     LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | 
-                    WS_TABSTOP,7,7,387,212
-    PUSHBUTTON      "&Copy",IDC_DIFF_COPY,7,224,50,14
+                    WS_TABSTOP,7,7,387,231
 END
 
 IDD_FILEPROPS DIALOG DISCARDABLE  0, 0, 188, 205
@@ -217,6 +214,21 @@ BEGIN
                     IDC_CERT_MESSAGE,32,7,163,25
 END
 
+IDD_NEW_SIGNATURE DIALOG DISCARDABLE  0, 0, 254, 81
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Enter Signature"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,142,60,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,60,50,14
+    LTEXT           "This information will be used to identify you in Git.",
+                    IDC_STATIC,7,7,240,8
+    LTEXT           "&Name",IDC_STATIC,7,20,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_SIG_NAME,47,20,200,14,ES_AUTOHSCROLL
+    LTEXT           "E&mail",IDC_STATIC,7,39,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_SIG_MAIL,47,39,200,14,ES_AUTOHSCROLL
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -232,8 +244,6 @@ BEGIN
         RIGHTMARGIN, 395
         TOPMARGIN, 7
         BOTTOMMARGIN, 238
-        HORZGUIDE, 218
-        HORZGUIDE, 223
     END
 
     IDD_DIFF, DIALOG
@@ -242,8 +252,6 @@ BEGIN
         RIGHTMARGIN, 394
         TOPMARGIN, 7
         BOTTOMMARGIN, 238
-        HORZGUIDE, 219
-        HORZGUIDE, 224
     END
 
     IDD_FILEPROPS, DIALOG
@@ -324,6 +332,20 @@ BEGIN
         HORZGUIDE, 32
         HORZGUIDE, 38
     END
+
+    IDD_NEW_SIGNATURE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 247
+        VERTGUIDE, 192
+        VERTGUIDE, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 74
+        HORZGUIDE, 15
+        HORZGUIDE, 20
+        HORZGUIDE, 53
+        HORZGUIDE, 60
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -342,6 +364,31 @@ IDI_DIFF_HUNK           ICON    DISCARDABLE     "diffhunk.ico"
 IDI_DIFF_ADD            ICON    DISCARDABLE     "diffadd.ico"
 IDI_DIFF_DEL            ICON    DISCARDABLE     "diffdel.ico"
 IDI_DIFF_FILE_B         ICON    DISCARDABLE     "difffilb.ico"
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Menu
+//
+
+IDR_HISTORY_MENU MENU DISCARDABLE 
+BEGIN
+    POPUP "&History"
+    BEGIN
+        MENUITEM "&Close",                      ID_HISTORY_CLOSE
+    END
+END
+
+IDR_DIFF_MENU MENU DISCARDABLE 
+BEGIN
+    POPUP "&Diff"
+    BEGIN
+        MENUITEM "Cop&y",                       ID_DIFF_COPY
+        MENUITEM "&Save",                       ID_DIFF_SAVE
+        MENUITEM SEPARATOR
+        MENUITEM "&Close",                      ID_DIFF_CLOSE
+    END
+END
+
 #endif    // English (U.S.) resources
 /////////////////////////////////////////////////////////////////////////////
 

@@ -94,7 +94,8 @@ SCCRTN SccProperties (LPVOID context,
 	int rc;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccProperties** %s\n", lpFileName);
+	LGitLog("**SccProperties** Context=%p\n", context);
+	LGitLog("  %s\n", lpFileName);
 
 	raw_path = LGitStripBasePath(ctx, lpFileName);
 	if (raw_path == NULL) {

@@ -65,7 +65,7 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	co_opts.paths.count = path_count;
 
 	LGitProgressInit(ctx, "Checking Out Files", 0);
-	LGitProgressStart(ctx, hWnd);
+	LGitProgressStart(ctx, hWnd, TRUE);
 	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hWnd, "SccUncheckout git_checkout_head");
@@ -88,7 +88,7 @@ SCCRTN SccUncheckout (LPVOID context,
 					  LONG dwFlags,
 					  LPCMDOPTS pvOptions)
 {
-	LGitLog("**SccUncheckout**\n");
+	LGitLog("**SccUncheckout** Context=%p\n", context);
 	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
 }
 
@@ -107,7 +107,7 @@ SCCRTN SccGet (LPVOID context,
 			   LONG dwFlags,
 			   LPCMDOPTS pvOptions)
 {
-	LGitLog("**SccGet**\n");
+	LGitLog("**SccGet** Context=%p\n", context);
 	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
 }
 
@@ -152,7 +152,7 @@ SCCRTN SccCheckout (LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 	int i;
-	LGitLog("**SccCheckout**\n");
+	LGitLog("**SccCheckout** Context=%p\n", context);
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
 	/*
