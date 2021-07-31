@@ -19,6 +19,7 @@
 #define IDD_NEW_SIGNATURE               115
 #define IDR_HISTORY_MENU                116
 #define IDR_DIFF_MENU                   117
+#define IDD_COMMITINFO                  118
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -47,19 +48,25 @@
 #define IDC_STATUS_WT_UNREADABLE        1020
 #define IDC_SIG_MAIL                    1020
 #define IDC_STATUS_IGNORED              1021
+#define IDC_COMMITINFO_AUTHOR           1021
 #define IDC_STATUS_CONFLICTED           1022
+#define IDC_COMMITINFO_COMMITTER        1022
+#define IDC_COMMITINFO_OID              1023
+#define IDC_COMMITINFO_MESSAGE          1024
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
 #define ID_DIFF_SAVE                    40004
+#define ID_HISTORY_COMMIT_DIFF          40005
+#define ID_HISTORY_COMMIT_INFO          40006
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        118
-#define _APS_NEXT_COMMAND_VALUE         40005
-#define _APS_NEXT_CONTROL_VALUE         1021
+#define _APS_NEXT_RESOURCE_VALUE        119
+#define _APS_NEXT_COMMAND_VALUE         40007
+#define _APS_NEXT_CONTROL_VALUE         1022
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

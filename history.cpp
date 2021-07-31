@@ -224,12 +224,97 @@ static BOOL FillHistoryListView(HWND hwnd,
 	return TRUE;
 }
 
+static void ShowSelectedCommitDiff(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	/* get the OID as a string then convert */
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	/* now try to find the parent to make a diff from */
+	git_commit *commit = NULL;
+	if (git_commit_lookup(&commit, params->ctx->repo, &oid) != 0) {
+		LGitLibraryError(hwnd, "git_commit_lookup");
+		return;
+	}
+	LGitCommitToParentDiff(params->ctx, hwnd, commit, params->diffopts);
+	if (commit != NULL) {
+		git_commit_free(commit);
+	}
+}
+
+static void ShowSelectedCommitInfo(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	/* get the OID as a string then convert */
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	/* now try to find the parent to make a diff from */
+	git_commit *commit = NULL;
+	if (git_commit_lookup(&commit, params->ctx->repo, &oid) != 0) {
+		LGitLibraryError(hwnd, "git_commit_lookup");
+		return;
+	}
+	LGitViewCommitInfo(params->ctx, hwnd, commit);
+}
+
+static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	UINT selected = ListView_GetSelectedCount(lv);
+	UINT newState = MF_BYCOMMAND
+		| (selected ? MF_ENABLED : MF_GRAYED);
+	EnableMenuItem(params->menu,
+		ID_HISTORY_COMMIT_DIFF,
+		newState);
+}
+
 static void ResizeHistoryDialog(HWND hwnd)
 {
 	RECT rect;
 	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
 	GetClientRect(hwnd, &rect);
 	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
+}
+
+static BOOL HandleHistoryContextMenu(HWND hwnd, LGitHistoryDialogParams *params, int x, int y)
+{
+	/* are we in non-client area? */
+	RECT clientArea;
+	POINT pos = { x, y };
+	GetClientRect(hwnd, &clientArea);
+	ScreenToClient(hwnd, &pos);
+	if (!PtInRect(&clientArea, pos)) {
+		return FALSE;
+	}
+	/* this should be the "commit" menu */
+	HMENU commitMenu = GetSubMenu(params->menu, 1);
+	TrackPopupMenu(commitMenu, TPM_LEFTALIGN, x, y, 0, hwnd, NULL);
+	/* do we need to free GetSubMenu items? */
+	return TRUE;
 }
 
 static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
@@ -241,23 +326,51 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitHistoryDialogParams*)lParam;
+		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitializeHistoryWindow(hwnd, param);
 		InitializeHistoryListView(hwnd);
 		if (!FillHistoryListView(hwnd, param, param->path_count == 0)) {
 			EndDialog(hwnd, 0);
 		}
 		ResizeHistoryDialog(hwnd);
+		UpdateHistoryMenu(hwnd, param);
 		return TRUE;
 	case WM_SIZE:
 		ResizeHistoryDialog(hwnd);
 		return TRUE;
+	case WM_CONTEXTMENU:
+		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		return HandleHistoryContextMenu(hwnd, param, LOWORD(lParam), HIWORD(lParam));
 	case WM_COMMAND:
+		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
+		case ID_HISTORY_COMMIT_DIFF:
+			ShowSelectedCommitDiff(hwnd, param);
+			return TRUE;
+		case ID_HISTORY_COMMIT_INFO:
+			ShowSelectedCommitInfo(hwnd, param);
+			return TRUE;
 		case ID_HISTORY_CLOSE:
 		case IDOK:
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		}
+		return FALSE;
+	case WM_NOTIFY:
+		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		switch (wParam) {
+		case IDC_COMMITHISTORY:
+			LPNMHDR child_msg = (LPNMHDR)lParam;
+			switch (child_msg->code) {
+			case LVN_ITEMACTIVATE:
+				/* XXX: Could use fields of NMITEMACTIVATE? */
+				ShowSelectedCommitInfo(hwnd, param);
+				return TRUE;
+			case LVN_ITEMCHANGED:
+				UpdateHistoryMenu(hwnd, param);
+				return TRUE;
+			}
 		}
 		return FALSE;
 	default:

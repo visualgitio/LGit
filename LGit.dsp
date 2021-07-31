@@ -116,6 +116,10 @@ SOURCE=.\commit.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\commitvw.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\diff.cpp
 # End Source File
 # Begin Source File
@@ -157,6 +161,10 @@ SOURCE=.\query.cpp
 # Begin Source File
 
 SOURCE=.\remotecb.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\sigwin.cpp
 # End Source File
 # Begin Source File
 

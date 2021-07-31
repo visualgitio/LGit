@@ -69,6 +69,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	params.ctx = ctx;
 	params.diff = diff;
 	params.path = path;
+	params.commit = NULL;
 	switch (LGitDiffWindow(hWnd, &params)) {
 	case 0:
 		LGitLog(" ! Uh-oh, dialog error\n");
@@ -107,4 +108,92 @@ SCCRTN SccDirDiff (LPVOID context,
 {
 	LGitLog("**SccDirDiff** Context=%p\n", context);
 	return LGitDiffInternal(context, hWnd, lpFileName, dwFlags, pvOptions);
+}
+
+SCCRTN LGitCommitToCommitDiff(LGitContext *ctx,
+							  HWND hwnd,
+							  git_commit *commit_b,
+							  git_commit *commit_a,
+							  git_diff_options *diffopts)
+{
+	LGitLog("**LGitCommitToCommitDiff** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	git_tree *a, *b;
+	const git_oid *oid_a, *oid_b;
+	git_diff *diff;
+	if (git_commit_tree(&a, commit_a) != 0) {
+		LGitLibraryError(hwnd, "match_with_parent git_commit_tree A");
+		goto fin;
+	}
+	if (git_commit_tree(&b, commit_b) != 0) {
+		LGitLibraryError(hwnd, "match_with_parent git_commit_tree B");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	if (git_diff_tree_to_tree(&diff, git_commit_owner(commit_b), a, b, diffopts) != 0) {
+		LGitLibraryError(hwnd, "match_with_parent git_diff_tree_to_tree");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	/* make a title */
+	oid_a = git_commit_id(commit_a);
+	oid_b = git_commit_id(commit_b);
+	char msg[128];
+	_snprintf(msg, 128, "%s..", git_oid_tostr_s(oid_a));
+	strlcat(msg, git_oid_tostr_s(oid_b), 128);
+	/* now display the dialog */
+	LGitDiffDialogParams diff_params;
+	diff_params.ctx = ctx;
+	diff_params.diff = diff;
+	diff_params.path = msg;
+	diff_params.commit = commit_b;
+	switch (LGitDiffWindow(hwnd, &diff_params)) {
+	case 0:
+		LGitLog(" ! Uh-oh, dialog error\n");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	default:
+		break;
+	}
+fin:
+	if (diff != NULL) {
+		git_diff_free(diff);
+	}
+	if (a != NULL) {
+		git_tree_free(a);
+	}
+	if (b != NULL) {
+		git_tree_free(b);
+	}
+	return ret;
+}
+
+SCCRTN LGitCommitToParentDiff(LGitContext *ctx,
+							  HWND hwnd,
+							  git_commit *commit,
+							  git_diff_options *diffopts)
+{
+	LGitLog("**LGitCommitToCommitDiff** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	git_commit *parent;
+	int parents = (int)git_commit_parentcount(commit);
+	if (parents < 1) {
+		MessageBox(hwnd,
+			"There are no parents to compare the commit against.",
+			"Can't Display Diff",
+			MB_ICONERROR);
+		goto fin;
+	}
+	/* XXX: We assume the first parent */
+	if (git_commit_parent(&parent, commit, 0) != 0) {
+		LGitLibraryError(hwnd, "match_with_parent git_commit_parent");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	ret = LGitCommitToCommitDiff(ctx, hwnd, commit, parent, diffopts);
+fin:
+	if (parent != NULL) {
+		git_commit_free(parent);
+	}
+	return ret;
 }

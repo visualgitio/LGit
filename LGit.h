@@ -71,7 +71,7 @@ SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPat
 typedef struct _LGitDiffDialogParams {
 	LGitContext *ctx;
 	git_diff *diff;
-
+	git_commit *commit;
 	/* Only likely relevant for single-file SccDiff */
 	const char *path;
 	/* Internal done by LGitDiffWindow */
@@ -80,8 +80,15 @@ typedef struct _LGitDiffDialogParams {
 
 int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 
+/* diff.cpp */
+SCCRTN LGitCommitToCommitDiff(LGitContext *ctx, HWND hwnd, git_commit *commit_b, git_commit *commit_a, git_diff_options *diffopts);
+SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, git_diff_options *diffopts);
+
 /* sigwin.cpp */
 BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz);
+
+/* commitvw.cpp */
+void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit);
 
 /* progress.cpp */
 BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim);

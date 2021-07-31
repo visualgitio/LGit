@@ -229,6 +229,26 @@ BEGIN
     EDITTEXT        IDC_SIG_MAIL,47,39,200,14,ES_AUTOHSCROLL
 END
 
+IDD_COMMITINFO DIALOG DISCARDABLE  0, 0, 420, 182
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Commit Properties"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,363,161,50,14
+    CTEXT           "&Authored",IDC_STATIC,7,7,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_COMMITINFO_AUTHOR,47,7,366,14,ES_AUTOHSCROLL | 
+                    ES_READONLY
+    CTEXT           "&Committed",IDC_STATIC,7,27,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_COMMITINFO_COMMITTER,47,27,366,14,ES_AUTOHSCROLL | 
+                    ES_READONLY
+    CTEXT           "&Object ID",IDC_STATIC,7,46,40,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_COMMITINFO_OID,47,46,366,14,ES_AUTOHSCROLL | 
+                    ES_READONLY
+    EDITTEXT        IDC_COMMITINFO_MESSAGE,7,65,406,91,ES_MULTILINE | 
+                    ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_READONLY | 
+                    WS_VSCROLL | WS_HSCROLL
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -346,6 +366,23 @@ BEGIN
         HORZGUIDE, 53
         HORZGUIDE, 60
     END
+
+    IDD_COMMITINFO, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 413
+        VERTGUIDE, 47
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 175
+        HORZGUIDE, 21
+        HORZGUIDE, 27
+        HORZGUIDE, 41
+        HORZGUIDE, 46
+        HORZGUIDE, 60
+        HORZGUIDE, 65
+        HORZGUIDE, 156
+        HORZGUIDE, 161
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -375,6 +412,11 @@ BEGIN
     POPUP "&History"
     BEGIN
         MENUITEM "&Close",                      ID_HISTORY_CLOSE
+    END
+    POPUP "&Commit"
+    BEGIN
+        MENUITEM "&Info",                       ID_HISTORY_COMMIT_INFO
+        MENUITEM "&Diff",                       ID_HISTORY_COMMIT_DIFF
     END
 END
 
