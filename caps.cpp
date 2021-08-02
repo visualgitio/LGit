@@ -8,7 +8,7 @@
 LONG LGitGetCaps(void)
 {
 	/* XXX: We could do IDE-specific hacks eventually. */
-	return /* all as of 1.3 listed */
+	LONG caps = /* all as of 1.3 listed */
 		/* SccRemove */
 		SCC_CAP_REMOVE
 		/* SccRename */
@@ -21,9 +21,10 @@ LONG LGitGetCaps(void)
 		| SCC_CAP_PROPERTIES
 		/* SccRunScc */
 		| SCC_CAP_RUNSCC
-		/* SccGetCommandOptions; Not supported yet, will eventually */
-		/* | SCC_GETCOMMANDOPTIONS */
-		| SCC_CAP_QUERYINFO /* SccQueryInfo */
+		/* SccGetCommandOptions */
+		| SCC_CAP_GETCOMMANDOPTIONS
+		/* SccQueryInfo */
+		| SCC_CAP_QUERYINFO
 		/* SccGetEvents; Not support, may not make sense */
 		/* | SCC_CAP_GETEVENTS */
 		/* SccGetProjPath */
@@ -72,6 +73,8 @@ LONG LGitGetCaps(void)
 		| SCC_CAP_REENTRANT
 		/* Creates MSSCCPRJ.SCC; we don't right now (but supports func) */
 		| SCC_CAP_SCCFILE;
+	LGitLog(" ! Caps %x\n", caps);
+	return caps;
 }
 
 SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext, 

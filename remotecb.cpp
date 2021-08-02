@@ -21,6 +21,7 @@ static BOOL CALLBACK UserPassDialogProc(HWND hwnd,
 										LPARAM lParam)
 {
 	LGitRemoteParams *param;
+	LGitLog(" ! msg %x\n", iMsg);
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitRemoteParams*)lParam;
@@ -54,7 +55,7 @@ static int UserPassDialog(LGitRemoteParams *params)
 {
 	switch (DialogBoxParam(params->ctx->dllInst,
 		MAKEINTRESOURCE(IDD_AUTH_USERPASS),
-		NULL,//params->parent,
+		params->parent,
 		UserPassDialogProc,
 		(LPARAM)params)) {
 	case 0:
@@ -83,14 +84,14 @@ static int AcquireCredentials(git_credential **out,
 							  unsigned int allowed_types,
 							  void *payload)
 {
-	LGitLog("**AcquireCredentials**\n");
+	LGitRemoteParams *params = (LGitRemoteParams*)payload;
+	LGitLog("**AcquireCredentials** Context=%p\n", params->ctx);
 	LGitLog("      URL %s\n", url);
 	LGitLog("  UserURL %s\n", username_from_url);
 	LGitLog("    Types %x\n", allowed_types);
-	LGitRemoteParams *params = (LGitRemoteParams*)payload;
 	params->out = out;
 	params->url = url;
-	params->user_from_url;
+	params->user_from_url = username_from_url;
 	/* -1 error, 0 success, 1 cancel/fallthrough */
 	int rc;
 	/*

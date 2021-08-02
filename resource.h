@@ -20,6 +20,10 @@
 #define IDR_HISTORY_MENU                116
 #define IDR_DIFF_MENU                   117
 #define IDD_COMMITINFO                  118
+#define IDD_OPTIONS_COMMIT              119
+#define IDD_PUSH_UPSTAIRS               120
+#define IDI_HISTORY                     121
+#define IDI_DIFF                        122
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -51,8 +55,11 @@
 #define IDC_COMMITINFO_AUTHOR           1021
 #define IDC_STATUS_CONFLICTED           1022
 #define IDC_COMMITINFO_COMMITTER        1022
+#define IDC_OPTIONS_COMMIT_PUSH         1022
 #define IDC_COMMITINFO_OID              1023
 #define IDC_COMMITINFO_MESSAGE          1024
+#define IDC_PUSH_REMOTE                 1026
+#define IDC_PUSH_REF                    1027
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -64,9 +71,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        119
+#define _APS_NEXT_RESOURCE_VALUE        123
 #define _APS_NEXT_COMMAND_VALUE         40007
-#define _APS_NEXT_CONTROL_VALUE         1022
+#define _APS_NEXT_CONTROL_VALUE         1029
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

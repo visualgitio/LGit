@@ -100,14 +100,14 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 					  LPLONG checkoutCommentLen,	// Check out comment max length
 					  LPLONG commentLen)			// Other comments max length
 {
-	int init_count;
-
-	init_count = git_libgit2_init();
+	LGitLog("**SccInitialize**\n");
+	LGitLog("  Caller = %s\n", callerName);
+	int init_count = git_libgit2_init();
 	if (init_count < 0) {
 		LGitLibraryError(hWnd, "Error initializing LGit");
 		return SCC_E_INITIALIZEFAILED;
 	}
-	LGitLog("**SccInitialize** initialization count: %d (by %s)\n", init_count, callerName);
+	LGitLog("  InitCount = %d\n", init_count);
 
 	/* Should this be only on the first init count? */
 	LGitInitOpts();
@@ -125,8 +125,11 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 
 	LGitLog("  LPVOID* Context=%p\n", context);
 	LGitLog("         *Context=%p\n", *context);
-	// It appears VS reuses
-	if (context && *context == NULL) {
+	/*
+	 * VC++ 6 will provide the last handle we initialized. Other IDEs don't do
+	 * this. It's not some reuse scheme - don't get confused!
+	 */
+	if (context != NULL) {
 		*context = malloc(sizeof(LGitContext));
 		LGitContext *ctx = (LGitContext*)*context;
 		if (*context == NULL) {
@@ -136,14 +139,8 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		ZeroMemory(*context, sizeof(LGitContext));
 		strlcpy(ctx->appName, callerName, SCC_NAME_LEN);
 		ctx->dllInst = dllInstance;
-		ctx->refcount = 1;
-	} else if (context) {
-		LGitContext *ctx = (LGitContext*)*context;
-		LGitLog("     Recycling context\n");
-		LGitLog("     ProjPath =%s\n", ctx->path);
-		LGitLog("     WorkPath =%s\n", ctx->workdir_path);
-		LGitLog("(Old)Refcount =%d\n", ctx->refcount);
-		LGitLog("(New)Refcount =%d\n", ++ctx->refcount);
+	} else {
+		return SCC_E_INITIALIZEFAILED;
 	}
 
 	return SCC_OK;
@@ -160,20 +157,9 @@ SCCRTN SccUninitialize (LPVOID context)
 	if (uninit_count < 0) {
 		LGitLibraryError(NULL, "Error ending LGit");
 	}
-	/*
-	 * HACK: It seems Visual C++ 6, when switching workspaces, will call
-	 * close, uninit... then open project, which frees this. Then it keeps
-	 * the handle. Then devenv98 will keep multiple contexts around, so we
-	 * should keep a reference count instead.
-	 */
-	if (context) {
-		ctx->refcount--;
-		LGitLog("  Refcount now %d\n", ctx->refcount);
-	}
-	if (context && ctx->refcount == 0) {
-		LGitLog("  Freed context\n");
-		free(context);
-	}
+
+	LGitLog("  Freed context\n");
+	free(context);
 	return SCC_OK;
 }
 
@@ -189,16 +175,6 @@ SCCRTN SccRunScc(LPVOID context,
 		LGitLog("  %s\n", lpFileNames[i]);
 	}
 	MessageBox(hWnd, "Not implemented yet.", "Visual Git", MB_ICONWARNING);
-	return SCC_E_OPNOTSUPPORTED;
-}
-
-SCCRTN SccGetCommandOptions (LPVOID context, 
-							 HWND hWnd, 
-							 enum SCCCOMMAND nCommand,
-							 LPCMDOPTS * ppvOptions)
-{
-	LGitLog("**SccGetCommandOptions** Context=%p\n", context);
-	LGitLog("  command %s\n", LGitCommandName(nCommand));
 	return SCC_E_OPNOTSUPPORTED;
 }
 

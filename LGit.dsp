@@ -112,6 +112,10 @@ SOURCE=.\clone.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\cmdopts.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\commit.cpp
 # End Source File
 # Begin Source File
@@ -156,6 +160,10 @@ SOURCE=.\project.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\pushpull.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\query.cpp
 # End Source File
 # Begin Source File
@@ -179,6 +187,10 @@ SOURCE=.\StdAfx.cpp
 
 SOURCE=.\string.cpp
 # End Source File
+# Begin Source File
+
+SOURCE=.\winutil.cpp
+# End Source File
 # End Group
 # Begin Group "Header Files"
 
@@ -199,6 +211,10 @@ SOURCE=.\StdAfx.h
 # Begin Group "Resource Files"
 
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
+# Begin Source File
+
+SOURCE=.\diff.ico
+# End Source File
 # Begin Source File
 
 SOURCE=.\diffadd.ico
@@ -226,6 +242,10 @@ SOURCE=.\difffile.ico
 # Begin Source File
 
 SOURCE=.\diffhunk.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\history.ico
 # End Source File
 # Begin Source File
 

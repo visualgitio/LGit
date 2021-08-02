@@ -126,6 +126,7 @@ SCCRTN SccCheckin (LPVOID context,
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
+	LGitLog("  opts  %p", pvOptions);
 
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "Checkin (getting index)");
@@ -150,6 +151,9 @@ SCCRTN SccCheckin (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
+	if (pvOptions != NULL && inner_ret == SCC_OK) {
+		inner_ret = LGitPushDialog(ctx, hWnd);
+	}
 	git_index_free(index);
 	return inner_ret;
 }
@@ -173,6 +177,7 @@ SCCRTN SccAdd (LPVOID context,
 	LGitLog("**SccAdd** Context=%p\n", context);
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  files %d", nFiles);
+	LGitLog("  opts  %p", pvOptions);
 
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "Add (getting index)");
@@ -207,6 +212,9 @@ SCCRTN SccAdd (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
+	if (pvOptions != NULL && inner_ret == SCC_OK) {
+		inner_ret = LGitPushDialog(ctx, hWnd);
+	}
 	git_index_free(index);
 	return inner_ret;
 }
@@ -232,6 +240,7 @@ SCCRTN SccRemove (LPVOID context,
 	LGitLog("  comment %s", lpComment);
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
+	LGitLog("  opts  %p", pvOptions);
 
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "Remove (getting index)");
@@ -256,6 +265,9 @@ SCCRTN SccRemove (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
+	if (pvOptions != NULL && inner_ret == SCC_OK) {
+		inner_ret = LGitPushDialog(ctx, hWnd);
+	}
 	git_index_free(index);
 	return inner_ret;
 }

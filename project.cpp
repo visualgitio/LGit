@@ -59,16 +59,28 @@ SCCRTN SccOpenProject (LPVOID context,
 	LGitLog("  comment %s\n", lpComment);
 	LGitLog("  flags %x\n", dwFlags);
 
+	if (ctx->active) {
+		LGitLog(" ! Context already is active\n");
+	}
+
 	// If flags & 1, it's probably init, but it could be called from existing
 	rc = git_repository_open_ext(&ctx->repo, lpLocalProjPath, 0, NULL);
 	if (rc == 0) {
 		LGitLog("    Got it\n");
 		// Repo already exists, connect to it
 		strlcpy(ctx->path, lpLocalProjPath, 1024);
-	} else if (rc == GIT_ENOTFOUND) {
+	} else if (rc == GIT_ENOTFOUND && dwFlags & SCC_OP_CREATEIFNEW) {
 		// No repository, create/clone depending on bAllowChangePath
-		LGitLog("    No git repo\n");
-		return SCC_E_UNKNOWNERROR;
+		LGitLog("    Initializing\n");
+		/* This is ignored */
+		char proj[SCC_PRJPATH_SIZE];
+		SCCRTN init_ret = LGitInitRepo(hWnd, proj, lpLocalProjPath);
+		if (init_ret != 0) {
+			return SCC_E_COULDNOTCREATEPROJECT;
+		}
+	} else if (rc == GIT_ENOTFOUND) {
+		LGitLog("    No repo\n");
+		return SCC_E_UNKNOWNPROJECT;
 	} else if (rc == -1) {
 		// Error opening
 		LGitLibraryError(hWnd, "SccOpenProject");

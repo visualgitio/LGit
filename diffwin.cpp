@@ -312,6 +312,7 @@ static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitDiffDialogParams*)lParam;
+		LGitSetWindowIcon(hwnd, param->ctx->dllInst, MAKEINTRESOURCE(IDI_DIFF));
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		SetDiffTitleBar(hwnd, param);
 		InitDiffView(hwnd, param);

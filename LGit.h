@@ -14,10 +14,14 @@
 /* XXX: Use a case-insensitive comparator */
 typedef std::set<std::string> CheckoutQueue;
 
+/* Defining here so they can be defined in ctx; used in cmdopts.cpp */
+typedef struct _LGitCommitOpts {
+	BOOL push;
+} LGitCommitOpts;
+
 typedef struct _LGitContext {
 	/* housekeeping */
 	BOOL active;
-	int refcount;
 	HINSTANCE dllInst;
 	/* With shared SCC subproject, so we don't free IDE provided dir string */
 	BOOL addSccSuccess;
@@ -37,6 +41,8 @@ typedef struct _LGitContext {
 	char appName[SCC_NAME_SIZE];
 	/* SCC provided username, used for some remote contexts */
 	char username[SCC_USER_SIZE];
+	/* Command options */
+	LGitCommitOpts commitOpts;
 } LGitContext;
 
 /* LGit.cpp */
@@ -63,6 +69,10 @@ int LGitFormatSignature(const git_signature *sig, char *buf, int bufsz);
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
+
+/* pushpull.cpp */
+SCCRTN LGitPush(LGitContext *ctx, HWND hwnd, git_remote *remote, git_reference *refname);
+SCCRTN LGitPushDialog(LGitContext *ctx, HWND hwnd);
 
 /* clone.cpp */
 SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
@@ -109,3 +119,6 @@ BOOL LGitCertificatePrompt(LGitContext *ctx, HWND parent, git_cert *cert, const 
 char *strcasestr(const char *s, const char *find);
 size_t strlcat(char *dst, const char *src, size_t siz);
 size_t strlcpy(char *dst, const char *src, size_t siz);
+
+/* winutil.cpp */
+void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);

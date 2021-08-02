@@ -37,7 +37,7 @@ typedef struct _LGitHistoryDialogParams {
 } LGitHistoryDialogParams;
 
 static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
-{	
+{
 	SetMenu(hwnd, params->menu);
 	char title[256];
 	/* XXX: Load string resources */
@@ -290,6 +290,9 @@ static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
 	EnableMenuItem(params->menu,
 		ID_HISTORY_COMMIT_DIFF,
 		newState);
+	EnableMenuItem(params->menu,
+		ID_HISTORY_COMMIT_INFO,
+		newState);
 }
 
 static void ResizeHistoryDialog(HWND hwnd)
@@ -327,6 +330,7 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitHistoryDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		LGitSetWindowIcon(hwnd, param->ctx->dllInst, MAKEINTRESOURCE(IDI_HISTORY));
 		InitializeHistoryWindow(hwnd, param);
 		InitializeHistoryListView(hwnd);
 		if (!FillHistoryListView(hwnd, param, param->path_count == 0)) {
