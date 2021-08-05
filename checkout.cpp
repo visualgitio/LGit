@@ -92,25 +92,6 @@ SCCRTN SccUncheckout (LPVOID context,
 	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
 }
 
-/**
- * Also a "git checkout", but can be done for unmodified/deleted/etc. files,
- * because SccUncheckout will only be shown for files that SccQueryInfo
- * returned checked out on (modified).
- *
- * As an example, if a file has been just "rm"ed, then SccGit may be the only
- * option exposed in the IDE.
- */
-SCCRTN SccGet (LPVOID context, 
-			   HWND hWnd, 
-			   LONG nFiles, 
-			   LPCSTR* lpFileNames, 
-			   LONG dwFlags,
-			   LPCMDOPTS pvOptions)
-{
-	LGitLog("**SccGet** Context=%p\n", context);
-	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
-}
-
 static void LGitUnmarkReadOnly(LPCSTR fileName)
 {
 	DWORD attr;

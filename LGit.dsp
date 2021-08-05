@@ -148,6 +148,10 @@ SOURCE=.\logging.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\merge.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\path.cpp
 # End Source File
 # Begin Source File

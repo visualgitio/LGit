@@ -86,6 +86,8 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
+	/* Cleanup for any i.e. merging operations. */
+	git_repository_state_cleanup(ctx->repo);
 	LGitLog(" ! Made commit\n");
 fin:
 	git_buf_dispose(&prettified_message);

@@ -5,6 +5,270 @@
 #include "stdafx.h"
 #include "LGit.h"
 
+static int FetchHeadForeach(const char *ref,
+							const char *url,
+							const git_oid *oid,
+							unsigned int is_merge,
+							void *payload)
+{
+	LGitLog(" ! FetchHeadForeach ref %s url %s merge %d\n", ref, url, is_merge);
+	if (is_merge != 0) {
+		git_oid *this_oid = (git_oid*)payload;
+		memcpy(this_oid, oid, sizeof(git_oid));
+	}
+	return 0;
+}
+
+static SCCRTN LGitPullMerge(LGitContext *ctx, HWND hwnd)
+{
+	SCCRTN ret = SCC_OK;
+	git_oid oid;
+	git_merge_analysis_t merge_analysis;
+	git_merge_preference_t merge_preference;
+	git_annotated_commit *ann_remote_head = NULL;
+	git_index *index = NULL;
+	int repo_state, rc;
+	LGitLog("**LGitPullMerge** Context=%p\n", ctx);
+
+	/* merge HEAD with FETCH_HEAD. maybe git_repository_fetchhead_foreach? */
+	repo_state = git_repository_state(ctx->repo);
+	LGitLog("! Repo state %d\n", repo_state);
+	if (GIT_REPOSITORY_STATE_NONE != repo_state) {
+		MessageBox(hwnd,
+			"The repository is in an unknown state; another operation may be in progress.",
+			"Invalid Repo State",
+			MB_ICONERROR);
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	/* XXX: Can this return multiple? */
+	rc = git_repository_fetchhead_foreach(ctx->repo, FetchHeadForeach, &oid);
+	switch (rc) {
+	case GIT_ENOTFOUND:
+		/* nothing to do */
+		goto fin;
+	case 0:
+		break;
+	default:
+		LGitLibraryError(hwnd, "git_repository_fetchhead_foreach");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	/* XXX: git_annotated_commit_from_fetchhead? */
+	if (git_annotated_commit_lookup(&ann_remote_head, ctx->repo, &oid) != 0) {
+		LGitLibraryError(hwnd, "git_annotated_commit_lookup");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	if (git_merge_analysis(&merge_analysis,
+		&merge_preference,
+		ctx->repo,
+		(const git_annotated_commit**)&ann_remote_head, 1) != 0) {
+		LGitLibraryError(hwnd, "git_merge_analysis");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	LGitLog(" ! Analysis %x Preference %x\n", merge_analysis, merge_preference);
+	/* XXX: Do we need to provide file scope for SccGet to make sense? */
+	if (merge_analysis & GIT_MERGE_ANALYSIS_UP_TO_DATE) {
+		/* nothing to do */
+		goto fin;
+	} else if (merge_analysis & GIT_MERGE_ANALYSIS_FASTFORWARD) {
+		/* just set our branch then checkout */
+		const git_oid *target_oid = git_annotated_commit_id(ann_remote_head);
+		LGitMergeFastForward(ctx,
+			hwnd,
+			target_oid,
+			merge_analysis & GIT_MERGE_ANALYSIS_UNBORN);
+	} else if (merge_analysis & GIT_MERGE_ANALYSIS_NORMAL) {
+		/* actually merge now */
+		LGitMergeNormal(ctx, hwnd, ann_remote_head, merge_preference);
+	}
+	/* Check for conflicts now. */
+	if (git_repository_index(&index, ctx->repo) != 0) {
+		LGitLibraryError(hwnd, "git_merge_analysis");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	if (git_index_has_conflicts(index)) {
+		LGitShowMergeConflicts(ctx, hwnd, index);
+	} else {
+		/* XXX: if no conflicts, we can create a merge commit */
+		git_repository_state_cleanup(ctx->repo);
+	}
+fin:
+	if (index != NULL) {
+		git_index_free(index);
+	}
+	if (ann_remote_head != NULL) {
+		git_annotated_commit_free(ann_remote_head);
+	}
+	return ret;
+}
+
+/**
+ * Fetches, then optionally merges the current branch's tracking branch..
+ */
+SCCRTN LGitPull(LGitContext *ctx, HWND hwnd, git_remote *remote, LGitPullStrategy strategy)
+{
+	SCCRTN ret = SCC_OK;
+	LGitLog("**LGitPull** Context=%p\n", ctx);
+	if (remote == NULL) {
+		LGitLog("!! Remote is null\n");
+		return SCC_E_UNKNOWNERROR;
+	}
+	LGitLog("  remote %s\n", git_remote_name(remote));
+	LGitLog("  strategy %d\n", strategy);
+
+	git_fetch_options fetch_opts;
+	git_fetch_options_init(&fetch_opts, GIT_FETCH_OPTIONS_VERSION);
+	LGitInitRemoteCallbacks(ctx, hwnd, &fetch_opts.callbacks);
+	LGitProgressInit(ctx, "Fetching from Remote", 0);
+	LGitProgressStart(ctx, hwnd, TRUE);
+	/*
+	 * XXX: this will pull everything from the remote without a refspec. this
+	 * might be slow for big repositories with lots of references.
+	 */
+	int rc = git_remote_fetch(remote, NULL, &fetch_opts, NULL);
+	LGitProgressDeinit(ctx);
+	if (rc != 0) {
+		LGitLibraryError(hwnd, "git_remote_pull");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	LGitProgressDeinit(ctx);
+	if (fetch_opts.callbacks.payload != NULL) {
+		free(fetch_opts.callbacks.payload);
+	}
+	if (strategy == LGPS_FETCH) {
+		goto fin;
+	}
+	ret = LGitPullMerge(ctx, hwnd);
+fin:
+	return ret;
+}
+
+typedef struct _LGitPullDialogParams {
+	LGitContext *ctx;
+	/* outputs */
+	git_remote *remote;
+	char remote_name[128];
+} LGitPullDialogParams;
+
+static void InitPullView(HWND hwnd, LGitPullDialogParams* params)
+{
+	/* First initialize remotes */
+	HWND remote_box = GetDlgItem(hwnd, IDC_PULL_REMOTE);
+	if (remote_box == NULL) {
+		LGitLog(" !! %x\n", GetLastError());
+		return;
+	}
+	LGitPopulateRemoteComboBox(hwnd, remote_box, params->ctx);
+}
+
+static BOOL LGitPullDialogValidateAndSetParams(HWND hwnd, LGitPullDialogParams* params)
+{
+	GetDlgItemText(hwnd, IDC_PULL_REMOTE, params->remote_name, 256);
+	if (strlen(params->remote_name) == 0) {
+		MessageBox(hwnd,
+			"There was no remote given.",
+			"Invalid Remote", MB_ICONERROR);
+		return FALSE;
+	}
+	if (git_remote_lookup(&params->remote, params->ctx->repo, params->remote_name) != 0) {
+		LGitLibraryError(hwnd, "git_remote_lookup");
+		return FALSE;
+	}
+	return TRUE;
+}
+
+static BOOL CALLBACK PullDialogProc(HWND hwnd,
+									unsigned int iMsg,
+									WPARAM wParam,
+									LPARAM lParam)
+{
+	LGitPullDialogParams *param;
+	/* TODO: We should try to derive a path from the URL until overriden */
+	switch (iMsg) {
+	case WM_INITDIALOG:
+		param = (LGitPullDialogParams*)lParam;
+		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		InitPullView(hwnd, param);
+		return TRUE;
+	case WM_COMMAND:
+		param = (LGitPullDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		switch (LOWORD(wParam)) {
+		case IDOK:
+			if (LGitPullDialogValidateAndSetParams(hwnd, param)) {
+				EndDialog(hwnd, 2);
+			}
+			return TRUE;
+		case IDCANCEL:
+			EndDialog(hwnd, 1);
+			return TRUE;
+		}
+		return FALSE;
+	default:
+		return FALSE;
+	}
+}
+
+SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd)
+{
+	LGitLog("**LGitPullDialog** Context=%p\n", ctx);
+	SCCRTN ret;
+	LGitPullDialogParams params;
+	ZeroMemory(&params, sizeof(LGitPullDialogParams));
+	params.ctx = ctx;
+	switch (DialogBoxParam(ctx->dllInst,
+		MAKEINTRESOURCE(IDD_PULL),
+		hwnd,
+		PullDialogProc,
+		(LPARAM)&params)) {
+	case 0:
+		LGitLog(" ! Uh-oh, dialog error\n");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	case 1:
+		ret = SCC_I_OPERATIONCANCELED;
+		goto fin;
+	case 2:
+		break;
+	}
+	ret = LGitPull(ctx, hwnd, params.remote, LGPS_MERGE_TO_HEAD);
+fin:
+	if (params.remote != NULL) {
+		git_remote_free(params.remote);
+	}
+	return ret;
+}
+
+/**
+ * Fetches/pulls. Will prompt and apply to all files.
+ *
+ * Perhaps the file list could be made non-vestigal again, as an option for
+ * checkout. The semantics on top of normal FF/merge could be confusing though.
+ *
+ * This used to be uncheckout (aka git checkout) that would apply to files
+ * regardless if they were checked out (modified/explicit). That seems less
+ * useful now that we have explicit checkouts; perhaps it could be restored.
+ */
+SCCRTN SccGet (LPVOID context, 
+			   HWND hWnd, 
+			   LONG nFiles, 
+			   LPCSTR* lpFileNames, 
+			   LONG dwFlags,
+			   LPCMDOPTS pvOptions)
+{
+	LGitLog("**SccGet** Context=%p\n", context);
+	/* SCC_GET_ALL and SCC_GET_RECURSIVE mean dirs */
+	LGitLog("  files %x", dwFlags);
+	LGitLog("  flags %d", nFiles);
+	/* XXX: Should we specify a branch here? Or be able to specify files? */
+	LGitContext *ctx = (LGitContext*)context;
+	return LGitPullDialog(ctx, hWnd);
+}
+
 SCCRTN LGitPush(LGitContext *ctx, HWND hwnd, git_remote *remote, git_reference *ref)
 {
 	SCCRTN ret = SCC_OK;
@@ -63,20 +327,7 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params)
 		LGitLog(" !! %x\n", GetLastError());
 		return;
 	}
-	LGitLog(" ! Getting remotes for push (ctx %p)\n", params->ctx);
-	git_strarray remotes;
-	ZeroMemory(&remotes, sizeof(git_strarray));
-	if (git_remote_list(&remotes, params->ctx->repo) != 0) {
-		LGitLibraryError(hwnd, "git_remote_list");
-		return;
-	}
-	LGitLog(" ! Got back %d remote(s)\n", remotes.count);
-	for (i = 0; i < remotes.count; i++) {
-		name = remotes.strings[i];
-		LGitLog(" ! Adding remote %s\n", name);
-		SendMessage(remote_box, CB_ADDSTRING, 0, (LPARAM)name);
-	}
-	git_strarray_dispose(&remotes);
+	LGitPopulateRemoteComboBox(hwnd, remote_box, params->ctx);
 	/* Then populate refspecs */
 	HWND ref_box = GetDlgItem(hwnd, IDC_PUSH_REF);
 	LGitLog(" ! Getting remotes for push (ctx %p)\n", params->ctx);
@@ -93,8 +344,6 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params)
 		SendMessage(ref_box, CB_ADDSTRING, 0, (LPARAM)name);
 	}
 	git_strarray_dispose(&refs);
-	/* select the first item */
-	SendMessage(remote_box, CB_SETCURSEL, 0, 0);
 	/* get the current branch, out of convenience */
 	git_reference *head_ref;
 	if (git_reference_lookup(&head_ref, params->ctx->repo, "HEAD") != 0) {
@@ -112,7 +361,7 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params)
 	}
 }
 
-static BOOL ValidateAndSetParams(HWND hwnd, LGitPushDialogParams* params)
+static BOOL LGitPushDialogValidateAndSetParams(HWND hwnd, LGitPushDialogParams* params)
 {
 	GetDlgItemText(hwnd, IDC_PUSH_REMOTE, params->remote_name, 256);
 	if (strlen(params->remote_name) == 0) {
@@ -159,7 +408,7 @@ static BOOL CALLBACK PushDialogProc(HWND hwnd,
 		param = (LGitPushDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
-			if (ValidateAndSetParams(hwnd, param)) {
+			if (LGitPushDialogValidateAndSetParams(hwnd, param)) {
 				EndDialog(hwnd, 2);
 			}
 			return TRUE;

@@ -10,9 +10,8 @@ static SCCRTN LGitOptionsCaps(enum SCCCOMMAND cmd)
 	switch (cmd)
 	{
 	/*
-	 * We support commit (checkin, add, remove) and get for remote operations.
+	 * We support commit (checkin, add, remove) for remote operations.
 	 */
-	case SCC_COMMAND_GET:
 	case SCC_COMMAND_ADD:
 	case SCC_COMMAND_REMOVE:
 	case SCC_COMMAND_CHECKIN:
@@ -21,12 +20,6 @@ static SCCRTN LGitOptionsCaps(enum SCCCOMMAND cmd)
 	default:
 		return SCC_E_OPNOTSUPPORTED;
 	}
-}
-
-static SCCRTN SetGetOptions(LGitContext *ctx, HWND hWnd, LPCMDOPTS *opts)
-{
-	MessageBox(hWnd, "Not supported.", "Get", MB_ICONERROR);
-	return SCC_E_OPNOTSUPPORTED;
 }
 
 static BOOL CALLBACK CommitOptsDialogProc(HWND hwnd,
@@ -105,9 +98,7 @@ SCCRTN SccGetCommandOptions (LPVOID context,
 	/* Context may not be open. Don't do things needing repos from dialogs. */
 
 	/* Dispatch to shared dialogs. */
-	switch (nCommand) {
-	case SCC_COMMAND_GET:
-		return SetGetOptions(ctx, hWnd, ppvOptions);
+	switch (nCommand) {;
 	case SCC_COMMAND_ADD:
 	case SCC_COMMAND_REMOVE:
 	case SCC_COMMAND_CHECKIN:

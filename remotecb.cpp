@@ -21,7 +21,6 @@ static BOOL CALLBACK UserPassDialogProc(HWND hwnd,
 										LPARAM lParam)
 {
 	LGitRemoteParams *param;
-	LGitLog(" ! msg %x\n", iMsg);
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitRemoteParams*)lParam;

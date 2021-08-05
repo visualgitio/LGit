@@ -152,7 +152,18 @@ static int LGitDiffHunkCallback(const git_diff_delta *delta,
 	ZeroMemory(&lvi, sizeof(LVITEM));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
-	lvi.pszText = (char*)hunk->header;
+
+	char msg[2048];
+	strlcpy(msg, hunk->header, 2048);
+	size_t length = strlen(msg);
+	if (length > 1 && !isprint(msg[length - 1])) {
+		msg[length - 1] = '\0';
+	}
+	if (length > 2 && !isprint(msg[length - 2])) {
+		msg[length - 2] = '\0';
+	}
+	lvi.pszText = msg;
+
 	lvi.iSubItem = 0;
 	lvi.iImage = 3;
 

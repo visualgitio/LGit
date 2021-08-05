@@ -71,8 +71,20 @@ BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
 /* pushpull.cpp */
+typedef enum _LGitPullStrategy {
+	LGPS_FETCH = 0,
+	LGPS_MERGE_TO_HEAD = 1,
+} LGitPullStrategy;
+
 SCCRTN LGitPush(LGitContext *ctx, HWND hwnd, git_remote *remote, git_reference *refname);
 SCCRTN LGitPushDialog(LGitContext *ctx, HWND hwnd);
+SCCRTN LGitPull(LGitContext *ctx, HWND hwnd, git_remote *remote, LGitPullStrategy strategy);
+SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd);
+
+/* merge.cpp */
+SCCRTN LGitMergeFastForward(LGitContext *ctx, HWND hwnd, const git_oid *target_oid, BOOL is_unborn);
+SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, git_annotated_commit *ac, git_merge_preference_t preference);
+SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index);
 
 /* clone.cpp */
 SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
@@ -121,4 +133,5 @@ size_t strlcat(char *dst, const char *src, size_t siz);
 size_t strlcpy(char *dst, const char *src, size_t siz);
 
 /* winutil.cpp */
+void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);

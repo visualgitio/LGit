@@ -278,6 +278,31 @@ BEGIN
                     WS_VSCROLL | WS_TABSTOP
 END
 
+IDD_MERGE_CONFLICTS DIALOG DISCARDABLE  0, 0, 402, 202
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Merge Conflicts"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,345,181,50,14
+    LTEXT           "There were merge conflicts. The files below need to be resolved.",
+                    IDC_STATIC,7,7,388,10
+    CONTROL         "List1",IDC_MERGE_CONFLICT_LIST,"SysListView32",
+                    LVS_REPORT | LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,
+                    22,388,154
+END
+
+IDD_PULL DIALOG DISCARDABLE  0, 0, 254, 81
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Pull"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,140,60,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,60,50,14
+    CTEXT           "&Remote",IDC_STATIC,7,7,40,14,SS_CENTERIMAGE
+    COMBOBOX        IDC_PULL_REMOTE,47,7,200,30,CBS_DROPDOWNLIST | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -438,6 +463,28 @@ BEGIN
         BOTTOMMARGIN, 74
         HORZGUIDE, 54
         HORZGUIDE, 60
+    END
+
+    IDD_MERGE_CONFLICTS, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 395
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 195
+        HORZGUIDE, 17
+        HORZGUIDE, 22
+        HORZGUIDE, 176
+        HORZGUIDE, 181
+    END
+
+    IDD_PULL, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 247
+        VERTGUIDE, 190
+        VERTGUIDE, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 74
     END
 END
 #endif    // APSTUDIO_INVOKED

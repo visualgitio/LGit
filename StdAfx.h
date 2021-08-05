@@ -74,6 +74,7 @@
 #include <git2/oid.h>
 #include <git2/clone.h>
 #include <git2/branch.h>
+#include <git2/merge.h>
 
 // our own stuff
 #include "resource.h"

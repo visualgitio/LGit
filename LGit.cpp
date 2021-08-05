@@ -177,36 +177,3 @@ SCCRTN SccRunScc(LPVOID context,
 	MessageBox(hWnd, "Not implemented yet.", "Visual Git", MB_ICONWARNING);
 	return SCC_E_OPNOTSUPPORTED;
 }
-
-const char* LGitCommandName(enum SCCCOMMAND command)
-{
-	switch (command) {
-	case -1:
-		return "(No command)";
-	case SCC_COMMAND_CHECKOUT:
-		return "Checkout";
-	case SCC_COMMAND_GET:
-		return "Get";
-	case SCC_COMMAND_CHECKIN:
-		return "Checkin";
-	case SCC_COMMAND_UNCHECKOUT:
-		return "Uncheckout";
-	case SCC_COMMAND_ADD:
-		return "Add";
-	case SCC_COMMAND_REMOVE:
-		return "Remove";
-	case SCC_COMMAND_DIFF:
-		return "Diff";
-	case SCC_COMMAND_HISTORY:
-		return "History";
-	case SCC_COMMAND_RENAME:
-		return "Rename";
-	case SCC_COMMAND_PROPERTIES:
-		return "Properties";
-	case SCC_COMMAND_OPTIONS:
-		return "Options";
-	default:
-		/* should be able to return printed string, but I digress */
-		return "Unknown";
-	}
-}
