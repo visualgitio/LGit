@@ -97,7 +97,8 @@ SCCEXTERNC SCCRTN EXTFUN __cdecl SccGetExtendedCapabilities (LPVOID pContext,
 	case SCC_EXCAP_ENUM_CHANGED_FILES:
 		/* SccEnumChangedFiles */
 		LGitLog("  SCC_EXCAP_ENUM_CHANGED_FILES\n");
-		*pbSupported = TRUE;
+		/* We support this, but the semantics VS wants are hard w/ git. */
+		*pbSupported = FALSE;
 		break;
 	case SCC_EXCAP_POPULATELIST_DIR:
 		/* SccPopulateDirList */

@@ -12,6 +12,8 @@ typedef struct _LGitCommitInfoDialogParams {
 
 static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 {
+	UINT codepage = LGitGitToWindowsCodepage(git_commit_message_encoding(params->commit));
+
 	const git_oid *oid = git_commit_id(params->commit);
 	char *oid_s = git_oid_tostr_s(oid);
 	SetDlgItemText(hwnd, IDC_COMMITINFO_OID, oid_s);
@@ -22,19 +24,20 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	committer = git_commit_committer(params->commit);
 	message = git_commit_message(params->commit);
 
-	char sig_msg[512], sig_person[256];
+	wchar_t sig_msg[512], sig_person[256];
+	wchar_t *new_msg_conv = NULL;
 
-	LGitTimeToString(&author->when, sig_msg, 512);
-	strlcat(sig_msg, " ", 512);
-	LGitFormatSignature(author, sig_person, 256);
-	strlcat(sig_msg, sig_person, 512);
-	SetDlgItemText(hwnd, IDC_COMMITINFO_AUTHOR, sig_msg);
+	LGitTimeToStringW(&author->when, sig_msg, 512);
+	wcslcat(sig_msg, L" ", 512);
+	LGitFormatSignatureW(author, sig_person, 256);
+	wcslcat(sig_msg, sig_person, 512);
+	SetDlgItemTextW(hwnd, IDC_COMMITINFO_AUTHOR, sig_msg);
 
-	LGitTimeToString(&committer->when, sig_msg, 512);
-	strlcat(sig_msg, " ", 512);
-	LGitFormatSignature(committer, sig_person, 256);
-	strlcat(sig_msg, sig_person, 512);
-	SetDlgItemText(hwnd, IDC_COMMITINFO_COMMITTER, sig_msg);
+	LGitTimeToStringW(&committer->when, sig_msg, 512);
+	wcslcat(sig_msg, L" ", 512);
+	LGitFormatSignatureW(committer, sig_person, 256);
+	wcslcat(sig_msg, sig_person, 512);
+	SetDlgItemTextW(hwnd, IDC_COMMITINFO_COMMITTER, sig_msg);
 
 	/* set the font THEN prep the message */
 	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
@@ -54,7 +57,22 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 			message_converted[j++] = message[i];
 		}
 	}
-	SetWindowText(message_box, message_converted);
+	/* then convert to UCS-2 */
+	int new_len = MultiByteToWideChar(codepage, 0, message_converted, -1, NULL, 0);
+	if (new_len > 0) {
+		/* enjoy your mojibake */
+		SetWindowText(message_box, message_converted);
+		goto not_unicode;
+	}
+	new_msg_conv = (wchar_t*)calloc(new_len + 1, sizeof(wchar_t));
+	if (new_msg_conv == NULL) {
+		SetWindowText(message_box, message_converted);
+		goto not_unicode;
+	}
+	MultiByteToWideChar(codepage, 0, message_converted, -1, new_msg_conv, new_len + 1);
+	SetWindowTextW(message_box, new_msg_conv);
+	free(new_msg_conv);
+not_unicode:
 	free(message_converted);
 }
 

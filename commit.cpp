@@ -153,7 +153,8 @@ SCCRTN SccCheckin (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	if (pvOptions != NULL && inner_ret == SCC_OK) {
+	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 	git_index_free(index);
@@ -214,7 +215,8 @@ SCCRTN SccAdd (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	if (pvOptions != NULL && inner_ret == SCC_OK) {
+	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 	git_index_free(index);
@@ -267,7 +269,8 @@ SCCRTN SccRemove (LPVOID context,
 		LGitPopCheckout(ctx, path);
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	if (pvOptions != NULL && inner_ret == SCC_OK) {
+	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 	git_index_free(index);

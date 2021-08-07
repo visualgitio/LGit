@@ -474,6 +474,14 @@ SCCRTN SccQueryChanges(LPVOID context,
 	return SCC_OK;
 }
 
+/**
+ * Gets if the files are modified in the remote source control.
+ *
+ * The semantics are hard under git (because we'd basically need to fetch the
+ * tracking branch *and* check the files under the branch, so instead we don't
+ * enable the capability. (The implemented version below checks if the files
+ * are modified, which isn't quite right.)
+ */
 SCCRTN SccEnumChangedFiles(LPVOID context,
 						   HWND hWnd,
 						   LONG nFiles,

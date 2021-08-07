@@ -19,42 +19,12 @@ static void InitCloneView(HWND hwnd, LGitCloneDialogParams* params)
 	SetDlgItemText(hwnd, IDC_CLONE_PATH, params->path);
 }
 
-static int CALLBACK BrowseCallbackProc(HWND hwnd,
-									   UINT uMsg,
-									   LPARAM lParam,
-									   LPARAM lpData)
-{
-	switch (uMsg) {
-	case BFFM_INITIALIZED:
-		SendMessage(hwnd, BFFM_SETSELECTION, TRUE, lpData);
-		break;
-	}
-	return 0;
-}
-
 static void BrowseForFolder(HWND hwnd, LGitCloneDialogParams* params)
 {
-	char path[_MAX_PATH];
-	BROWSEINFO bi;
-	ZeroMemory(&bi, sizeof(BROWSEINFO));
-	bi.lpszTitle = "Browse for Repository Folder";
-	bi.ulFlags = BIF_RETURNONLYFSDIRS
-		| BIF_RETURNFSANCESTORS
-		| BIF_EDITBOX
-		| BIF_NEWDIALOGSTYLE;
-	/* callback to handle at least initializing the dialog */
-    bi.lpfn = BrowseCallbackProc;
-	GetDlgItemText(hwnd, IDC_CLONE_PATH, params->path, MAX_PATH);
-    bi.lParam = (LPARAM) path;
-	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
-	if (pidl == NULL) {
-		return;
+	GetDlgItemText(hwnd, IDC_CLONE_PATH, params->path, _MAX_PATH);
+	if (LGitBrowseForFolder(hwnd, "Browse for Repository Folder", params->path, _MAX_PATH)) {
+		SetDlgItemText(hwnd, IDC_CLONE_PATH, params->path);
 	}
-	SHGetPathFromIDList(pidl, path);
-	SetDlgItemText(hwnd, IDC_CLONE_PATH, path);
-	/* for the sake of updating */
-	strlcpy(params->path, path, _MAX_PATH);
-	CoTaskMemFree(pidl);
 }
 
 static BOOL ValidateAndSetParams(HWND hwnd, LGitCloneDialogParams* params)

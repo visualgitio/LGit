@@ -29,8 +29,8 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	 * the latter; the former could be done with adjustments in pathspec?
 	 * (That is, SCC_GET_ALL or SCC_GET_RECURSIVE)
 	 */
-	LGitLog("  files %x", dwFlags);
-	LGitLog("  flags %d", nFiles);
+	LGitLog("  flags %x", dwFlags);
+	LGitLog("  files %d", nFiles);
 
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
 	LGitInitCheckoutProgressCallback(ctx, &co_opts);
@@ -90,6 +90,29 @@ SCCRTN SccUncheckout (LPVOID context,
 {
 	LGitLog("**SccUncheckout** Context=%p\n", context);
 	return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
+}
+
+/**
+ * Either:
+ * - Replaces files with those from HEAD.
+ * - Fetches/pulls. Will prompt and apply to all files.
+ */
+SCCRTN SccGet (LPVOID context, 
+			   HWND hWnd, 
+			   LONG nFiles, 
+			   LPCSTR* lpFileNames, 
+			   LONG dwFlags,
+			   LPCMDOPTS pvOptions)
+{
+	LGitLog("**SccGet** Context=%p\n", context);
+	LGitLog("  options %p", pvOptions);
+	LGitGetOpts *getOpts = (LGitGetOpts*)pvOptions;
+	if (pvOptions != NULL && getOpts->pull) {
+		LGitContext *ctx = (LGitContext*)context;
+		return LGitPullDialog(ctx, hWnd);
+	} else {
+		return LGitCheckoutInternal(context, hWnd, nFiles, lpFileNames, dwFlags, pvOptions);
+	}
 }
 
 static void LGitUnmarkReadOnly(LPCSTR fileName)

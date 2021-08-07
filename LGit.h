@@ -18,6 +18,9 @@ typedef std::set<std::string> CheckoutQueue;
 typedef struct _LGitCommitOpts {
 	BOOL push;
 } LGitCommitOpts;
+typedef struct _LGitGetOpts {
+	BOOL pull;
+} LGitGetOpts;
 
 typedef struct _LGitContext {
 	/* housekeeping */
@@ -29,6 +32,8 @@ typedef struct _LGitContext {
 	git_repository *repo;
 	/* used for faking checkout status */
 	CheckoutQueue *checkouts;
+	/* suppress SccGet after clone */
+	BOOL immediatelyAfterClone;
 	/* callbacks and such provided by IDE */
 	OPTNAMECHANGEPFN renameCb;
 	LPVOID renameData;
@@ -43,6 +48,7 @@ typedef struct _LGitContext {
 	char username[SCC_USER_SIZE];
 	/* Command options */
 	LGitCommitOpts commitOpts;
+	LGitGetOpts getOpts;
 } LGitContext;
 
 /* LGit.cpp */
@@ -62,8 +68,11 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
 BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 
 /* format.cpp */
-BOOL LGitTimeToString(const git_time *time, char *buf, int bufsz);
-int LGitFormatSignature(const git_signature *sig, char *buf, int bufsz);
+BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
+int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
+BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);
+int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz);
+UINT LGitGitToWindowsCodepage(const char *encoding);
 
 /* checkout.cpp */
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
@@ -131,7 +140,10 @@ BOOL LGitCertificatePrompt(LGitContext *ctx, HWND parent, git_cert *cert, const 
 char *strcasestr(const char *s, const char *find);
 size_t strlcat(char *dst, const char *src, size_t siz);
 size_t strlcpy(char *dst, const char *src, size_t siz);
+size_t wcslcpy(wchar_t *dst, const wchar_t *src, size_t dsize);
+size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t dsize);
 
 /* winutil.cpp */
 void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
+BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);

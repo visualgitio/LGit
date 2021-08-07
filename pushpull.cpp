@@ -243,32 +243,6 @@ fin:
 	return ret;
 }
 
-/**
- * Fetches/pulls. Will prompt and apply to all files.
- *
- * Perhaps the file list could be made non-vestigal again, as an option for
- * checkout. The semantics on top of normal FF/merge could be confusing though.
- *
- * This used to be uncheckout (aka git checkout) that would apply to files
- * regardless if they were checked out (modified/explicit). That seems less
- * useful now that we have explicit checkouts; perhaps it could be restored.
- */
-SCCRTN SccGet (LPVOID context, 
-			   HWND hWnd, 
-			   LONG nFiles, 
-			   LPCSTR* lpFileNames, 
-			   LONG dwFlags,
-			   LPCMDOPTS pvOptions)
-{
-	LGitLog("**SccGet** Context=%p\n", context);
-	/* SCC_GET_ALL and SCC_GET_RECURSIVE mean dirs */
-	LGitLog("  files %x", dwFlags);
-	LGitLog("  flags %d", nFiles);
-	/* XXX: Should we specify a branch here? Or be able to specify files? */
-	LGitContext *ctx = (LGitContext*)context;
-	return LGitPullDialog(ctx, hWnd);
-}
-
 SCCRTN LGitPush(LGitContext *ctx, HWND hwnd, git_remote *remote, git_reference *ref)
 {
 	SCCRTN ret = SCC_OK;

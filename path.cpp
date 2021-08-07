@@ -1,8 +1,6 @@
 #include "stdafx.h"
 #include "LGit.h"
 
-#pragma comment(lib, "shlwapi")
-
 void LGitFreePathList(char **paths, int path_count)
 {
 	int i;
@@ -34,8 +32,10 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 	char path[_MAX_PATH];
 	/* strip trailing backslash, then accomodate if we need to bump later */
 	strlcpy(path, ctx->workdir_path, _MAX_PATH);
-	LGitTranslateStringChars(path, '//', '\\');
-	PathRemoveBackslash(path);
+	char *last_backslash = strrchr(path, '\\');
+	if (last_backslash != NULL && last_backslash[1] == '\0') {
+		last_backslash[0] = '\0';
+	}
 	const char *begin = strcasestr(abs, path);
 	if (begin != abs) {
 		return NULL;

@@ -5,17 +5,17 @@
 #include "stdafx.h"
 #include "LGit.h"
 
-static LVCOLUMN author_column = {
-	LVCF_TEXT | LVCF_WIDTH, 0, 175, "Author"
+static LVCOLUMNW author_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 175, L"Author"
 };
-static LVCOLUMN authored_when_column = {
-	LVCF_TEXT | LVCF_WIDTH, 0, 125, "Authored At"
+static LVCOLUMNW authored_when_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 125, L"Authored At"
 };
-static LVCOLUMN comment_column = {
-	LVCF_TEXT | LVCF_WIDTH, 0, 200, "Comment"
+static LVCOLUMNW comment_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 200, L"Comment"
 };
-static LVCOLUMN oid_column = {
-	LVCF_TEXT | LVCF_WIDTH, 0, 75, "Object ID"
+static LVCOLUMNW oid_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 75, L"Object ID"
 };
 
 /* 
@@ -54,15 +54,21 @@ static void InitializeHistoryListView(HWND hwnd)
 	HWND lv;
 
 	lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	/* Unicode even works on 9x with IE5! */
+	ListView_SetUnicodeFormat(lv, TRUE);
 
 	ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT
 		| LVS_EX_HEADERDRAGDROP
 		| LVS_EX_LABELTIP);
 
-	ListView_InsertColumn(lv, 0, &oid_column);
-	ListView_InsertColumn(lv, 1, &author_column);
-	ListView_InsertColumn(lv, 2, &authored_when_column);
-	ListView_InsertColumn(lv, 3, &comment_column);
+	/* There is no A/W version of ListView_InsertColumn, it's always TCHAR */
+	SendMessage(lv, LVM_INSERTCOLUMNW, 0, (LPARAM)&oid_column);
+	SendMessage(lv, LVM_INSERTCOLUMNW, 1, (LPARAM)&author_column);
+	SendMessage(lv, LVM_INSERTCOLUMNW, 2, (LPARAM)&authored_when_column);
+	SendMessage(lv, LVM_INSERTCOLUMNW, 3, (LPARAM)&comment_column);
 	/*
 	 * XXX: Wonder if maybe callbacks are the way to go:
 	 * https://docs.microsoft.com/en-us/windows/win32/controls/add-list-view-items-and-subitems
@@ -136,8 +142,8 @@ static BOOL FillHistoryListView(HWND hwnd,
 		const git_signature *author, *committer;
 		const char *message;
 		char *oid_str; /* owned by library statically, do not free */
-		char formatted[256];
-		LVITEM lvi;
+		wchar_t formatted[256];
+		LVITEMW lvi;
 
 		if (LGitProgressCancelled(param->ctx)) {
 			/* We'll work with what we have. */
@@ -194,29 +200,27 @@ static BOOL FillHistoryListView(HWND hwnd,
 
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
-		lvi.pszText = oid_str;
+		MultiByteToWideChar(CP_UTF8, 0, oid_str, -1, formatted, 256);
+		lvi.pszText = formatted;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
 
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		lvi.iItem = SendMessage(lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 		if (lvi.iItem == -1) {
 			LGitLog(" ! ListView_InsertItem failed for %s\n", oid_str);
 			continue;
 		}
 		/* now for the subitems... */
 		lvi.iSubItem = 1;
-		LGitFormatSignature(author, formatted, 256);
-		lvi.pszText = formatted;
-		ListView_SetItem(lv, &lvi);
+		LGitFormatSignatureW(author, formatted, 256);
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 		
 		lvi.iSubItem = 2;
-		LGitTimeToString(&author->when, formatted, 256);
-		lvi.pszText = formatted;
-		ListView_SetItem(lv, &lvi);
-
+		LGitTimeToStringW(&author->when, formatted, 256);
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 		lvi.iSubItem = 3;
-		lvi.pszText = (char*)git_commit_summary(commit);
-		ListView_SetItem(lv, &lvi);
+		MultiByteToWideChar(CP_UTF8, 0, git_commit_summary(commit), -1, formatted, 256);
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	}
 	LGitProgressDeinit(param->ctx);
 	/* Recalculate after adding because of scroll bars */
