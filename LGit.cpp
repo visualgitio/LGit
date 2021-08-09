@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 /* This is initialized for dialog boxes later. */
 static HINSTANCE dllInstance;

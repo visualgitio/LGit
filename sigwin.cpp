@@ -5,7 +5,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 typedef struct _LGitSignatureParams {
 	char name[128];

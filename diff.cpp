@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 SCCRTN LGitDiffInternal (LPVOID context, 
 						 HWND hWnd, 

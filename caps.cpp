@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 LONG LGitGetCaps(void)
 {

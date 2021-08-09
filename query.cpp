@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static long LGitConvertFlags(LGitContext *ctx,
 							 const char *fileName,

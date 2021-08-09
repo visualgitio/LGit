@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static SCCRTN LGitOptionsCaps(enum SCCCOMMAND cmd)
 {

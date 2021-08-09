@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static int FetchHeadForeach(const char *ref,
 							const char *url,
@@ -198,6 +197,10 @@ static BOOL CALLBACK PullDialogProc(HWND hwnd,
 	case WM_COMMAND:
 		param = (LGitPullDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
+		case IDC_PULL_MANAGE_REMOTES:
+			LGitShowRemoteManager(param->ctx, hwnd);
+			InitPullView(hwnd, param);
+			return TRUE;
 		case IDOK:
 			if (LGitPullDialogValidateAndSetParams(hwnd, param)) {
 				EndDialog(hwnd, 2);
@@ -291,7 +294,7 @@ typedef struct _LGitPushDialogParams {
 	char refspec_name[128];
 } LGitPushDialogParams;
 
-static void InitPushView(HWND hwnd, LGitPushDialogParams* params)
+static void InitPushView(HWND hwnd, LGitPushDialogParams* params, BOOL do_refspecs)
 {
 	const char *name;
 	size_t i;
@@ -302,6 +305,9 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params)
 		return;
 	}
 	LGitPopulateRemoteComboBox(hwnd, remote_box, params->ctx);
+	if (!do_refspecs) {
+		return;
+	}
 	/* Then populate refspecs */
 	HWND ref_box = GetDlgItem(hwnd, IDC_PUSH_REF);
 	LGitLog(" ! Getting remotes for push (ctx %p)\n", params->ctx);
@@ -376,11 +382,15 @@ static BOOL CALLBACK PushDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitPushDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
-		InitPushView(hwnd, param);
+		InitPushView(hwnd, param, TRUE);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitPushDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
+		case IDC_PUSH_MANAGE_REMOTES:
+			LGitShowRemoteManager(param->ctx, hwnd);
+			InitPushView(hwnd, param, FALSE);
+			return TRUE;
 		case IDOK:
 			if (LGitPushDialogValidateAndSetParams(hwnd, param)) {
 				EndDialog(hwnd, 2);

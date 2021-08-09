@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 typedef struct _LGitCloneDialogParams {
 	LGitContext *ctx;
@@ -128,6 +127,12 @@ static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		case IDC_CLONE_EXISTING:
+			/* This exists for "Add Existing Project from Source Control" */
+			if (LGitBrowseForFolder(hwnd, "Browse for Existing Repository Folder", param->path, _MAX_PATH)) {
+				EndDialog(hwnd, 3);
+			}
+			return TRUE;
 		}
 		return FALSE;
 	default:
@@ -178,6 +183,9 @@ SCCRTN LGitClone(LGitContext *ctx,
 		goto fin;
 	case 2:
 		break;
+	case 3:
+		/* Open existing. XXX: Test if repository exists? */
+		goto skip_clone;
 	}
 
 	if (strlen(params.branch) > 0) {
@@ -196,7 +204,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 		goto fin;
 	}
 	git_repository_free(temp_repo);
-
+skip_clone:
 	/* At least DevStudio wants backslashes */
 	LGitTranslateStringChars(params.path, '/', '\\');
 	char project[SCC_PRJPATH_SIZE];

@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static SCCRTN LGitCommitIndex(HWND hWnd,
 							  LGitContext *ctx,

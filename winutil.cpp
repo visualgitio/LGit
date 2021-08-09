@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name)
 {
@@ -68,6 +67,8 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 		return;
 	}
 	LGitLog(" ! Got back %d remote(s)\n", remotes.count);
+	/* clean out in case of stale entries */
+	SendMessage(cb, CB_RESETCONTENT, 0, 0);
 	for (i = 0; i < remotes.count; i++) {
 		name = remotes.strings[i];
 		LGitLog(" ! Adding remote %s\n", name);

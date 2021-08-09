@@ -76,8 +76,9 @@
 #include <git2/branch.h>
 #include <git2/merge.h>
 
-// our own stuff
+// our own stuff, after the prereqs
 #include "resource.h"
+#include "LGit.h"
 
 //{{AFX_INSERT_LOCATION}}
 // Microsoft Visual C++ will insert additional declarations immediately before the previous line.

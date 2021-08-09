@@ -7,7 +7,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static LVCOLUMN path_column = {
 	LVCF_TEXT | LVCF_WIDTH, 0, 200, "Path"

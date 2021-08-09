@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "LGit.h"
 
 void LGitFreePathList(char **paths, int path_count)
 {

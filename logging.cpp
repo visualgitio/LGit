@@ -1,5 +1,4 @@
 #include "stdafx.h"
-#include "LGit.h"
 
 void LGitLog(const char *format_str, ...)
 {

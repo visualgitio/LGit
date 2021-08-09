@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static LVCOLUMNW author_column = {
 	LVCF_TEXT | LVCF_WIDTH, 0, 175, L"Author"

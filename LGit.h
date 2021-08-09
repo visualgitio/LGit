@@ -32,8 +32,6 @@ typedef struct _LGitContext {
 	git_repository *repo;
 	/* used for faking checkout status */
 	CheckoutQueue *checkouts;
-	/* suppress SccGet after clone */
-	BOOL immediatelyAfterClone;
 	/* callbacks and such provided by IDE */
 	OPTNAMECHANGEPFN renameCb;
 	LPVOID renameData;
@@ -129,6 +127,9 @@ BOOL LGitProgressSet(LGitContext *ctx, ULONGLONG x, ULONGLONG outof);
 BOOL LGitProgressText(LGitContext *ctx, const char *text, int line);
 BOOL LGitProgressCancelled(LGitContext *ctx);
 void LGitInitCheckoutProgressCallback(LGitContext *ctx, git_checkout_options *co_opts);
+
+/* remote.cpp */
+SCCRTN LGitShowRemoteManager(LGitContext *ctx, HWND hwnd);
 
 /* remotecb.cpp */
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb);

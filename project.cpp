@@ -4,7 +4,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static SCCRTN LGitInitRepo(HWND hWnd, LPSTR lpProjName, LPCSTR lpLocalPath)
 {

@@ -9,7 +9,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static SCCRTN LGitCheckoutInternal (LPVOID context, 
 									HWND hWnd, 

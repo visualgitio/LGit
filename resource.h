@@ -27,6 +27,8 @@
 #define IDD_MERGE_CONFLICTS             123
 #define IDD_PULL                        124
 #define IDD_OPTIONS_GET                 125
+#define IDD_REMOTES                     126
+#define IDD_REMOTE_EDIT                 127
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -66,6 +68,16 @@
 #define IDC_MERGE_CONFLICT_LIST         1029
 #define IDC_PULL_REMOTE                 1030
 #define IDC_OPTIONS_COMMIT_PULL         1031
+#define IDC_CLONE_EXISTING              1032
+#define IDC_REMOTE_LIST                 1033
+#define IDC_REMOTE_ADD                  1034
+#define IDC_REMOTE_DELETE               1035
+#define IDC_REMOTE_SETURL               1036
+#define IDC_PULL_MANAGE_REMOTES         1037
+#define IDC_PUSH_MANAGE_REMOTES         1038
+#define IDC_REMOTE_EDIT_URL             1039
+#define IDC_REMOTE_EDIT_NAME            1040
+#define IDC_REMOTE_EDIT_PUSHURL         1041
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -77,9 +89,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        126
+#define _APS_NEXT_RESOURCE_VALUE        128
 #define _APS_NEXT_COMMAND_VALUE         40007
-#define _APS_NEXT_CONTROL_VALUE         1032
+#define _APS_NEXT_CONTROL_VALUE         1042
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

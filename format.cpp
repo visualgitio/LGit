@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 static void TimetToFileTime(_int64 t, LPFILETIME pft)
 {

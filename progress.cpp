@@ -14,7 +14,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim)
 {

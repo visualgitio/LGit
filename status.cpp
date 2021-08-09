@@ -3,7 +3,6 @@
  */
 
 #include "stdafx.h"
-#include "LGit.h"
 
 typedef struct _LGitPropsDialogParams {
 	LGitContext *ctx;
