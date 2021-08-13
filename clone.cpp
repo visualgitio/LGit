@@ -147,6 +147,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 				 LPBOOL pbNew)
 {
 	SCCRTN ret = SCC_OK;
+	BOOL isNew = FALSE;
 	/* The repository is created, but we'll re-open in SccOpenProject */
 	git_repository *temp_repo;
 	git_clone_options clone_opts;
@@ -175,6 +176,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 		CloneDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
@@ -182,6 +184,7 @@ SCCRTN LGitClone(LGitContext *ctx,
 		ret = SCC_I_OPERATIONCANCELED;
 		goto fin;
 	case 2:
+		isNew = TRUE;
 		break;
 	case 3:
 		/* Open existing. XXX: Test if repository exists? */
@@ -220,7 +223,7 @@ skip_clone:
 
 	strlcpy(lpProjName, project, SCC_PRJPATH_LEN);
 	strlcpy(lpLocalPath, params.path, _MAX_PATH);
-	/* XXX: Should we set pbNew? */
+	*pbNew = isNew;
 
 	LGitProgressDeinit(ctx);
 fin:

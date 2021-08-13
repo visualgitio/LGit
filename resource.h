@@ -29,6 +29,9 @@
 #define IDD_OPTIONS_GET                 125
 #define IDD_REMOTES                     126
 #define IDD_REMOTE_EDIT                 127
+#define IDD_EXPLORER                    128
+#define IDR_EXPLORER_MENU               129
+#define IDD_ABOUT                       130
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -78,20 +81,27 @@
 #define IDC_REMOTE_EDIT_URL             1039
 #define IDC_REMOTE_EDIT_NAME            1040
 #define IDC_REMOTE_EDIT_PUSHURL         1041
+#define IDC_ABOUT_VERSION               1043
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
 #define ID_DIFF_SAVE                    40004
 #define ID_HISTORY_COMMIT_DIFF          40005
 #define ID_HISTORY_COMMIT_INFO          40006
+#define ID_EXPLORER_HELP_ABOUT          40009
+#define ID_EXPLORER_REMOTE_MANAGEREMOTES 40010
+#define ID_EXPLORER_REMOTE_PUSH         40011
+#define ID_EXPLORER_REMOTE_PULL         40012
+#define ID_EXPLORER_REPOSITORY_CLOSE    40013
+#define ID_EXPLORER_REPOSITORY_HISTORY  40016
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        128
-#define _APS_NEXT_COMMAND_VALUE         40007
-#define _APS_NEXT_CONTROL_VALUE         1042
+#define _APS_NEXT_RESOURCE_VALUE        131
+#define _APS_NEXT_COMMAND_VALUE         40017
+#define _APS_NEXT_CONTROL_VALUE         1044
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

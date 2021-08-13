@@ -243,6 +243,7 @@ static void RemoteEdit(HWND hwnd, LGitRemoteDialogParams* params)
 		RemoteEditorDialogProc,
 		(LPARAM)&er_params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		goto fin;
 	case 1:
@@ -424,6 +425,7 @@ SCCRTN LGitShowRemoteManager(LGitContext *ctx, HWND hwnd)
 		RemoteManagerDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return SCC_E_UNKNOWNERROR;
 	default:

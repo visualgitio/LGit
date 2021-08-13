@@ -66,6 +66,7 @@ static SCCRTN SetCommitOptions(LGitContext *ctx, HWND hWnd, LPCMDOPTS *opts)
 		CommitOptsDialogProc,
 		(LPARAM)ctx)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		break;
 	case 1:
@@ -120,6 +121,7 @@ static SCCRTN SetGetOptions(LGitContext *ctx, HWND hWnd, LPCMDOPTS *opts)
 		GetOptsDialogProc,
 		(LPARAM)ctx)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		break;
 	case 1:

@@ -239,6 +239,7 @@ SCCRTN SccAddFromScc (LPVOID context,
 		AddFromDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;

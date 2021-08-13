@@ -31,6 +31,8 @@ typedef struct _LGitHistoryDialogParams {
 	char **paths;
 	int path_count;
 
+	int max_index;
+
 	/* window sundry */
 	HMENU menu;
 } LGitHistoryDialogParams;
@@ -40,7 +42,9 @@ static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
 	SetMenu(hwnd, params->menu);
 	char title[256];
 	/* XXX: Load string resources */
-	if (params->path_count == 1) {
+	if (params->path_count == 0) {
+		_snprintf(title, 256, "Commit History for Repository");
+	} else if (params->path_count == 1) {
 		_snprintf(title, 256, "Commit History for %s", params->paths[0]);
 	} else {
 		_snprintf(title, 256, "Commit History for %d files", params->path_count);
@@ -222,6 +226,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	}
 	LGitProgressDeinit(param->ctx);
+	param->max_index = index;
 	/* Recalculate after adding because of scroll bars */
 	ListView_SetColumnWidth(lv, 3, LVSCW_AUTOSIZE_USEHEADER);
 	return TRUE;
@@ -329,6 +334,7 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 									   LPARAM lParam)
 {
 	LGitHistoryDialogParams *param;
+	param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitHistoryDialogParams*)lParam;
@@ -346,10 +352,8 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		ResizeHistoryDialog(hwnd);
 		return TRUE;
 	case WM_CONTEXTMENU:
-		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		return HandleHistoryContextMenu(hwnd, param, LOWORD(lParam), HIWORD(lParam));
 	case WM_COMMAND:
-		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case ID_HISTORY_COMMIT_DIFF:
 			ShowSelectedCommitDiff(hwnd, param);
@@ -365,7 +369,6 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		}
 		return FALSE;
 	case WM_NOTIFY:
-		param = (LGitHistoryDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (wParam) {
 		case IDC_COMMITHISTORY:
 			LPNMHDR child_msg = (LPNMHDR)lParam;
@@ -402,6 +405,7 @@ SCCRTN SccHistory (LPVOID context,
 	git_revwalk *walker = NULL;
 
 	LGitHistoryDialogParams params;
+	ZeroMemory(&params, sizeof(LGitHistoryDialogParams));
 
 	int i, path_count;
 	const char *raw_path;
@@ -468,6 +472,7 @@ SCCRTN SccHistory (LPVOID context,
 		HistoryDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;

@@ -61,6 +61,7 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 		SignatureDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return FALSE;
 	case 1:

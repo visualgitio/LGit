@@ -113,6 +113,7 @@ void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit)
 		CommitInfoDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		break;
 	default:

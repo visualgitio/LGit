@@ -148,3 +148,6 @@ size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t dsize);
 void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
 BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
+
+/* about.cpp */
+void LGitAbout(HWND hwnd, LGitContext *ctx);

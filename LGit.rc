@@ -350,6 +350,25 @@ BEGIN
                     IDC_STATIC,7,7,240,8
 END
 
+IDD_EXPLORER DIALOG DISCARDABLE  0, 0, 186, 90
+STYLE WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_THICKFRAME
+CAPTION "Repository Explorer"
+FONT 8, "MS Sans Serif"
+BEGIN
+END
+
+IDD_ABOUT DIALOG DISCARDABLE  0, 0, 186, 90
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "About Visual Git"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,129,69,50,14
+    ICON            IDI_LGIT,IDC_STATIC,7,7,20,20
+    LTEXT           "Visual Git",IDC_ABOUT_VERSION,33,7,146,20
+    LTEXT           "Copyright (c) Calvin Buckley 2021\r\n\r\nSpecial thanks to: A. Wilcox, Alin Constantin, Mark Laws",
+                    IDC_STATIC,7,32,172,32
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -567,6 +586,28 @@ BEGIN
         HORZGUIDE, 15
         HORZGUIDE, 20
     END
+
+    IDD_EXPLORER, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 83
+    END
+
+    IDD_ABOUT, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 179
+        VERTGUIDE, 27
+        VERTGUIDE, 33
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 83
+        HORZGUIDE, 27
+        HORZGUIDE, 32
+        HORZGUIDE, 64
+        HORZGUIDE, 69
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -614,6 +655,29 @@ BEGIN
         MENUITEM "&Save",                       ID_DIFF_SAVE
         MENUITEM SEPARATOR
         MENUITEM "&Close",                      ID_DIFF_CLOSE
+    END
+END
+
+IDR_EXPLORER_MENU MENU DISCARDABLE 
+BEGIN
+    POPUP "&Repository"
+    BEGIN
+        MENUITEM "&History...",                 ID_EXPLORER_REPOSITORY_HISTORY
+
+        MENUITEM SEPARATOR
+        MENUITEM "&Close",                      ID_EXPLORER_REPOSITORY_CLOSE
+    END
+    POPUP "Re&mote"
+    BEGIN
+        MENUITEM "Manage &Remotes...",          ID_EXPLORER_REMOTE_MANAGEREMOTES
+
+        MENUITEM SEPARATOR
+        MENUITEM "Pus&h...",                    ID_EXPLORER_REMOTE_PUSH
+        MENUITEM "Pu&ll...",                    ID_EXPLORER_REMOTE_PULL
+    END
+    POPUP "&Help"
+    BEGIN
+        MENUITEM "&About...",                   ID_EXPLORER_HELP_ABOUT
     END
 END
 

@@ -229,6 +229,7 @@ SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd)
 		PullDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
@@ -419,6 +420,7 @@ SCCRTN LGitPushDialog(LGitContext *ctx, HWND hwnd)
 		PushDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;

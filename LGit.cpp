@@ -161,18 +161,3 @@ SCCRTN SccUninitialize (LPVOID context)
 	free(context);
 	return SCC_OK;
 }
-
-SCCRTN SccRunScc(LPVOID context, 
-				 HWND hWnd, 
-				 LONG nFiles, 
-				 LPCSTR* lpFileNames)
-{
-	int i;
-	LGitLog("**SccRunScc** Context=%p\n", context);
-	LGitLog("  files %d\n", nFiles);
-	for (i = 0; i < nFiles; i++) {
-		LGitLog("  %s\n", lpFileNames[i]);
-	}
-	MessageBox(hWnd, "Not implemented yet.", "Visual Git", MB_ICONWARNING);
-	return SCC_E_OPNOTSUPPORTED;
-}

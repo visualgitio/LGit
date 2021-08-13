@@ -250,6 +250,7 @@ SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index)
 		MergeConflictDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return SCC_E_UNKNOWNERROR;
 	default:

@@ -126,6 +126,7 @@ SCCRTN SccProperties (LPVOID context,
 		PropsDialogProc,
 		(LPARAM)&params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return SCC_E_NONSPECIFICERROR;
 	default:

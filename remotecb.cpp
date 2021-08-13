@@ -57,6 +57,7 @@ static int UserPassDialog(LGitRemoteParams *params)
 		UserPassDialogProc,
 		(LPARAM)params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return GIT_EUSER;
 	case 1:
