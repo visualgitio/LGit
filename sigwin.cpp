@@ -9,6 +9,7 @@
 typedef struct _LGitSignatureParams {
 	char name[128];
 	char mail[128];
+	BOOL useByDefault;
 } LGitSignatureParams;
 
 static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
@@ -28,6 +29,7 @@ static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 		case IDOK:
 			GetDlgItemText(hwnd, IDC_SIG_NAME, param->name, 128);
 			GetDlgItemText(hwnd, IDC_SIG_MAIL, param->mail, 128);
+			param->useByDefault = IsDlgButtonChecked(hwnd, IDC_SIGNATURE_MAKE_DEFAULT) == BST_CHECKED;
 			EndDialog(hwnd, 2);
 			return TRUE;
 		case IDCANCEL:
@@ -38,6 +40,25 @@ static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 	default:
 		return FALSE;
 	}
+}
+
+BOOL LGitSetSignature(LGitContext *ctx, HWND hwnd, const char *name, const char *mail)
+{
+	git_config *config = NULL;
+	if (git_config_open_default(&config) != 0) {
+		LGitLibraryError(hwnd, "git_config_default (set signature as default)");
+		return FALSE;
+	}
+	int rc1, rc2;
+	rc1 = git_config_set_string(config, "user.name", name);
+	rc2 = git_config_set_string(config, "user.email", mail);
+	if (rc1 != 0 || rc1 != 0) {
+		LGitLibraryError(hwnd, "git_config_set_string (set signature as default)");
+	}
+	if (config != NULL) {
+		git_config_free(config);
+	}
+	return rc1 == 0 && rc2 == 0;
 }
 
 BOOL LGitSignatureDialog(LGitContext *ctx,
@@ -73,5 +94,13 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	LGitLog(" ! Signature mail: %s\n", params.mail);
 	strlcpy(name, params.name, name_sz);
 	strlcpy(mail, params.mail, mail_sz);
+	/*
+	 * If the user checks this, then set it in the global (not repository
+	 * level) config so they won't be asked again. Assumes this window is
+	 * only invoked in contexts where that's not set.
+	 */
+	if (params.useByDefault) {
+		LGitSetSignature(ctx, parent, params.name, params.mail);
+	}
 	return TRUE;
 }

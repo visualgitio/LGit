@@ -119,6 +119,9 @@ BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name
 /* commitvw.cpp */
 void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit);
 
+/* gitconf.cpp */
+SCCRTN LGitManageConfig(LGitContext *ctx, HWND hwnd, git_config *config, const char *title);
+
 /* progress.cpp */
 BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim);
 BOOL LGitProgressStart(LGitContext *ctx, HWND parent, BOOL quantifiable);

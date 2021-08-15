@@ -192,6 +192,8 @@ static BOOL FillHistoryListView(HWND hwnd,
 				continue;
 		}
 
+		UINT encoding = LGitGitToWindowsCodepage(git_commit_message_encoding(commit));
+
 		/* Actually insert */
 		oid_str = git_oid_tostr_s(&oid);
 		author = git_commit_author(commit);
@@ -222,7 +224,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 		LGitTimeToStringW(&author->when, formatted, 256);
 		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 		lvi.iSubItem = 3;
-		MultiByteToWideChar(CP_UTF8, 0, git_commit_summary(commit), -1, formatted, 256);
+		MultiByteToWideChar(encoding, 0, git_commit_summary(commit), -1, formatted, 256);
 		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	}
 	LGitProgressDeinit(param->ctx);
