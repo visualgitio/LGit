@@ -91,6 +91,8 @@
 #define IDC_CONFIG_EDIT_NAME            1048
 #define IDC_CONFIG_EDIT_VALUE           1049
 #define IDC_SIGNATURE_MAKE_DEFAULT      1050
+#define IDC_PULL_FETCH                  1051
+#define IDC_TAB1                        1052
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -113,7 +115,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        133
 #define _APS_NEXT_COMMAND_VALUE         40020
-#define _APS_NEXT_CONTROL_VALUE         1051
+#define _APS_NEXT_CONTROL_VALUE         1053
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

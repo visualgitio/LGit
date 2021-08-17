@@ -152,6 +152,7 @@ typedef struct _LGitPullDialogParams {
 	/* outputs */
 	git_remote *remote;
 	char remote_name[128];
+	BOOL merge;
 } LGitPullDialogParams;
 
 static void InitPullView(HWND hwnd, LGitPullDialogParams* params)
@@ -178,6 +179,7 @@ static BOOL LGitPullDialogValidateAndSetParams(HWND hwnd, LGitPullDialogParams* 
 		LGitLibraryError(hwnd, "git_remote_lookup");
 		return FALSE;
 	}
+	params->merge = IsDlgButtonChecked(hwnd, IDC_PULL_FETCH) == BST_CHECKED;
 	return TRUE;
 }
 
@@ -192,6 +194,7 @@ static BOOL CALLBACK PullDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitPullDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		CheckDlgButton(hwnd, IDC_PULL_FETCH, BST_CHECKED);
 		InitPullView(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
@@ -239,7 +242,7 @@ SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd)
 	case 2:
 		break;
 	}
-	ret = LGitPull(ctx, hwnd, params.remote, LGPS_MERGE_TO_HEAD);
+	ret = LGitPull(ctx, hwnd, params.remote, params.merge ? LGPS_MERGE_TO_HEAD : LGPS_FETCH);
 fin:
 	if (params.remote != NULL) {
 		git_remote_free(params.remote);

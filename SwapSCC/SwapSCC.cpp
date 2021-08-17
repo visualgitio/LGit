@@ -9,8 +9,9 @@
 
 typedef std::map<std::string, std::string> ProviderMap;
 ProviderMap providerMap;
+std::string current;
 
-static void GetProviders(HWND hdlg)
+static BOOL GetProviders(void)
 {
 	LONG ret;
 	HKEY providersKey;
@@ -32,23 +33,24 @@ static void GetProviders(HWND hdlg)
 	/* value */
 	BYTE skValue[255], selectedValue[255];
 	DWORD skValueLen, type;
-	/* window */
-	HWND combo;
-	combo = GetDlgItem(hdlg, IDC_PROVIDERS);
-	DWORD toUse;
-
 	// get the current provider
 	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
 		SWAP_KEY_SCC,
 		0,
 		KEY_READ,
 		&providersKey);
+	if (ret != ERROR_SUCCESS) {
+		return FALSE;
+	}
 	skValueLen = 255;
 	ret = RegQueryValueEx(providersKey, SWAP_KEY_PROVIDER, NULL, &type, selectedValue, &skValueLen);
-	if (REG_SZ != type) {
-		return;
+	if (ret != ERROR_SUCCESS) {
+		return FALSE;
 	}
-	std::string selectedValueStr((const char*)selectedValue);
+	if (REG_SZ != type) {
+		return FALSE;
+	}
+	current = std::string((const char*)selectedValue);
 	RegCloseKey(providersKey);
 	// now provider list
 	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
@@ -56,6 +58,9 @@ static void GetProviders(HWND hdlg)
 		0,
 		KEY_READ,
 		&providersKey);
+	if (ret != ERROR_SUCCESS) {
+		return FALSE;
+	}
 	ret = RegQueryInfoKey(
         providersKey,            // key handle 
         achClass,                // buffer for class name 
@@ -88,12 +93,24 @@ static void GetProviders(HWND hdlg)
 		std::string v((const char*)skValue);
 		ProviderMap::value_type vt(k, v);
 		providerMap.insert(vt);
-		DWORD index = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)achValue);
-		if (selectedValueStr == v) {
+	}
+	RegCloseKey(providersKey);
+	return TRUE;
+}
+
+static void ListProviders(HWND hdlg)
+{
+	HWND combo;
+	combo = GetDlgItem(hdlg, IDC_PROVIDERS);
+	DWORD toUse;
+	for (ProviderMap::iterator it = providerMap.begin(); it != providerMap.end(); ++it) {
+		const std::string &key = it->first;
+		const std::string &value = it->second;
+		DWORD index = SendMessage(combo, CB_ADDSTRING, 0, (LPARAM)key.c_str());
+		if (current == value) {
 			toUse = index;
 		}
 	}
-	RegCloseKey(providersKey);
 	SendMessage(combo, CB_SETCURSEL, toUse, 0);
 }
 
@@ -114,6 +131,38 @@ static void SetProvider(HWND hdlg)
 	RegCloseKey(key);
 }
 
+static void SetProvider(const char *text)
+{
+	HKEY key;
+	long ret;
+	std::string selected = providerMap[text];
+	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+		SWAP_KEY_SCC,
+		0,
+		KEY_WRITE,
+		&key);
+	ret = RegSetValueEx(key, SWAP_KEY_PROVIDER, 0, REG_SZ,
+		(BYTE*)selected.c_str(), selected.length());
+	RegCloseKey(key);
+}
+
+static int SetNoProvider(void)
+{
+	HKEY key;
+	long ret;
+	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+		SWAP_KEY_SCC,
+		0,
+		KEY_WRITE,
+		&key);
+	if (ret != ERROR_SUCCESS) {
+		return 1;
+	}
+	ret = RegDeleteValue(key, SWAP_KEY_PROVIDER);
+	RegCloseKey(key);
+	return ret == ERROR_SUCCESS ? 0 : 1;
+}
+
 static BOOL CALLBACK SwapProc(HWND hdlg,
 							  unsigned int iMsg,
 							  WPARAM wParam,
@@ -121,7 +170,7 @@ static BOOL CALLBACK SwapProc(HWND hdlg,
 {
 	switch (iMsg) {
 	case WM_INITDIALOG:
-		GetProviders(hdlg);
+		ListProviders(hdlg);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
@@ -144,6 +193,15 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      LPSTR     lpCmdLine,
                      int       nCmdShow)
 {
+	if (!GetProviders()) {
+		return 3;
+	}
+	// If we have command-line arguments, use them and exit without UI
+	if (lpCmdLine && strcmp(lpCmdLine, "/d") == 0) {
+		return SetNoProvider();
+	} else if (lpCmdLine && strlen(lpCmdLine) > 0) {
+		SetProvider(lpCmdLine);
+	}
 	// Required for themes
 	InitCommonControls();
 	int ret = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_SWAP), NULL, SwapProc, 0);
