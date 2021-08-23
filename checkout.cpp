@@ -10,6 +10,120 @@
 
 #include "stdafx.h"
 
+static int AskIfCreateBranchFromRemote(HWND hwnd)
+{
+	return MessageBox(hwnd,
+		"The remote branch must have a local branch in order to become HEAD. "
+		"Not doing so will detach HEAD. "
+		"Would you like to create a local branch?\r\n\r\n"
+		"(If you already have a local branch, select it instead of this one.)",
+		"Can't Make Remote Branch HEAD",
+		MB_ICONQUESTION | MB_YESNOCANCEL);
+}
+
+SCCRTN LGitCheckoutRefByName(LGitContext *ctx,
+							 HWND hwnd,
+							 const char *name)
+{
+	LGitLog("**LGitCheckoutRefByName** Context=%p\n", ctx);
+	LGitLog("  refname %s\n", name);
+	/* Resolve the name to a commit for checkout. Example uses annotated... */
+	BOOL attached = TRUE;
+	int remote_question;
+	SCCRTN ret = SCC_E_NONSPECIFICERROR;
+	git_reference *branch = NULL, *new_branch = NULL, *checkout_branch;
+	git_oid commit_oid;
+	git_commit *commit = NULL;
+	git_checkout_options co_opts;
+	/* For future reference */
+	if (git_reference_lookup(&branch, ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "git_repository_set_head");
+		goto err;
+	}
+	if (git_reference_name_to_id(&commit_oid, ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "git_reference_name_to_id");
+		goto err;
+	}
+	if (git_commit_lookup(&commit, ctx->repo, &commit_oid) != 0) {
+		LGitLibraryError(hwnd, "git_commit_lookup");
+		goto err;
+	}
+	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
+	/* XXX: Allow setting force */
+	co_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+	/* If we have a remote branch, create a local one from it. */
+	checkout_branch = branch;
+	if (git_reference_is_remote(branch)
+		/* Ask the user if they want a local branch from it. */
+		&& (remote_question = AskIfCreateBranchFromRemote(hwnd)) == IDYES) {
+		LGitLog(" ! %s is remote tracking\n", name);
+		/* Try to create a local branch from the remote that can be HEAD. */
+		int rc = git_branch_create(&new_branch,
+			ctx->repo,
+			git_reference_shorthand(branch),
+			commit,
+			0);
+		/* XXX: Check if it's because it already exists */
+		if (rc != 0) {
+			LGitLog("!! Failed to make local tracking branch (%x)\n", rc);
+			attached = FALSE;
+		} else {
+			LGitLog(" ! Made local tracking branch\n");
+			checkout_branch = new_branch;
+		}
+	} else if (!git_reference_is_branch(branch)) {
+		/* If it's a tag or similar, we can't track HEAD with it. */
+		LGitLog(" ! %s is not a local branch, no attach\n", name);
+		attached = FALSE;
+	}
+	/* React if it's a remote and the user cancelled */
+	if (remote_question == IDCANCEL) {
+		ret = SCC_I_OPERATIONCANCELED;
+		goto err;
+	}
+	/* Peeled to a tree */
+	LGitProgressInit(ctx, "Checking Out Files", 0);
+	LGitProgressStart(ctx, hwnd, TRUE);
+	if (git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "git_checkout_tree");
+		goto err;
+	}
+	/* This must be a local branch to become HEAD. */
+	if (attached && git_repository_set_head(ctx->repo, git_reference_name(checkout_branch)) != 0) {
+		LGitLog("!! Attached head fail\n");
+		/* XXX: Show error */
+		MessageBox(hwnd,
+			"Failed to set the new attached head. "
+			"Attempting to proceed with a detached head.",
+			"Couldn't Set HEAD",
+			MB_ICONERROR);
+		attached = FALSE;
+	}
+	if (!attached && git_repository_set_head_detached(ctx->repo, &commit_oid) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "git_repository_set_head_detached");
+		goto err;
+	}
+	LGitProgressDeinit(ctx);
+	ret = SCC_OK;
+err:
+	if (new_branch != NULL) {
+		git_reference_free(new_branch);
+	}
+	if (branch != NULL) {
+		git_reference_free(branch);
+	}
+	if (commit != NULL) {
+		git_commit_free(commit);
+	}
+	return ret;
+}
+
+/**
+ * This checkout emulates the SCC API semantics (list of files, use HEAD)
+ */
 static SCCRTN LGitCheckoutInternal (LPVOID context, 
 									HWND hWnd, 
 									LONG nFiles, 

@@ -30,6 +30,12 @@ static long LGitConvertFlags(LGitContext *ctx,
 	}
 	/* Merge conflicts */
 	if (flags & GIT_STATUS_CONFLICTED) {
+		/*
+		 * Consider it checked out so in case the resolution by user means
+		 * it's not modified, it can still be checked in.
+		 */
+		sccFlags |= SCC_STATUS_OUTBYUSER;
+		sccFlags |= SCC_STATUS_CHECKEDOUT;
 		sccFlags |= SCC_STATUS_MERGED;
 	}
 	/* Files deleted by plain delete (rm) or index/stage delete (git rm) */

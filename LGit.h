@@ -71,8 +71,11 @@ int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
 BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);
 int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz);
 UINT LGitGitToWindowsCodepage(const char *encoding);
+const char *LGitRepoStateString(int state);
+const char *LGitBranchType(git_branch_t type);
 
 /* checkout.cpp */
+SCCRTN LGitCheckoutRefByName(LGitContext *ctx,  HWND hwnd, const char *name);
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
@@ -90,7 +93,9 @@ SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd);
 
 /* merge.cpp */
 SCCRTN LGitMergeFastForward(LGitContext *ctx, HWND hwnd, const git_oid *target_oid, BOOL is_unborn);
-SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, git_annotated_commit *ac, git_merge_preference_t preference);
+SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, const git_annotated_commit *ac, git_merge_preference_t preference);
+SCCRTN LGitMerge(LGitContext *ctx, HWND hwnd, const git_annotated_commit *ann);
+SCCRTN LGitMergeRefByName(LGitContext *ctx, HWND hwnd, const char *name);
 SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index);
 
 /* clone.cpp */
@@ -130,6 +135,9 @@ BOOL LGitProgressSet(LGitContext *ctx, ULONGLONG x, ULONGLONG outof);
 BOOL LGitProgressText(LGitContext *ctx, const char *text, int line);
 BOOL LGitProgressCancelled(LGitContext *ctx);
 void LGitInitCheckoutProgressCallback(LGitContext *ctx, git_checkout_options *co_opts);
+
+/* branch.cpp */
+SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd);
 
 /* remote.cpp */
 SCCRTN LGitShowRemoteManager(LGitContext *ctx, HWND hwnd);

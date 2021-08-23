@@ -8,14 +8,18 @@ typedef struct _LGitPropsDialogParams {
 	LGitContext *ctx;
 	unsigned int flags;
 	const char *path, *full_path;
+	const git_index_entry *entry;
 } LGitPropsDialogParams;
 
-static void FillProps(HWND hwnd, LGitPropsDialogParams *params)
+static void FillGeneral(HWND hwnd, LGitPropsDialogParams *params)
 {
-	char title[256];
-	_snprintf(title, 256, "Properties for %s", params->path);
-	SetWindowText(hwnd, title);
+	if (params->entry == NULL) {
+		return;
+	}
+}
 
+static void FillStatus(HWND hwnd, LGitPropsDialogParams *params)
+{
 	/* Metaprogramming! */
 #define LGIT_CHECK_PROPS_FLAG(flag) if(params->flags & GIT_STATUS_##flag) \
 	CheckDlgButton(hwnd, IDC_STATUS_##flag, BST_CHECKED);
@@ -38,6 +42,25 @@ static void FillProps(HWND hwnd, LGitPropsDialogParams *params)
 	/* XXX: Do we display properties for the last commit? History covers it? */
 }
 
+static BOOL CALLBACK StatusDialogProc(HWND hwnd,
+									  unsigned int iMsg,
+									  WPARAM wParam,
+									  LPARAM lParam)
+{
+	LGitPropsDialogParams *param;
+	PROPSHEETPAGE *psp;
+	switch (iMsg) {
+	case WM_INITDIALOG:
+		psp = (PROPSHEETPAGE*)lParam;
+		param = (LGitPropsDialogParams*)psp->lParam;
+		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		FillStatus(hwnd, param);
+		return TRUE;
+	default:
+		return FALSE;
+	}
+}
+
 static void ShowSysFileProperties(const char *fullpath)
 {
 	SHELLEXECUTEINFO info;
@@ -53,25 +76,46 @@ static void ShowSysFileProperties(const char *fullpath)
 	ShellExecuteEx(&info);
 }
 
-static BOOL CALLBACK PropsDialogProc(HWND hwnd,
-									 unsigned int iMsg,
-									 WPARAM wParam,
-									 LPARAM lParam)
+static void UpdateFileInfo(HWND hwnd, LGitPropsDialogParams *params)
+{
+	const char *type = "Unknown";
+	uint32_t mode = -1;
+	if (params->entry == NULL) {
+		type = "No stage entry";
+		goto fin;
+	}
+	mode = params->entry->mode;
+	LGitLog(" ! Mode is %x/%o", mode, mode);
+	if ((mode & 0xE000) == 0xE000) {
+		type = "Gitlink";
+	} else if ((mode & 0xA000) == 0xA000) {
+		type = "Symlink";
+	} else if ((mode & 0x8000) == 0x8000) {
+		type = (mode & 0111)
+			? "Executable file"
+			: "File";
+	}
+fin:
+	SetDlgItemText(hwnd, IDC_FILEPROPS_STAGE_TYPE, type);
+}
+
+static BOOL CALLBACK GeneralDialogProc(HWND hwnd,
+									   unsigned int iMsg,
+									   WPARAM wParam,
+									   LPARAM lParam)
 {
 	LGitPropsDialogParams *param;
+	PROPSHEETPAGE *psp;
 	switch (iMsg) {
 	case WM_INITDIALOG:
-		param = (LGitPropsDialogParams*)lParam;
+		psp = (PROPSHEETPAGE*)lParam;
+		param = (LGitPropsDialogParams*)psp->lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
-		FillProps(hwnd, param);
+		UpdateFileInfo(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitPropsDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
-		case IDOK:
-		case IDCANCEL:
-			EndDialog(hwnd, 1);
-			return TRUE;
 		case IDC_FILESYSPROPS:
 			ShowSysFileProperties(param->full_path);
 			return TRUE;
@@ -80,6 +124,19 @@ static BOOL CALLBACK PropsDialogProc(HWND hwnd,
 	default:
 		return FALSE;
 	}
+}
+
+static BOOL CALLBACK PropSheetProc(HWND hwnd,
+								   unsigned int iMsg,
+								   LPARAM lParam)
+{
+	/* Just hide the OK button since we have nothing on the file to change */
+	if (iMsg == PSCB_INITIALIZED) {
+		ShowWindow(GetDlgItem(hwnd, IDOK), SW_HIDE);
+		SetWindowText(GetDlgItem(hwnd, IDCANCEL), "Close");
+		return TRUE;
+	}
+	return FALSE;
 }
 
 SCCRTN SccProperties (LPVOID context, 
@@ -117,21 +174,51 @@ SCCRTN SccProperties (LPVOID context,
 		return SCC_E_NONSPECIFICERROR;
 	}
 
+	/* Get the index entry in case it turns out to be useful */
+	git_index *index = NULL;
+	if (git_repository_index(&index, ctx->repo) != 0) {
+		LGitLibraryError(hWnd, "git_repository_index");
+		return SCC_E_NONSPECIFICERROR;
+	}
+
 	params.ctx = ctx;
 	params.path = path;
 	params.full_path = lpFileName;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_FILEPROPS),
-		hWnd,
-		PropsDialogProc,
-		(LPARAM)&params)) {
-	case 0:
-	case -1:
-		LGitLog(" ! Uh-oh, dialog error\n");
-		return SCC_E_NONSPECIFICERROR;
-	default:
-		break;
-	}
+	params.entry = git_index_get_bypath(index, path, 0);
+	LGitLog(" ! Param %p\n", &params);
 
+	PROPSHEETPAGE psp[2];
+	ZeroMemory(&psp[0], sizeof(PROPSHEETPAGE));
+	psp[0].dwSize = sizeof(PROPSHEETPAGE);
+	psp[0].hInstance = ctx->dllInst;
+	psp[0].pszTemplate = MAKEINTRESOURCE(IDD_FILEPROPS_FILE);
+	psp[0].pfnDlgProc = GeneralDialogProc;
+	psp[0].lParam = (LPARAM)&params;
+	ZeroMemory(&psp[1], sizeof(PROPSHEETPAGE));
+	psp[1].dwSize = sizeof(PROPSHEETPAGE);
+	psp[1].hInstance = ctx->dllInst;
+	psp[1].pszTemplate = MAKEINTRESOURCE(IDD_FILEPROPS_STATUS);
+	psp[1].pfnDlgProc = StatusDialogProc;
+	psp[1].lParam = (LPARAM)&params;
+	PROPSHEETHEADER psh;
+	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
+	psh.dwSize = sizeof(PROPSHEETHEADER);
+	psh.dwFlags =  PSH_PROPSHEETPAGE
+		| PSH_NOAPPLYNOW
+		| PSH_PROPTITLE
+		| PSH_NOCONTEXTHELP
+		| PSH_USECALLBACK;
+	psh.pfnCallback = PropSheetProc;
+	psh.hwndParent = hWnd;
+	psh.hInstance = ctx->dllInst;
+	psh.pszCaption = path;
+	psh.nPages = 2;
+	psh.ppsp = psp;
+
+	PropertySheet(&psh);
+
+	if (index != NULL) {
+		git_index_free(index);
+	}
 	return SCC_OK;
 }

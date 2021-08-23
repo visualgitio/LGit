@@ -63,3 +63,46 @@ const char* LGitCommandName(enum SCCCOMMAND command)
 		return "Unknown";
 	}
 }
+
+const char *LGitRepoStateString(int state)
+{
+	switch (state) {
+	/* much of this is irrelevant for us */
+	case GIT_REPOSITORY_STATE_NONE:
+		return "None";
+	case GIT_REPOSITORY_STATE_MERGE:
+		return "Merging";
+	case GIT_REPOSITORY_STATE_REVERT:
+		return "Reverting";
+	case GIT_REPOSITORY_STATE_REVERT_SEQUENCE:
+		return "Reverting Sequence";
+	case GIT_REPOSITORY_STATE_CHERRYPICK:
+		return "Cherry-Picking";
+	case GIT_REPOSITORY_STATE_CHERRYPICK_SEQUENCE:
+		return "Cherry-Picking Sequence";
+	case GIT_REPOSITORY_STATE_BISECT:
+		return "Bisecting";
+	case GIT_REPOSITORY_STATE_REBASE:
+		return "Rebasing";
+	case GIT_REPOSITORY_STATE_REBASE_INTERACTIVE:
+		return "Interactively Rebasing";
+	case GIT_REPOSITORY_STATE_REBASE_MERGE:
+		return "Rebase Merging";
+	case GIT_REPOSITORY_STATE_APPLY_MAILBOX:
+		return "Applying Mailbox";
+	case GIT_REPOSITORY_STATE_APPLY_MAILBOX_OR_REBASE:
+		return "Applying Mailbox/Rebasing";
+	default:
+		return "Unknown";
+	}
+}
+
+const char *LGitBranchType(git_branch_t type)
+{
+	switch (type) {
+	case GIT_BRANCH_LOCAL: return "Local";
+	case GIT_BRANCH_REMOTE: return "Remote";
+	case GIT_BRANCH_ALL: return "All";
+	default: return "Unknown";
+	}
+}

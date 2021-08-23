@@ -66,12 +66,13 @@ SCCRTN LGitMergeFastForward(LGitContext *ctx, HWND hwnd, const git_oid *target_o
 	LGitProgressInit(ctx, "Fast-Forward", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
 	err = git_checkout_tree(ctx->repo, target, &ff_checkout_options);
+	LGitProgressDeinit(ctx);
 	if (err != 0) {
+		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "failed to checkout HEAD reference");
 		ret = SCC_E_UNKNOWNERROR;
 		goto fin;
 	}
-	LGitProgressDeinit(ctx);
 
 	/* Move the target reference to the target OID */
 	err = git_reference_set_target(&new_target_ref, target_ref, target_oid, NULL);
@@ -93,7 +94,7 @@ fin:
 	return ret;
 }
 
-SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, git_annotated_commit *ac, git_merge_preference_t preference)
+SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, const git_annotated_commit *ac, git_merge_preference_t preference)
 {
 	LGitLog("**LGitMergeNormal** Context=%p\n", ctx);
 	/* adapted from perform_fastforward in examples/merge.c */
@@ -128,6 +129,94 @@ SCCRTN LGitMergeNormal(LGitContext *ctx, HWND hwnd, git_annotated_commit *ac, gi
 	}
 
 	return SCC_OK;
+}
+
+SCCRTN LGitMerge(LGitContext *ctx, HWND hwnd, const git_annotated_commit *ann)
+{
+	SCCRTN ret = SCC_OK;
+	git_merge_analysis_t merge_analysis;
+	git_merge_preference_t merge_preference;
+	git_index *index = NULL;
+	int repo_state;
+	LGitLog("**LGitMerge** Context=%p\n", ctx);
+	LGitLog("  annotated commit %p\n", ann);
+
+	repo_state = git_repository_state(ctx->repo);
+	LGitLog("! Repo state %d\n", repo_state);
+	if (GIT_REPOSITORY_STATE_NONE != repo_state) {
+		MessageBox(hwnd,
+			"The repository is in an unknown state; another operation may be in progress.",
+			"Invalid Repo State",
+			MB_ICONERROR);
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	if (git_merge_analysis(&merge_analysis,
+		&merge_preference,
+		ctx->repo,
+		&ann, 1) != 0) {
+		LGitLibraryError(hwnd, "git_merge_analysis");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	LGitLog(" ! Analysis %x Preference %x\n", merge_analysis, merge_preference);
+	/* XXX: Do we need to provide file scope for SccGet to make sense? */
+	if (merge_analysis & GIT_MERGE_ANALYSIS_UP_TO_DATE) {
+		/* nothing to do */
+		goto fin;
+	} else if (merge_analysis & GIT_MERGE_ANALYSIS_FASTFORWARD) {
+		/* just set our branch then checkout */
+		const git_oid *target_oid = git_annotated_commit_id(ann);
+		LGitMergeFastForward(ctx,
+			hwnd,
+			target_oid,
+			merge_analysis & GIT_MERGE_ANALYSIS_UNBORN);
+	} else if (merge_analysis & GIT_MERGE_ANALYSIS_NORMAL) {
+		/* actually merge now */
+		LGitMergeNormal(ctx, hwnd, ann, merge_preference);
+	}
+	/* Check for conflicts now. */
+	if (git_repository_index(&index, ctx->repo) != 0) {
+		LGitLibraryError(hwnd, "git_merge_analysis");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	if (git_index_has_conflicts(index)) {
+		LGitShowMergeConflicts(ctx, hwnd, index);
+	} else {
+		/* XXX: if no conflicts, we can create a merge commit */
+		git_repository_state_cleanup(ctx->repo);
+	}
+fin:
+	if (index != NULL) {
+		git_index_free(index);
+	}
+	return ret;
+}
+
+SCCRTN LGitMergeRefByName(LGitContext *ctx, HWND hwnd, const char *name)
+{
+	SCCRTN ret = SCC_OK;
+	git_oid oid;
+	git_annotated_commit *ann = NULL;
+	LGitLog("**LGitMergeRefByName** Context=%p\n", ctx);
+	LGitLog("  name %s\n", name);
+	if (git_reference_name_to_id(&oid, ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "git_reference_name_to_id");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	if (git_annotated_commit_lookup(&ann, ctx->repo, &oid) != 0) {
+		LGitLibraryError(hwnd, "git_annotated_commit_lookup");
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	}
+	ret = LGitMerge(ctx, hwnd, ann);
+fin:
+	if (ann != NULL) {
+		git_annotated_commit_free(ann);
+	}
+	return ret;
 }
 
 typedef struct _LGitMergeConflictDialogParams {

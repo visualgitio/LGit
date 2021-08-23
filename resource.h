@@ -4,7 +4,7 @@
 //
 #define IDD_COMMITHISTORY               101
 #define IDD_DIFF                        102
-#define IDD_FILEPROPS                   103
+#define IDD_FILEPROPS_STATUS            103
 #define IDD_ADDFROM                     104
 #define IDI_LGIT                        105
 #define IDI_DIFF_FILE_A                 106
@@ -34,6 +34,9 @@
 #define IDD_ABOUT                       130
 #define IDD_GITCONFIG                   131
 #define IDD_CONFIG_EDIT                 132
+#define IDD_FILEPROPS_FILE              133
+#define IDD_BRANCHES                    134
+#define IDD_BRANCH_ADD                  135
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -92,7 +95,14 @@
 #define IDC_CONFIG_EDIT_VALUE           1049
 #define IDC_SIGNATURE_MAKE_DEFAULT      1050
 #define IDC_PULL_FETCH                  1051
-#define IDC_TAB1                        1052
+#define IDC_FILEPROPS_STAGE_TYPE        1058
+#define IDC_BRANCH_LIST                 1059
+#define IDC_BRANCH_ADD                  1060
+#define IDC_BRANCH_DELETE               1061
+#define IDC_BRANCH_ADD_NAME             1062
+#define IDC_BRANCH_CHECKOUT             1062
+#define IDC_BRANCH_ADD_FORCE            1063
+#define IDC_BRANCH_MERGE                1063
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -108,14 +118,15 @@
 #define ID_EXPLORER_REPOSITORY_REFRESH  40017
 #define ID_EXPLORER_CONFIG_REPOSITORY   40018
 #define ID_EXPLORER_CONFIG_GLOBAL       40019
+#define ID_EXPLORER_REPOSITORY_BRANCHES 40020
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        133
-#define _APS_NEXT_COMMAND_VALUE         40020
-#define _APS_NEXT_CONTROL_VALUE         1053
+#define _APS_NEXT_RESOURCE_VALUE        136
+#define _APS_NEXT_COMMAND_VALUE         40021
+#define _APS_NEXT_CONTROL_VALUE         1064
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

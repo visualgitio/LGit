@@ -25,11 +25,24 @@ static void GetHeadState(HWND hwnd, LGitExplorerParams *params, char *buf, size_
 		strlcpy(buf, "Error", bufsz);
 		return;
 	case 0:
-		ref = git_reference_shorthand(head);
+		/* A detached HEAD will result in a resolved HEAD with name of HEAD */
+		if (git_repository_head_detached(params->ctx->repo)) {
+			/* use commit ID */
+			git_oid commit_oid;
+			if (git_reference_name_to_id(&commit_oid, params->ctx->repo, "HEAD") != 0) {
+				LGitLibraryError(hwnd, "git_reference_name_to_id");
+				strlcpy(buf, "Error getting HEAD commit", bufsz);
+				goto err;
+			}
+			strlcpy(buf, "Detached, ", bufsz);
+			strlcat(buf, git_oid_tostr_s(&commit_oid), bufsz);
+		} else {
+			ref = git_reference_shorthand(head);
+			strlcpy(buf, ref == NULL ? "HEAD without branch" : ref, bufsz);
+		}
 		break;
 	}
-	/* XXX: Is some fallback possible? (i.e. OID) */
-	strlcpy(buf, ref == NULL ? "HEAD without branch" : ref, bufsz);
+err:
 	if (head != NULL) {
 		git_reference_free(head);
 	}
@@ -39,14 +52,22 @@ static void RefreshExplorer(HWND hwnd, LGitExplorerParams *params)
 {
 	char newTitle[512];
 	if (params->ctx->active && params->ctx->repo != NULL) {
-		char head[64];
+		char head[64], state_msg[32];
+		int state = git_repository_state(params->ctx->repo);
+		if (state != GIT_REPOSITORY_STATE_NONE) {
+			strlcpy(state_msg, ", ", 32);
+			strlcat(state_msg, LGitRepoStateString(state), 32);
+		} else {
+			strlcpy(state_msg, "", 32);
+		}
 		GetHeadState(hwnd, params, head, 64);
 		_snprintf(newTitle, 512,
-			"Repository Explorer - (%s) %s",
+			"(%s%s) %s",
 			head,
+			state_msg,
 			params->ctx->workdir_path);
 	} else {
-		strlcpy(newTitle, "Repository Explorer - (no repo)", 512);
+		strlcpy(newTitle, "(no repo)", 512);
 	}
 	SetWindowText(hwnd, newTitle);
 }
@@ -55,6 +76,11 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 {
 	switch (cmd) {
 	case ID_EXPLORER_REPOSITORY_REFRESH:
+		RefreshExplorer(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_REPOSITORY_BRANCHES:
+		LGitShowBranchManager(params->ctx, hwnd);
+		/* operations here can cause i.e. checkouts */
 		RefreshExplorer(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_HISTORY:
@@ -111,6 +137,7 @@ static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 		| (params->ctx->active ? MF_ENABLED : MF_GRAYED);
 #define EnableMenuItemIfInRepo(id) EnableMenuItem(params->menu,id,newState)
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_HISTORY);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PUSH);

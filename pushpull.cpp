@@ -22,24 +22,10 @@ static SCCRTN LGitPullMerge(LGitContext *ctx, HWND hwnd)
 {
 	SCCRTN ret = SCC_OK;
 	git_oid oid;
-	git_merge_analysis_t merge_analysis;
-	git_merge_preference_t merge_preference;
 	git_annotated_commit *ann_remote_head = NULL;
-	git_index *index = NULL;
-	int repo_state, rc;
+	int rc;
 	LGitLog("**LGitPullMerge** Context=%p\n", ctx);
 
-	/* merge HEAD with FETCH_HEAD. maybe git_repository_fetchhead_foreach? */
-	repo_state = git_repository_state(ctx->repo);
-	LGitLog("! Repo state %d\n", repo_state);
-	if (GIT_REPOSITORY_STATE_NONE != repo_state) {
-		MessageBox(hwnd,
-			"The repository is in an unknown state; another operation may be in progress.",
-			"Invalid Repo State",
-			MB_ICONERROR);
-		ret = SCC_E_UNKNOWNERROR;
-		goto fin;
-	}
 	/* XXX: Can this return multiple? */
 	rc = git_repository_fetchhead_foreach(ctx->repo, FetchHeadForeach, &oid);
 	switch (rc) {
@@ -59,46 +45,8 @@ static SCCRTN LGitPullMerge(LGitContext *ctx, HWND hwnd)
 		ret = SCC_E_UNKNOWNERROR;
 		goto fin;
 	}
-	if (git_merge_analysis(&merge_analysis,
-		&merge_preference,
-		ctx->repo,
-		(const git_annotated_commit**)&ann_remote_head, 1) != 0) {
-		LGitLibraryError(hwnd, "git_merge_analysis");
-		ret = SCC_E_UNKNOWNERROR;
-		goto fin;
-	}
-	LGitLog(" ! Analysis %x Preference %x\n", merge_analysis, merge_preference);
-	/* XXX: Do we need to provide file scope for SccGet to make sense? */
-	if (merge_analysis & GIT_MERGE_ANALYSIS_UP_TO_DATE) {
-		/* nothing to do */
-		goto fin;
-	} else if (merge_analysis & GIT_MERGE_ANALYSIS_FASTFORWARD) {
-		/* just set our branch then checkout */
-		const git_oid *target_oid = git_annotated_commit_id(ann_remote_head);
-		LGitMergeFastForward(ctx,
-			hwnd,
-			target_oid,
-			merge_analysis & GIT_MERGE_ANALYSIS_UNBORN);
-	} else if (merge_analysis & GIT_MERGE_ANALYSIS_NORMAL) {
-		/* actually merge now */
-		LGitMergeNormal(ctx, hwnd, ann_remote_head, merge_preference);
-	}
-	/* Check for conflicts now. */
-	if (git_repository_index(&index, ctx->repo) != 0) {
-		LGitLibraryError(hwnd, "git_merge_analysis");
-		ret = SCC_E_UNKNOWNERROR;
-		goto fin;
-	}
-	if (git_index_has_conflicts(index)) {
-		LGitShowMergeConflicts(ctx, hwnd, index);
-	} else {
-		/* XXX: if no conflicts, we can create a merge commit */
-		git_repository_state_cleanup(ctx->repo);
-	}
+	ret = LGitMerge(ctx, hwnd, ann_remote_head);
 fin:
-	if (index != NULL) {
-		git_index_free(index);
-	}
 	if (ann_remote_head != NULL) {
 		git_annotated_commit_free(ann_remote_head);
 	}
