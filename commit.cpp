@@ -4,10 +4,10 @@
 
 #include "stdafx.h"
 
-static SCCRTN LGitCommitIndex(HWND hWnd,
-							  LGitContext *ctx,
-							  git_index *index,
-							  LPCSTR lpComment)
+SCCRTN LGitCommitIndex(HWND hWnd,
+					   LGitContext *ctx,
+					   git_index *index,
+					   LPCSTR lpComment)
 {
 	git_oid commit_oid,tree_oid;
 	git_tree *tree = NULL;
@@ -45,7 +45,7 @@ static SCCRTN LGitCommitIndex(HWND hWnd,
 		goto fin;
 	}
 	if (git_index_write(index) != 0) {
-		LGitLibraryError(hWnd, "Commit (writing tree from index)");
+		LGitLibraryError(hWnd, "Commit (writing index)");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}

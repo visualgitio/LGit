@@ -76,6 +76,8 @@
 #include <git2/branch.h>
 #include <git2/merge.h>
 #include <git2/config.h>
+#include <git2/revert.h>
+#include <git2/reset.h>
 
 // our own stuff, after the prereqs
 #include "resource.h"

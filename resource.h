@@ -103,6 +103,10 @@
 #define IDC_BRANCH_CHECKOUT             1062
 #define IDC_BRANCH_ADD_FORCE            1063
 #define IDC_BRANCH_MERGE                1063
+#define IDC_BRANCH_HISTORY              1064
+#define IDC_BRANCH_ADD_BASED_ON         1064
+#define IDC_BRANCH_ADD_CHECKOUT         1065
+#define IDC_BRANCH_DIFF                 1066
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -119,14 +123,17 @@
 #define ID_EXPLORER_CONFIG_REPOSITORY   40018
 #define ID_EXPLORER_CONFIG_GLOBAL       40019
 #define ID_EXPLORER_REPOSITORY_BRANCHES 40020
+#define ID_HISTORY_COMMIT_CHECKOUT      40021
+#define ID_HISTORY_COMMIT_REVERT        40022
+#define ID_HISTORY_COMMIT_RESET_HARD    40024
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        136
-#define _APS_NEXT_COMMAND_VALUE         40021
-#define _APS_NEXT_CONTROL_VALUE         1064
+#define _APS_NEXT_COMMAND_VALUE         40025
+#define _APS_NEXT_CONTROL_VALUE         1065
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

@@ -122,6 +122,48 @@ err:
 }
 
 /**
+ * This takes an OID that should be peeled to a tree, like a commit.
+ */
+SCCRTN LGitCheckoutTree(LGitContext *ctx,
+						HWND hwnd,
+						const git_oid *commit_oid)
+{
+	LGitLog("**LGitCheckoutTree** Context=%p\n", ctx);
+	LGitLog("  oid %s\n", git_oid_tostr_s(commit_oid));
+	SCCRTN ret = SCC_E_NONSPECIFICERROR;
+	git_commit *commit = NULL;
+	git_checkout_options co_opts;
+	if (git_commit_lookup(&commit, ctx->repo, commit_oid) != 0) {
+		LGitLibraryError(hwnd, "git_commit_lookup");
+		goto err;
+	}
+	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
+	/* XXX: Allow setting force */
+	co_opts.checkout_strategy = GIT_CHECKOUT_SAFE;
+	/* Peeled to a tree */
+	LGitProgressInit(ctx, "Checking Out Files", 0);
+	LGitProgressStart(ctx, hwnd, TRUE);
+	if (git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "git_checkout_tree");
+		goto err;
+	}
+	if (git_repository_set_head_detached(ctx->repo, commit_oid) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "git_repository_set_head_detached");
+		goto err;
+	}
+	LGitProgressDeinit(ctx);
+	ret = SCC_OK;
+err:
+	if (commit != NULL) {
+		git_commit_free(commit);
+	}
+	return ret;
+}
+
+/**
  * This checkout emulates the SCC API semantics (list of files, use HEAD)
  */
 static SCCRTN LGitCheckoutInternal (LPVOID context, 

@@ -368,7 +368,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,129,69,50,14
     ICON            IDI_LGIT,IDC_STATIC,7,7,20,20
     LTEXT           "Visual Git",IDC_ABOUT_VERSION,33,7,146,20
-    LTEXT           "Copyright (c) Calvin Buckley 2021\r\n\r\nSpecial thanks to: A. Wilcox, Alin Constantin, Mark Laws",
+    LTEXT           "Copyright (c) Calvin Buckley 2021\r\n\r\nSpecial thanks to: A. Wilcox, Alin Constantin, Bartosz Milewski, Mark Laws",
                     IDC_STATIC,7,32,172,32
 END
 
@@ -425,6 +425,8 @@ BEGIN
     PUSHBUTTON      "&Remove",IDC_BRANCH_DELETE,62,180,50,14
     PUSHBUTTON      "&Checkout",IDC_BRANCH_CHECKOUT,117,180,50,14
     PUSHBUTTON      "&Merge",IDC_BRANCH_MERGE,172,180,50,14
+    PUSHBUTTON      "&History",IDC_BRANCH_HISTORY,228,180,50,14
+    PUSHBUTTON      "&Diff",IDC_BRANCH_DIFF,284,180,50,14
 END
 
 IDD_BRANCH_ADD DIALOG DISCARDABLE  0, 0, 254, 90
@@ -432,13 +434,18 @@ STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
 CAPTION "Add Branch"
 FONT 8, "MS Sans Serif"
 BEGIN
-    DEFPUSHBUTTON   "OK",IDOK,142,69,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,197,69,50,14
     LTEXT           "&Name",IDC_STATIC,7,7,33,14,SS_CENTERIMAGE
     EDITTEXT        IDC_BRANCH_ADD_NAME,40,7,207,14,ES_AUTOHSCROLL
+    LTEXT           "&Base on",IDC_STATIC,7,26,33,12,SS_CENTERIMAGE
+    COMBOBOX        IDC_BRANCH_ADD_BASED_ON,40,26,207,30,CBS_DROPDOWN | 
+                    CBS_SORT | WS_VSCROLL | WS_TABSTOP
+    CONTROL         "&Checkout after creation",IDC_BRANCH_ADD_CHECKOUT,
+                    "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,43,240,10
     CONTROL         "Overwrite if a branch by this name exists (&force)",
                     IDC_BRANCH_ADD_FORCE,"Button",BS_AUTOCHECKBOX | 
-                    WS_TABSTOP,7,26,240,10
+                    WS_TABSTOP,7,58,240,10
+    DEFPUSHBUTTON   "OK",IDOK,142,69,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,69,50,14
 END
 
 
@@ -730,6 +737,8 @@ BEGIN
         VERTGUIDE, 172
         VERTGUIDE, 222
         VERTGUIDE, 228
+        VERTGUIDE, 278
+        VERTGUIDE, 284
         TOPMARGIN, 7
         BOTTOMMARGIN, 194
     END
@@ -738,12 +747,17 @@ BEGIN
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 247
+        VERTGUIDE, 40
         VERTGUIDE, 192
         VERTGUIDE, 197
         TOPMARGIN, 7
         BOTTOMMARGIN, 83
         HORZGUIDE, 21
         HORZGUIDE, 26
+        HORZGUIDE, 38
+        HORZGUIDE, 43
+        HORZGUIDE, 53
+        HORZGUIDE, 58
     END
 END
 #endif    // APSTUDIO_INVOKED
@@ -781,6 +795,10 @@ BEGIN
     BEGIN
         MENUITEM "&Info",                       ID_HISTORY_COMMIT_INFO
         MENUITEM "&Diff",                       ID_HISTORY_COMMIT_DIFF
+        MENUITEM SEPARATOR
+        MENUITEM "&Checkout",                   ID_HISTORY_COMMIT_CHECKOUT
+        MENUITEM "Re&vert",                     ID_HISTORY_COMMIT_REVERT
+        MENUITEM "&Reset To",                   ID_HISTORY_COMMIT_RESET_HARD
     END
 END
 

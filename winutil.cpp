@@ -78,3 +78,26 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 	/* select the first item */
 	SendMessage(cb, CB_SETCURSEL, 0, 0);
 }
+
+void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
+{
+	const char *name;
+	size_t i;
+	LGitLog(" ! Getting references (ctx %p)\n", ctx);
+	git_strarray refs;
+	ZeroMemory(&refs, sizeof(git_strarray));
+	if (git_reference_list(&refs, ctx->repo) != 0) {
+		LGitLibraryError(parent, "git_reference_list");
+		return;
+	}
+	LGitLog(" ! Got back %d ref(s)\n", refs.count);
+	/* clean out in case of stale entries */
+	SendMessage(cb, CB_RESETCONTENT, 0, 0);
+	for (i = 0; i < refs.count; i++) {
+		name = refs.strings[i];
+		LGitLog(" ! Adding ref %s\n", name);
+		SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)name);
+	}
+	git_strarray_dispose(&refs);
+	/* Unlike remotes, don't necessarily select first, could use HEAD */
+}

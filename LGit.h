@@ -76,9 +76,20 @@ const char *LGitBranchType(git_branch_t type);
 
 /* checkout.cpp */
 SCCRTN LGitCheckoutRefByName(LGitContext *ctx,  HWND hwnd, const char *name);
+SCCRTN LGitCheckoutTree(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
+
+/* commit.cpp */
+SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
+
+/* revert.cpp */
+SCCRTN LGitRevertCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
+SCCRTN LGitResetToCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid, BOOL hard);
+
+/* history.cpp */
+SCCRTN LGitHistoryForRefByName(LPVOID context, HWND hWnd, const char *ref);
 
 /* pushpull.cpp */
 typedef enum _LGitPullStrategy {
@@ -157,6 +168,7 @@ size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t dsize);
 
 /* winutil.cpp */
 void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
+void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx);
 BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
 

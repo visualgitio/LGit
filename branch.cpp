@@ -7,18 +7,25 @@
 typedef struct _LGitAddBranchDialogParams {
 	LGitContext *ctx;
 	char new_name[128];
-	BOOL force;
+	char based_on[128];
+	BOOL force, checkout;
 } LGitAddBranchDialogParams;
 
 static void InitBranchAddView(HWND hwnd, LGitAddBranchDialogParams* params)
 {
 	SetDlgItemText(hwnd, IDC_BRANCH_ADD_NAME, params->new_name);
+	/* yeah, we should load it from the struct... */
+	HWND ref_cb = GetDlgItem(hwnd, IDC_BRANCH_ADD_BASED_ON);
+	LGitPopulateReferenceComboBox(hwnd, ref_cb, params->ctx);
+	SetDlgItemText(hwnd, IDC_BRANCH_ADD_BASED_ON, "HEAD");
 	CheckDlgButton(hwnd, IDC_BRANCH_ADD_FORCE, params->force ? BST_CHECKED : BST_UNCHECKED);
+	CheckDlgButton(hwnd, IDC_BRANCH_ADD_CHECKOUT, params->checkout ? BST_CHECKED : BST_UNCHECKED);
 }
 
 static BOOL SetBranchAddParams(HWND hwnd, LGitAddBranchDialogParams* params)
 {
 	GetDlgItemText(hwnd, IDC_BRANCH_ADD_NAME, params->new_name, 128);
+	GetDlgItemText(hwnd, IDC_BRANCH_ADD_BASED_ON, params->based_on, 128);
 	int valid = 0;
 	/* if there's an error, then if it's valid */
 	if (git_branch_name_is_valid(&valid, params->new_name) != 0) {
@@ -32,7 +39,30 @@ static BOOL SetBranchAddParams(HWND hwnd, LGitAddBranchDialogParams* params)
 			MB_ICONWARNING);
 		return FALSE;
 	}
+	/* check if the reference exists */
+	git_reference *ref = NULL;
+	switch (git_reference_lookup(&ref, params->ctx->repo, params->based_on)) {
+	case GIT_ENOTFOUND:
+		MessageBox(hwnd,
+			"The reference name to base off of doesn't exist.",
+			"Invalid Reference Name",
+			MB_ICONWARNING);
+		return FALSE;
+	case GIT_EINVALIDSPEC:
+		MessageBox(hwnd,
+			"The reference name to base off of is invalid.",
+			"Invalid Reference Name",
+			MB_ICONWARNING);
+		return FALSE;
+	case 0:
+		git_reference_free(ref);
+		break;
+	default:
+		LGitLibraryError(hwnd, "git_reference_lookup");
+		return FALSE;
+	}
 	params->force = IsDlgButtonChecked(hwnd, IDC_BRANCH_ADD_FORCE) == BST_CHECKED;
+	params->checkout = IsDlgButtonChecked(hwnd, IDC_BRANCH_ADD_CHECKOUT) == BST_CHECKED;
 	return TRUE;
 }
 
@@ -195,6 +225,56 @@ static void BranchMerge(HWND hwnd, LGitBranchDialogParams* params)
 	}
 }
 
+static void BranchHistory(HWND hwnd, LGitBranchDialogParams* params)
+{
+	char name[128];
+	if (!GetSelectedBranch(hwnd, name, 128)) {
+		LGitLog(" ! No branch?\n");
+		return;
+	}
+	LGitLog(" ! History for %s\n", name);
+	LGitHistoryForRefByName(params->ctx, hwnd, name);
+}
+
+static void BranchDiff(HWND hwnd, LGitBranchDialogParams* params)
+{
+	char name[128];
+	if (!GetSelectedBranch(hwnd, name, 128)) {
+		LGitLog(" ! No branch?\n");
+		return;
+	}
+	LGitLog(" ! Diff for HEAD->%s?\n", name);
+	git_diff_options diffopts;
+	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	git_commit *head = NULL, *selected = NULL;
+	git_oid head_oid, selected_oid;
+	if (git_reference_name_to_id(&head_oid, params->ctx->repo, "HEAD") != 0) {
+		LGitLibraryError(hwnd, "HEAD git_reference_name_to_id");
+		goto fin;
+	}
+	if (git_reference_name_to_id(&selected_oid, params->ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "Selected git_reference_name_to_id");
+		goto fin;
+	}
+	if (git_commit_lookup(&head, params->ctx->repo, &head_oid) != 0) {
+		LGitLibraryError(hwnd, "HEAD git_commit_lookup");
+		goto fin;
+	}
+	if (git_commit_lookup(&selected, params->ctx->repo, &selected_oid) != 0) {
+		LGitLibraryError(hwnd, "Selected git_commit_lookup");
+		goto fin;
+	}
+	/* We'll compare this commit against HEAD... */
+	LGitCommitToCommitDiff(params->ctx, hwnd, selected, head, &diffopts);
+fin:
+	if (head != NULL) {
+		git_commit_free(head);
+	}
+	if (selected != NULL) {
+		git_commit_free(selected);
+	}
+}
+
 static void BranchRemove(HWND hwnd, LGitBranchDialogParams* params)
 {
 	char name[128];
@@ -249,13 +329,14 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 	git_reference *branch = NULL;
 	git_oid commit_oid;
 	git_commit *commit = NULL;
+	const char *branch_name;
 	int rc;
 	/*
 	 * We need the commit of the branch to base off of; assume HEAD for now.
 	 * XXX: Is it safe to make a branch without a commit (unborn); if so, just
 	 * skip the init here and go to the branch create call.
 	 */
-	if (git_reference_name_to_id(&commit_oid, params->ctx->repo, "HEAD") != 0) {
+	if (git_reference_name_to_id(&commit_oid, params->ctx->repo, ab_params.based_on) != 0) {
 		LGitLibraryError(hwnd, "git_reference_name_to_id");
 		goto err;
 	}
@@ -286,6 +367,13 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 	default:
 		LGitLibraryError(hwnd, "git_branch_create");
 		goto err;
+	}
+	branch_name = git_reference_name(branch);
+	if (ab_params.checkout) {
+		if (LGitCheckoutRefByName(params->ctx, hwnd, branch_name) != SCC_OK) {
+			/* it'll handle messages for us */
+			goto err;
+		}
 	}
 	/* XXX: Should we check out after? */
 	FillBranchView(hwnd, params);
@@ -388,6 +476,12 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 			return TRUE;
 		case IDC_BRANCH_MERGE:
 			BranchMerge(hwnd, param);
+			return TRUE;
+		case IDC_BRANCH_HISTORY:
+			BranchHistory(hwnd, param);
+			return TRUE;
+		case IDC_BRANCH_DIFF:
+			BranchDiff(hwnd, param);
 			return TRUE;
 		case IDOK:
 		case IDCANCEL:

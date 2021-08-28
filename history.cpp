@@ -24,6 +24,7 @@ static LVCOLUMNW oid_column = {
  */
 typedef struct _LGitHistoryDialogParams {
 	LGitContext *ctx;
+	const char *ref; /* NULL is head */
 	git_revwalk *walker;
 	git_pathspec *ps;
 	git_diff_options *diffopts;
@@ -42,8 +43,10 @@ static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
 	SetMenu(hwnd, params->menu);
 	char title[256];
 	/* XXX: Load string resources */
-	if (params->path_count == 0) {
+	if (params->path_count == 0 && params->ref == NULL) {
 		_snprintf(title, 256, "Commit History for Repository");
+	} else if (params->path_count == 0) {
+		_snprintf(title, 256, "Commit History for %s", params->ref);
 	} else if (params->path_count == 1) {
 		_snprintf(title, 256, "Commit History for %s", params->paths[0]);
 	} else {
@@ -134,6 +137,8 @@ static BOOL FillHistoryListView(HWND hwnd,
 	git_diff_options *diffopts = param->diffopts;
 
 	lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	/* clear if we're replenishing */
+	ListView_DeleteAllItems(lv);
 
 	/*
 	 * We can only get the revision count by walking it like we're doing now,
@@ -274,7 +279,6 @@ static void ShowSelectedCommitInfo(HWND hwnd, LGitHistoryDialogParams *params)
 	if (selected == -1) {
 		return;
 	}
-	/* get the OID as a string then convert */
 	char oid_s[80];
 	ListView_GetItemText(lv, selected, 0, oid_s, 80);
 	git_oid oid;
@@ -282,7 +286,6 @@ static void ShowSelectedCommitInfo(HWND hwnd, LGitHistoryDialogParams *params)
 		LGitLibraryError(hwnd, "git_oid_fromstr");
 		return;
 	}
-	/* now try to find the parent to make a diff from */
 	git_commit *commit = NULL;
 	if (git_commit_lookup(&commit, params->ctx->repo, &oid) != 0) {
 		LGitLibraryError(hwnd, "git_commit_lookup");
@@ -291,18 +294,89 @@ static void ShowSelectedCommitInfo(HWND hwnd, LGitHistoryDialogParams *params)
 	LGitViewCommitInfo(params->ctx, hwnd, commit);
 }
 
+static void CheckoutSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	if (MessageBox(hwnd,
+		"Are you sure you want to check out this commit? It will detach the HEAD.",
+		"Checkout Commit?",
+		MB_ICONQUESTION | MB_YESNO) == IDNO) {
+		return;
+	}
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	LGitCheckoutTree(params->ctx, hwnd, &oid);
+}
+
+static void RevertSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	if (LGitRevertCommit(params->ctx, hwnd, &oid) == SCC_OK) {
+		/* History may be mutated */
+		FillHistoryListView(hwnd, params, params->path_count == 0);
+	}
+}
+
+static void ResetSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params, BOOL hard)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	if (LGitResetToCommit(params->ctx, hwnd, &oid, hard) == SCC_OK) {
+		/* History may be mutated */
+		FillHistoryListView(hwnd, params, params->path_count == 0);
+	}
+}
+
 static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
 	UINT selected = ListView_GetSelectedCount(lv);
 	UINT newState = MF_BYCOMMAND
 		| (selected ? MF_ENABLED : MF_GRAYED);
-	EnableMenuItem(params->menu,
-		ID_HISTORY_COMMIT_DIFF,
-		newState);
-	EnableMenuItem(params->menu,
-		ID_HISTORY_COMMIT_INFO,
-		newState);
+#define EnableMenuItemIfCommitSelected(id) EnableMenuItem(params->menu,id,newState)
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_DIFF);
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_INFO);
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_CHECKOUT);
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_REVERT);
 }
 
 static void ResizeHistoryDialog(HWND hwnd)
@@ -363,6 +437,15 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		case ID_HISTORY_COMMIT_INFO:
 			ShowSelectedCommitInfo(hwnd, param);
 			return TRUE;
+		case ID_HISTORY_COMMIT_CHECKOUT:
+			CheckoutSelectedCommit(hwnd, param);
+			return TRUE;
+		case ID_HISTORY_COMMIT_REVERT:
+			RevertSelectedCommit(hwnd, param);
+			return TRUE;
+		case ID_HISTORY_COMMIT_RESET_HARD:
+			ResetSelectedCommit(hwnd, param, TRUE);
+			return TRUE;
 		case ID_HISTORY_CLOSE:
 		case IDOK:
 		case IDCANCEL:
@@ -390,17 +473,15 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 	}
 }
 
-/*
- * Note that this takes a list of files; we only should grab the commits
- * relevant for those files.
- */
-SCCRTN SccHistory (LPVOID context, 
-				   HWND hWnd, 
-				   LONG nFiles, 
-				   LPCSTR* lpFileNames, 
-				   LONG dwFlags,
-				   LPCMDOPTS pvOptions)
+static SCCRTN LGitHistoryInternal(LGitContext *ctx,
+								  HWND hWnd, 
+								  LONG nFiles, 
+								  LPCSTR* lpFileNames, 
+								  LONG dwFlags,
+								  LPCMDOPTS pvOptions,
+								  const char *ref)
 {
+
 	SCCRTN ret = SCC_OK;
 	git_diff_options diffopts;
 	git_pathspec *ps = NULL;
@@ -409,44 +490,42 @@ SCCRTN SccHistory (LPVOID context,
 	LGitHistoryDialogParams params;
 	ZeroMemory(&params, sizeof(LGitHistoryDialogParams));
 
-	int i, path_count;
-	const char *raw_path;
-	char **paths = NULL;
-	LGitContext *ctx = (LGitContext*)context;
-
-	LGitLog("**SccHistory** Context=%p\n", context);
-	LGitLog("  files %d\n", nFiles);
-	LGitLog("  flags %x\n", dwFlags);
-
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
-	paths = (char**)calloc(sizeof(char*), nFiles);
-	if (paths == NULL) {
-		return SCC_E_NONSPECIFICERROR;
-	}
-	path_count = 0;
-	for (i = 0; i < nFiles; i++) {
-		char *path;
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
-		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
-			continue;
+	char **paths = NULL;
+	int i, path_count;
+	if (nFiles > 0) {
+		const char *raw_path;
+		paths = (char**)calloc(sizeof(char*), nFiles);
+		if (paths == NULL) {
+			return SCC_E_NONSPECIFICERROR;
 		}
-		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
-		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    %s\n", path);
-		paths[path_count++] = path;
-	}
+		path_count = 0;
+		for (i = 0; i < nFiles; i++) {
+			char *path;
+			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+			if (raw_path == NULL) {
+				LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+				continue;
+			}
+			/* Translate because libgit2 operates with forward slashes */
+			path = strdup(raw_path);
+			LGitTranslateStringChars(path, '\\', '/');
+				LGitLog("    %s\n", path);
+			paths[path_count++] = path;
+		}
 
-	diffopts.pathspec.strings = paths;
-	diffopts.pathspec.count	  = path_count;
-	if (path_count > 0) {
-		if (git_pathspec_new(&ps, &diffopts.pathspec) != 0) {
-			LGitLibraryError(hWnd, "SccHistory git_pathspec_new");
-			ret = SCC_E_NONSPECIFICERROR;
-			goto fin;
+		diffopts.pathspec.strings = paths;
+		diffopts.pathspec.count	  = path_count;
+		if (path_count > 0) {
+			if (git_pathspec_new(&ps, &diffopts.pathspec) != 0) {
+				LGitLibraryError(hWnd, "SccHistory git_pathspec_new");
+				ret = SCC_E_NONSPECIFICERROR;
+				goto fin;
+			}
 		}
+		params.paths = paths;
+		params.path_count = path_count;
 	}
 
 	if (git_revwalk_new(&walker, ctx->repo) != 0) {
@@ -454,7 +533,12 @@ SCCRTN SccHistory (LPVOID context,
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
-	if (git_revwalk_push_head(walker) != 0) {
+	if (ref == NULL && git_revwalk_push_head(walker) != 0) {
+		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	if (ref != NULL && git_revwalk_push_ref(walker, ref) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
@@ -465,8 +549,7 @@ SCCRTN SccHistory (LPVOID context,
 	params.walker = walker;
 	params.ps = ps;
 	params.diffopts = &diffopts;
-	params.paths = paths;
-	params.path_count = path_count;
+	params.ref = ref;
 	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_HISTORY_MENU));
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_COMMITHISTORY),
@@ -493,4 +576,34 @@ fin:
 		LGitFreePathList(paths, path_count);
 	}
 	return ret;
+}
+
+/*
+ * Note that this takes a list of files; we only should grab the commits
+ * relevant for those files.
+ */
+SCCRTN SccHistory (LPVOID context, 
+				   HWND hWnd, 
+				   LONG nFiles, 
+				   LPCSTR* lpFileNames, 
+				   LONG dwFlags,
+				   LPCMDOPTS pvOptions)
+{
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**SccHistory** Context=%p\n", context);
+	LGitLog("  files %d\n", nFiles);
+	LGitLog("  flags %x\n", dwFlags);
+	return LGitHistoryInternal(ctx, hWnd, nFiles, lpFileNames, dwFlags, pvOptions, NULL);
+}
+
+SCCRTN LGitHistoryForRefByName(LPVOID context, 
+							   HWND hWnd, 
+							   const char *ref)
+{
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**LGitHistoryForRefByName** Context=%p\n", context);
+	LGitLog("  ref %s\n", ref);
+	return LGitHistoryInternal(ctx, hWnd, 0, NULL, 0, NULL, ref);
 }

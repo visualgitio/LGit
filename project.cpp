@@ -121,11 +121,14 @@ SCCRTN SccCloseProject (LPVOID context)
 	LGitLog("    Active? %d\n", ctx->active);
 	if (context) {
 		LGitContext *ctx = (LGitContext*)context;
+		/* additional debug logs because VS traps segfault */
 		if (ctx->repo) {
+			LGitLog(" ! Free repo\n");
 			git_repository_free(ctx->repo);
 			ctx->repo = NULL;
 		}
 		if (ctx->checkouts) {
+			LGitLog(" ! Free checkouts\n");
 			delete ctx->checkouts;
 		}
 		ctx->renameCb = NULL;
@@ -134,6 +137,7 @@ SCCRTN SccCloseProject (LPVOID context)
 		ZeroMemory(ctx->path, MAX_PATH + 1);
 		ZeroMemory(ctx->workdir_path, MAX_PATH + 1);
 		ctx->active = FALSE;
+		LGitLog(" ! Cleared, now inactive\n");
 	}
 	return SCC_OK;
 }
