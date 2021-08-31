@@ -166,10 +166,6 @@ static BOOL FillHistoryListView(HWND hwnd,
 
 		parents = (int)git_commit_parentcount(commit);
 
-		/*
-		 * In examples/log.c, this assumes a pathspec is set, but we will (for
-		 * now) always have at least one file in the pathspec.
-		 */
 		if (!whole_repo) {
 			int unmatched = parents;
 
@@ -263,7 +259,17 @@ static void ShowSelectedCommitDiff(HWND hwnd, LGitHistoryDialogParams *params)
 		LGitLibraryError(hwnd, "git_commit_lookup");
 		return;
 	}
-	LGitCommitToParentDiff(params->ctx, hwnd, commit, params->diffopts);
+	/*
+	 * Slightly gross: The normal diff operations shouldn't have the progress
+	 * callbacks, because they'd pop up a lot and disturb internal history
+	 * build operations. Instead, make a copy with the same settings, just
+	 * initialized with the progress callback. This might be pointless since
+	 * such a diff could be fast, or maybe it'd be worth having...
+	 */
+	git_diff_options temp_diffopts;
+	memcpy(&temp_diffopts, params->diffopts, sizeof(git_diff_options));
+	LGitInitDiffProgressCallback(params->ctx, &temp_diffopts);
+	LGitCommitToParentDiff(params->ctx, hwnd, commit, &temp_diffopts);
 	if (commit != NULL) {
 		git_commit_free(commit);
 	}
@@ -377,6 +383,7 @@ static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_INFO);
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_CHECKOUT);
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_REVERT);
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_RESET_HARD);
 }
 
 static void ResizeHistoryDialog(HWND hwnd)

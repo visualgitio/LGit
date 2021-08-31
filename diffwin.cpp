@@ -13,7 +13,11 @@ static LVCOLUMN diff_column = {
 typedef struct _LGitDiffCallbackParams {
 	HWND lv;
 	int index;
+	/* allocated to avoid stack churn/stupid line lengths */
+	char *msg;
 } LGitDiffCallbackParams;
+
+#define CALLBACK_MSG_SIZE 0x8000
 
 static void SetDiffTitleBar(HWND hwnd, LGitDiffDialogParams* params)
 {
@@ -85,15 +89,14 @@ static int LGitDiffFileCallback(const git_diff_delta *delta,
 {
 	LGitDiffCallbackParams *params = (LGitDiffCallbackParams*)payload;
 	LVITEM lvi;
-	char msg[2048];
 	ZeroMemory(&lvi, sizeof(LVITEM));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 	/* XXX: We should detect similarity and just skim the diff if so. */
-	_snprintf(msg, 2048, "(%o) %s",
+	_snprintf(params->msg, CALLBACK_MSG_SIZE, "(%o) %s",
 		delta->old_file.mode,
 		delta->old_file.path);
-	lvi.pszText = msg;
+	lvi.pszText = params->msg;
 	lvi.iSubItem = 0;
 	lvi.iImage = 0;
 
@@ -106,10 +109,10 @@ static int LGitDiffFileCallback(const git_diff_delta *delta,
 	ZeroMemory(&lvi, sizeof(LVITEM));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
-	_snprintf(msg, 2048, "(%o) %s",
+	_snprintf(params->msg, CALLBACK_MSG_SIZE, "(%o) %s",
 		delta->new_file.mode,
 		delta->new_file.path);
-	lvi.pszText = msg;
+	lvi.pszText = params->msg;
 	lvi.iSubItem = 0;
 	lvi.iImage = 1;
 
@@ -152,16 +155,15 @@ static int LGitDiffHunkCallback(const git_diff_delta *delta,
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 
-	char msg[2048];
-	strlcpy(msg, hunk->header, 2048);
-	size_t length = strlen(msg);
-	if (length > 1 && !isprint(msg[length - 1])) {
-		msg[length - 1] = '\0';
+	strlcpy(params->msg, hunk->header, CALLBACK_MSG_SIZE);
+	size_t length = strlen(params->msg);
+	if (length > 1 && !isprint(params->msg[length - 1])) {
+		params->msg[length - 1] = '\0';
 	}
-	if (length > 2 && !isprint(msg[length - 2])) {
-		msg[length - 2] = '\0';
+	if (length > 2 && !isprint(params->msg[length - 2])) {
+		params->msg[length - 2] = '\0';
 	}
-	lvi.pszText = msg;
+	lvi.pszText = params->msg;
 
 	lvi.iSubItem = 0;
 	lvi.iImage = 3;
@@ -181,7 +183,6 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 {
 	LGitDiffCallbackParams *params = (LGitDiffCallbackParams*)payload;
 	LVITEM lvi;
-	char msg[2048];
 	size_t base_indent, i, length;
 	ZeroMemory(&lvi, sizeof(LVITEM));
 	lvi.iItem = params->index++;
@@ -200,26 +201,26 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 	 * well as any trailing spaces.
 	 */
 	/* First, check for tabs, then copy compensating */
-	msg[0] = '\0';
-	for (base_indent = 0, i = 0; i < 2048 && i < line->content_len; i++) {
+	params->msg[0] = '\0';
+	for (base_indent = 0, i = 0; i < CALLBACK_MSG_SIZE && i < line->content_len; i++) {
 		if (line->content[i] == '\t') {
 			/* Two spaces because I say so */
-			strlcat(msg, "  ", 2048);
+			strlcat(params->msg, "  ", CALLBACK_MSG_SIZE);
 			base_indent++;
 		}
 	}
-	length = __min(2048 - base_indent, line->content_len);
-	memcpy(msg + (2 * base_indent), line->content + (1 * base_indent), length);
+	length = __min(CALLBACK_MSG_SIZE - base_indent, line->content_len);
+	memcpy(params->msg + (2 * base_indent), line->content + (1 * base_indent), length);
 	/* Truncate because not null terminated, and get newline */
-	msg[__min(2047, length)] = '\0';
-	length = strlen(msg);
-	if (!isprint(msg[length - 1])) {
-		msg[length - 1] = '\0';
+	params->msg[__min(CALLBACK_MSG_SIZE - 1, length)] = '\0';
+	length = strlen(params->msg);
+	if (!isprint(params->msg[length - 1])) {
+		params->msg[length - 1] = '\0';
 	}
-	if (!isprint(msg[length - 2])) {
-		msg[length - 2] = '\0';
+	if (!isprint(params->msg[length - 2])) {
+		params->msg[length - 2] = '\0';
 	}
-	lvi.pszText = msg;
+	lvi.pszText = params->msg;
 	lvi.iSubItem = 0;
 
 	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
@@ -234,17 +235,24 @@ static BOOL FillDiffView(HWND hwnd, LGitDiffDialogParams* params)
 {
 	HWND lv;
 	lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
-	LGitDiffCallbackParams cbp = { lv, 0 };
+	LGitDiffCallbackParams cbp = { lv, 0, (char*)malloc(CALLBACK_MSG_SIZE) };
 	if (lv == NULL) {
 		LGitLog(" ! Couldn't get diff control\n");
 		return FALSE;
 	}
+	if (cbp.msg == NULL) {
+		LGitLog(" ! Couldn't alloc callback buffer\n");
+		return FALSE;
+	}
+	LGitLog(" ! Number of diff deltas: %u\n", git_diff_num_deltas(params->diff));
 	git_diff_foreach(params->diff,
 		LGitDiffFileCallback,
 		LGitDiffBinaryCallback,
 		LGitDiffHunkCallback,
 		LGitDiffLineCallback,
 		&cbp);
+	free(cbp.msg);
+	LGitLog(" ! LV Index is now %d\n", cbp.index);
 
 	ListView_SetColumnWidth(lv, 0, LVSCW_AUTOSIZE_USEHEADER);
 	return TRUE;

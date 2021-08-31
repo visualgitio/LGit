@@ -7,19 +7,22 @@
 /* This is initialized for dialog boxes later. */
 static HINSTANCE dllInstance;
 
-BOOL APIENTRY DllMain( HANDLE hModule, 
-                       DWORD  ul_reason_for_call, 
-                       LPVOID lpReserved
-					 )
+extern "C" BOOL APIENTRY DllMain(HANDLE hModule, DWORD reason, LPVOID _res)
 {
-    switch (ul_reason_for_call)
+    switch (reason)
 	{
 		case DLL_PROCESS_ATTACH:
+			OutputDebugString("**Visual Git DllMain** proc attach\n");
 			dllInstance = (HINSTANCE)hModule;
 			break;
 		case DLL_THREAD_ATTACH:
+			OutputDebugString("**Visual Git DllMain** thread attach\n");
+			break;
 		case DLL_THREAD_DETACH:
+			OutputDebugString("**Visual Git DllMain** thread deattach\n");
+			break;
 		case DLL_PROCESS_DETACH:
+			OutputDebugString("**Visual Git DllMain** proc deattach\n");
 			break;
     }
     return TRUE;

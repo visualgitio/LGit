@@ -156,3 +156,36 @@ void LGitInitCheckoutProgressCallback(LGitContext *ctx, git_checkout_options *co
 	co_opts->progress_cb = CheckoutProgress;
 	co_opts->progress_payload = ctx;
 }
+
+static int DiffProgress(const git_diff *diff_so_far, const char *old_path, const char *new_path, void *payload)
+{
+	LGitContext *ctx = (LGitContext*)payload;
+	if (LGitProgressCancelled(ctx)) {
+		return GIT_EUSER;
+	}
+	char msg[256];
+	/* first, how many deltas we have; we won't know how many for total */
+	size_t num_deltas = git_diff_num_deltas(diff_so_far);
+	_snprintf(msg, 256, "%u delta(s)", num_deltas);
+	LGitProgressText(ctx, msg, 1);
+	/* now for the files being compared */
+	if (old_path != NULL && new_path != NULL && strcmp(old_path, new_path) != 0) {
+		_snprintf(msg, 256, "Comparing '%s' to  '%s'", old_path, new_path);
+	} else if (old_path != NULL) {
+		_snprintf(msg, 256, "Comparing '%s'", old_path);
+	} else if (new_path != NULL) {
+		_snprintf(msg, 256, "Comparing '%s'", new_path);
+	} else {
+		strlcpy(msg, "Comparing unknown files", 256);
+	}
+	LGitProgressText(ctx, msg, 2);
+	return 0;
+}
+
+void LGitInitDiffProgressCallback(LGitContext *ctx, git_diff_options *diff_opts)
+{
+	/* Thankfully, there's no need for the caller to free payload. */
+	diff_opts->progress_cb = DiffProgress;
+	/* XXX: notify CB */
+	diff_opts->payload = ctx;
+}

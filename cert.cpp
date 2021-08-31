@@ -79,6 +79,30 @@ CryptUIDlgViewCertificateW(CRYPTUI_VIEWCERTIFICATE_STRUCTW* vcs, BOOL *ps);
 #endif
 }
 
+typedef BOOL (WINAPI *DlgViewCertFunc)(CRYPTUI_VIEWCERTIFICATE_STRUCTA*,BOOL*);
+
+/* Workaround for FX!32 */
+static BOOL CryptUIDlgViewCertificateWrapper(CRYPTUI_VIEWCERTIFICATE_STRUCTA* vcs, BOOL *ps)
+{
+	static BOOL wrapper_init = FALSE;
+	static HMODULE cryptui = NULL;
+	static DlgViewCertFunc func = NULL;
+	if (!wrapper_init) {
+		cryptui = LoadLibraryEx("cryptui.dll", NULL, 0);
+		if (cryptui == NULL) {
+			LGitLog("!! Failed to load cryptui.dll (%x)", GetLastError());
+			return FALSE;
+		}
+		func = (DlgViewCertFunc)GetProcAddress(cryptui, "CryptUIDlgViewCertificateA");
+		if (func == NULL) {
+			LGitLog("!! Failed to load CryptUIDlgViewCertificateA (%x)", GetLastError());
+			return FALSE;
+		}
+		wrapper_init = TRUE;
+	}
+	return func(vcs, ps);
+}
+
 static void DisplayCertificate(HWND parent,
 							   git_cert_x509 *x509,
 							   const char *host)
@@ -114,7 +138,7 @@ static void DisplayCertificate(HWND parent,
 	vc_st.szTitle = host;
 	vc_st.hwndParent = parent;
 	OutputDebugString(" ! Displaying cert\n");
-	if (!CryptUIDlgViewCertificate(&vc_st, &changed)) {
+	if (!CryptUIDlgViewCertificateWrapper(&vc_st, &changed)) {
 		OutputDebugString("!! Error displaying UI\n");
 	}
 	/* cleanup */

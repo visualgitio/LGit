@@ -23,6 +23,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	LGitLog("  Flags %x, %s\n", dwFlags, lpFileName);
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	LGitInitDiffProgressCallback(ctx, &diffopts);
 
 	raw_path = LGitStripBasePath(ctx, lpFileName);
 	if (raw_path == NULL) {
@@ -51,10 +52,14 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	 * This is similar to a straight "git diff" with a specific file, that is,
 	 * we're comparing the working tree to HEAD.
 	 */
+	LGitProgressInit(ctx, "Diffing Stage to Working Tree", 0);
+	LGitProgressStart(ctx, hWnd, FALSE);
 	if (git_diff_index_to_workdir(&diff, ctx->repo, NULL, &diffopts) != 0) {
+		LGitProgressDeinit(ctx);
 		LGitLibraryError(hWnd, "SccDiff git_diff_index_to_workdir");
 		return SCC_E_NONSPECIFICERROR;
 	}
+	LGitProgressDeinit(ctx);
 	/* XXX: Rename detection with git_diff_find_similar? */
 	deltas = git_diff_num_deltas(diff);
 
@@ -119,6 +124,10 @@ SCCRTN LGitCommitToCommitDiff(LGitContext *ctx,
 	SCCRTN ret = SCC_OK;
 	git_tree *a, *b;
 	const git_oid *oid_a, *oid_b;
+	oid_a = git_commit_id(commit_a);
+	LGitLog("  A %s\n", git_oid_tostr_s(oid_a));
+	oid_b = git_commit_id(commit_b);
+	LGitLog("  B %s\n", git_oid_tostr_s(oid_b));
 	git_diff *diff;
 	if (git_commit_tree(&a, commit_a) != 0) {
 		LGitLibraryError(hwnd, "match_with_parent git_commit_tree A");
@@ -129,14 +138,24 @@ SCCRTN LGitCommitToCommitDiff(LGitContext *ctx,
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
+	/* XXX: ugly because we don't know if we have callbacks or not */
+	if (diffopts->progress_cb != NULL) {
+		LGitProgressInit(ctx, "Diffing Commits", 0);
+		LGitProgressStart(ctx, hwnd, FALSE);
+		/* it is safe to call uninit without guard, but leaves a message */
+	}
 	if (git_diff_tree_to_tree(&diff, git_commit_owner(commit_b), a, b, diffopts) != 0) {
+		if (diffopts->progress_cb != NULL) {
+			LGitProgressDeinit(ctx);
+		}
 		LGitLibraryError(hwnd, "match_with_parent git_diff_tree_to_tree");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
+	if (diffopts->progress_cb != NULL) {
+		LGitProgressDeinit(ctx);
+	}
 	/* make a title */
-	oid_a = git_commit_id(commit_a);
-	oid_b = git_commit_id(commit_b);
 	char msg[128];
 	_snprintf(msg, 128, "%s..", git_oid_tostr_s(oid_a));
 	strlcat(msg, git_oid_tostr_s(oid_b), 128);

@@ -1,5 +1,5 @@
 /*
- * ...branches, of course.
+ * ...branches, of course. And other references like tags!
  */
 
 #include <stdafx.h>
@@ -128,17 +128,19 @@ static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
-	size_t index = 0;
+	size_t index = 0, i;
 	/* clear if we're replenishing */
 	ListView_DeleteAllItems(lv);
 	git_branch_iterator *iter = NULL;
 	git_reference *ref = NULL;
 	git_branch_t type;
 	int rc;
+	/* First branches (XXX: convert to ref list, maybe we can ignore notes) */
 	if (git_branch_iterator_new(&iter, params->ctx->repo, GIT_BRANCH_ALL) != 0) {
 		LGitLibraryError(hwnd, "git_branch_iterator_new");
 		return;
 	}
+	LVITEM lvi;
 	while ((rc = git_branch_next(&ref, &type, iter)) == 0) {
 		const char *name = NULL;
 		if (git_branch_name(&name, ref) != 0) {
@@ -146,7 +148,6 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 			continue;
 		}
 		LGitLog(" ! %x %s\n", type, name);
-		LVITEM lvi;
 		
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
@@ -182,6 +183,39 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 	if (iter != NULL) {
 		git_branch_iterator_free(iter);
 	}
+	/* Now for tags. We'll want the long name, but we can just add the prefix */
+	git_strarray tags = {0};
+	if (git_tag_list(&tags, params->ctx->repo) != 0) {
+		LGitLibraryError(hwnd, "git_tag_list");
+		return;
+	}
+	LGitLog(" ! tag count %d\n", tags.count);
+	for (i = 0; i < tags.count; i++) {
+		char fullname[128];
+		LGitLog(" ! tag %s\n", tags.strings[i]);
+		
+		ZeroMemory(&lvi, sizeof(LVITEM));
+		lvi.mask = LVIF_TEXT;
+		lvi.pszText = (char*)tags.strings[i];
+		lvi.iItem = index++;
+		lvi.iSubItem = 0;
+
+		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		if (lvi.iItem == -1) {
+			LGitLog(" ! ListView_InsertItem failed\n");
+			continue;
+		}
+		/* now for the subitems... */
+		lvi.iSubItem = 1;
+		strlcpy(fullname, "refs/tags/", 128);
+		strlcat(fullname, tags.strings[i], 128);
+		lvi.pszText = (char*)fullname;
+		ListView_SetItem(lv, &lvi);
+		lvi.iSubItem = 2;
+		lvi.pszText = (char*)"Tag"; /* XXX: It can never be HEAD, but guess */
+		ListView_SetItem(lv, &lvi);
+	}
+	git_strarray_dispose(&tags);
 }
 
 static BOOL GetSelectedBranch(HWND hwnd, char *buf, size_t bufsz)
@@ -246,7 +280,9 @@ static void BranchDiff(HWND hwnd, LGitBranchDialogParams* params)
 	LGitLog(" ! Diff for HEAD->%s?\n", name);
 	git_diff_options diffopts;
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	LGitInitDiffProgressCallback(params->ctx, &diffopts);
 	git_commit *head = NULL, *selected = NULL;
+	git_object *selected_object;
 	git_oid head_oid, selected_oid;
 	if (git_reference_name_to_id(&head_oid, params->ctx->repo, "HEAD") != 0) {
 		LGitLibraryError(hwnd, "HEAD git_reference_name_to_id");
@@ -260,8 +296,13 @@ static void BranchDiff(HWND hwnd, LGitBranchDialogParams* params)
 		LGitLibraryError(hwnd, "HEAD git_commit_lookup");
 		goto fin;
 	}
-	if (git_commit_lookup(&selected, params->ctx->repo, &selected_oid) != 0) {
-		LGitLibraryError(hwnd, "Selected git_commit_lookup");
+	/* This could be a hard tag object instead, try to get it peeled */
+	if (git_object_lookup(&selected_object, params->ctx->repo, &selected_oid, GIT_OBJECT_ANY) != 0) {
+		LGitLibraryError(hwnd, "Selected git_object_lookup");
+		goto fin;
+	}
+	if (git_object_peel((git_object**)&selected, selected_object, GIT_OBJECT_COMMIT) != 0) {
+		LGitLibraryError(hwnd, "Selected git_object_peel");
 		goto fin;
 	}
 	/* We'll compare this commit against HEAD... */
@@ -272,6 +313,46 @@ fin:
 	}
 	if (selected != NULL) {
 		git_commit_free(selected);
+	}
+	if (selected_object != NULL) {
+		git_object_free(selected_object);
+	}
+}
+
+/**
+ * Views the object behind a reference, could be a commit or tag.
+ */
+static void ReferenceView(HWND hwnd, LGitBranchDialogParams* params)
+{
+	char name[128];
+	if (!GetSelectedBranch(hwnd, name, 128)) {
+		LGitLog(" ! No branch?\n");
+		return;
+	}
+	LGitLog(" ! View for %s?\n", name);
+	git_commit *selected = NULL;
+	git_object *selected_object;
+	git_oid selected_oid;
+	if (git_reference_name_to_id(&selected_oid, params->ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "git_reference_name_to_id");
+		goto fin;
+	}
+	/* Get commit and (XXX) tag object if possible */
+	if (git_object_lookup(&selected_object, params->ctx->repo, &selected_oid, GIT_OBJECT_ANY) != 0) {
+		LGitLibraryError(hwnd, "git_object_lookup");
+		goto fin;
+	}
+	if (git_object_peel((git_object**)&selected, selected_object, GIT_OBJECT_COMMIT) != 0) {
+		LGitLibraryError(hwnd, "Commit git_object_peel");
+		goto fin;
+	}
+	LGitViewCommitInfo(params->ctx, hwnd, selected);
+fin:
+	if (selected != NULL) {
+		git_commit_free(selected);
+	}
+	if (selected_object != NULL) {
+		git_object_free(selected_object);
 	}
 }
 
@@ -291,14 +372,22 @@ static void BranchRemove(HWND hwnd, LGitBranchDialogParams* params)
 		return;
 	}
 	if (MessageBox(hwnd,
-		"The branch will be removed.",
+		"The reference will be removed.",
 		"Remove Branch?",
 		MB_ICONWARNING | MB_YESNO) != IDYES) {
 		goto err;
 	}
-	if (git_branch_delete(ref) != 0) {
-		LGitLibraryError(hwnd, "git_remote_delete");
-		goto err;
+	/* Special case only for branches; tag delete just does lookup for us */
+	if (git_reference_is_branch(ref) || git_reference_is_remote(ref)) {
+		if (git_branch_delete(ref) != 0) {
+			LGitLibraryError(hwnd, "git_remote_delete");
+			goto err;
+		}
+	} else {
+		if (git_reference_delete(ref) != 0) {
+			LGitLibraryError(hwnd, "git_reference_delete");
+			goto err;
+		}
 	}
 	/* Optimization would be removing the list view item */
 	FillBranchView(hwnd, params);
@@ -408,12 +497,37 @@ static BOOL BranchRename(HWND hwnd, LGitBranchDialogParams* params, const char *
 	/* We need the handle of the branch. */
 	BOOL ret = FALSE;
 	git_reference *branch = NULL, *new_branch = NULL;
+	int rc = -1;
 	/* it would be weird if we got not found here */
 	if (git_reference_lookup(&branch, params->ctx->repo, params->old_name) != 0) {
 		LGitLibraryError(hwnd, "git_reference_lookup");
 		goto fin;
 	}
-	switch (git_branch_move(&new_branch, branch, new_name, 0)) {
+	/* Special function only for branches. All else needs special prefix */
+	if (git_reference_is_branch(branch) || git_reference_is_remote(branch)) {
+		rc = git_branch_move(&new_branch, branch, new_name, 0);
+	} else if (git_reference_is_tag(branch)) {
+		char fullname[128];
+		int valid = 0;
+		if (git_tag_name_is_valid(&valid, new_name) != 0 || !valid) {
+			MessageBox(hwnd,
+				"The tag name is invalid.",
+				"Invalid Tag Name",
+				MB_ICONERROR);
+			goto fin;
+		}
+		strlcpy(fullname, "refs/tags/", 128);
+		strlcat(fullname, new_name, 128);
+		rc = git_reference_rename(&new_branch, branch, fullname, 0, NULL);
+	} else {
+		/* IDK */
+		MessageBox(hwnd,
+			"Renaming this reference isn't supported.",
+			"Can't Rename Reference",
+			MB_ICONERROR);
+		goto fin;
+	}
+	switch (rc) {
 	case 0:
 		ret = TRUE;
 		FillBranchView(hwnd, params);
@@ -421,18 +535,18 @@ static BOOL BranchRename(HWND hwnd, LGitBranchDialogParams* params, const char *
 		/* XXX: These messages are common with New */
 	case GIT_EINVALIDSPEC:
 		MessageBox(hwnd,
-			"The branch has an invalid name.",
-			"Invalid Branch",
+			"The reference has an invalid name.",
+			"Invalid Reference",
 			MB_ICONERROR);
 		goto fin;
 	case GIT_EEXISTS:
 		MessageBox(hwnd,
-			"The remote by that name already exists.",
-			"Invalid Branch",
+			"The reference by that name already exists.",
+			"Invalid Reference",
 			MB_ICONERROR);
 		goto fin;
 	default:
-		LGitLibraryError(hwnd, "git_remote_rename");
+		LGitLibraryError(hwnd, "Rename Reference");
 		goto fin;
 	}
 fin:
@@ -499,7 +613,7 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 			HWND lv = (HWND)wParam;
 			switch (child_msg->code) {
 			case LVN_ITEMACTIVATE:
-				ListView_EditLabel(lv, child_activate->iItem);
+				ReferenceView(hwnd, param);
 				return TRUE;
 			case LVN_BEGINLABELEDIT:
 				return BeginBranchRename(hwnd, param, child_edit->item.iItem);

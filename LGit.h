@@ -146,6 +146,7 @@ BOOL LGitProgressSet(LGitContext *ctx, ULONGLONG x, ULONGLONG outof);
 BOOL LGitProgressText(LGitContext *ctx, const char *text, int line);
 BOOL LGitProgressCancelled(LGitContext *ctx);
 void LGitInitCheckoutProgressCallback(LGitContext *ctx, git_checkout_options *co_opts);
+void LGitInitDiffProgressCallback(LGitContext *ctx, git_diff_options *diff_opts);
 
 /* branch.cpp */
 SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd);
