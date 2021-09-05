@@ -92,7 +92,15 @@ LINK32=link.exe
 # PROP Default_Filter "cpp;c;cxx;rc;def;r;odl;idl;hpj;bat"
 # Begin Source File
 
+SOURCE=.\about.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\addscc.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\branch.cpp
 # End Source File
 # Begin Source File
 
@@ -136,6 +144,10 @@ SOURCE=.\format.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\gitconf.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\history.cpp
 # End Source File
 # Begin Source File
@@ -172,7 +184,19 @@ SOURCE=.\query.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\remote.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\remotecb.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\revert.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\runscc.cpp
 # End Source File
 # Begin Source File
 
@@ -190,6 +214,10 @@ SOURCE=.\StdAfx.cpp
 # Begin Source File
 
 SOURCE=.\string.cpp
+# End Source File
+# Begin Source File
+
+SOURCE=.\tag.cpp
 # End Source File
 # Begin Source File
 
@@ -250,10 +278,6 @@ SOURCE=.\diffhunk.ico
 # Begin Source File
 
 SOURCE=.\history.ico
-# End Source File
-# Begin Source File
-
-SOURCE=.\icon1.ico
 # End Source File
 # Begin Source File
 

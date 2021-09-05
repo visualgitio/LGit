@@ -126,19 +126,6 @@ static BOOL CALLBACK GeneralDialogProc(HWND hwnd,
 	}
 }
 
-static BOOL CALLBACK PropSheetProc(HWND hwnd,
-								   unsigned int iMsg,
-								   LPARAM lParam)
-{
-	/* Just hide the OK button since we have nothing on the file to change */
-	if (iMsg == PSCB_INITIALIZED) {
-		ShowWindow(GetDlgItem(hwnd, IDOK), SW_HIDE);
-		SetWindowText(GetDlgItem(hwnd, IDCANCEL), "Close");
-		return TRUE;
-	}
-	return FALSE;
-}
-
 SCCRTN SccProperties (LPVOID context, 
 					  HWND hWnd, 
 					  LPCSTR lpFileName)
@@ -208,7 +195,7 @@ SCCRTN SccProperties (LPVOID context,
 		| PSH_PROPTITLE
 		| PSH_NOCONTEXTHELP
 		| PSH_USECALLBACK;
-	psh.pfnCallback = PropSheetProc;
+	psh.pfnCallback = LGitImmutablePropSheetProc;
 	psh.hwndParent = hWnd;
 	psh.hInstance = ctx->dllInst;
 	psh.pszCaption = path;

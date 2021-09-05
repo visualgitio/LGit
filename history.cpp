@@ -297,7 +297,7 @@ static void ShowSelectedCommitInfo(HWND hwnd, LGitHistoryDialogParams *params)
 		LGitLibraryError(hwnd, "git_commit_lookup");
 		return;
 	}
-	LGitViewCommitInfo(params->ctx, hwnd, commit);
+	LGitViewCommitInfo(params->ctx, hwnd, commit, NULL);
 }
 
 static void CheckoutSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
@@ -386,31 +386,6 @@ static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_RESET_HARD);
 }
 
-static void ResizeHistoryDialog(HWND hwnd)
-{
-	RECT rect;
-	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
-	GetClientRect(hwnd, &rect);
-	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
-}
-
-static BOOL HandleHistoryContextMenu(HWND hwnd, LGitHistoryDialogParams *params, int x, int y)
-{
-	/* are we in non-client area? */
-	RECT clientArea;
-	POINT pos = { x, y };
-	GetClientRect(hwnd, &clientArea);
-	ScreenToClient(hwnd, &pos);
-	if (!PtInRect(&clientArea, pos)) {
-		return FALSE;
-	}
-	/* this should be the "commit" menu */
-	HMENU commitMenu = GetSubMenu(params->menu, 1);
-	TrackPopupMenu(commitMenu, TPM_LEFTALIGN, x, y, 0, hwnd, NULL);
-	/* do we need to free GetSubMenu items? */
-	return TRUE;
-}
-
 static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 									   unsigned int iMsg,
 									   WPARAM wParam,
@@ -428,14 +403,14 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		if (!FillHistoryListView(hwnd, param, param->path_count == 0)) {
 			EndDialog(hwnd, 0);
 		}
-		ResizeHistoryDialog(hwnd);
+		LGitControlFillsParentDialog(hwnd, IDC_COMMITHISTORY);
 		UpdateHistoryMenu(hwnd, param);
 		return TRUE;
 	case WM_SIZE:
-		ResizeHistoryDialog(hwnd);
+		LGitControlFillsParentDialog(hwnd, IDC_COMMITHISTORY);
 		return TRUE;
 	case WM_CONTEXTMENU:
-		return HandleHistoryContextMenu(hwnd, param, LOWORD(lParam), HIWORD(lParam));
+		return LGitContextMenuFromSubmenu(hwnd, param->menu, 1, LOWORD(lParam), HIWORD(lParam));
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ID_HISTORY_COMMIT_DIFF:

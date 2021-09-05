@@ -75,14 +75,6 @@ static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 	SendMessage(lv, WM_SETFONT, (WPARAM)font, TRUE);
 }
 
-static void ResizeDiffDialog(HWND hwnd)
-{
-	RECT rect;
-	HWND lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
-	GetClientRect(hwnd, &rect);
-	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
-}
-
 static int LGitDiffFileCallback(const git_diff_delta *delta,
 								float progress,
 								void *payload)
@@ -337,10 +329,10 @@ static BOOL CALLBACK DiffDialogProc(HWND hwnd,
 		if (!FillDiffView(hwnd, param)) {
 			EndDialog(hwnd, 0);
 		}
-		ResizeDiffDialog(hwnd);
+		LGitControlFillsParentDialog(hwnd, IDC_DIFFTEXT);
 		return TRUE;
 	case WM_SIZE:
-		ResizeDiffDialog(hwnd);
+		LGitControlFillsParentDialog(hwnd, IDC_DIFFTEXT);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitDiffDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);

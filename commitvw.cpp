@@ -7,7 +7,54 @@
 typedef struct _LGitCommitInfoDialogParams {
 	LGitContext *ctx;
 	git_commit *commit;
+	git_tag *tag;
 } LGitCommitInfoDialogParams;
+
+static void SetMessageFont(LGitContext *ctx, HWND ctrl)
+{
+	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+	SendMessage(ctrl, WM_SETFONT, (WPARAM)font, TRUE);
+}
+
+static void SetMessageFromAnsi(LGitContext *ctx, HWND ctrl, UINT codepage, const char *message)
+{
+	wchar_t *new_msg_conv = NULL;
+	/* we need to convert newlines */
+	size_t len = strlen(message);
+	char *message_converted = (char*)calloc(len, 2);
+	if (message_converted == NULL) {
+		/* mojibake AND bad newlines! */
+		SetWindowTextA(ctrl, message);
+		return;
+	}
+	for (size_t i = 0, j = 0; i < len; i++) {
+		/* XXX: could be faster? */
+		if (message[i] == '\n' && i > 0 && message[i - 1] != '\r') {
+			message_converted[j] = '\r';
+			message_converted[j + 1] = '\n';
+			j += 2;
+		} else {
+			message_converted[j++] = message[i];
+		}
+	}
+	/* then convert to UCS-2 */
+	int new_len = MultiByteToWideChar(codepage, 0, message_converted, -1, NULL, 0);
+	if (new_len < 0) {
+		/* enjoy your mojibake */
+		SetWindowTextA(ctrl, message_converted);
+		goto not_unicode;
+	}
+	new_msg_conv = (wchar_t*)calloc(new_len + 1, sizeof(wchar_t));
+	if (new_msg_conv == NULL) {
+		SetWindowTextA(ctrl, message_converted);
+		goto not_unicode;
+	}
+	MultiByteToWideChar(codepage, 0, message_converted, -1, new_msg_conv, new_len + 1);
+	SetWindowTextW(ctrl, new_msg_conv);
+	free(new_msg_conv);
+not_unicode:
+	free(message_converted);
+}
 
 static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 {
@@ -24,7 +71,6 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	message = git_commit_message(params->commit);
 
 	wchar_t sig_msg[512], sig_person[256];
-	wchar_t *new_msg_conv = NULL;
 
 	LGitTimeToStringW(&author->when, sig_msg, 512);
 	wcslcat(sig_msg, L" ", 512);
@@ -39,40 +85,36 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	SetDlgItemTextW(hwnd, IDC_COMMITINFO_COMMITTER, sig_msg);
 
 	/* set the font THEN prep the message */
-	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
 	HWND message_box = GetDlgItem(hwnd, IDC_COMMITINFO_MESSAGE);
-	SendMessage(message_box, WM_SETFONT, (WPARAM)font, TRUE);
+	SetMessageFont(params->ctx, message_box);
+	SetMessageFromAnsi(params->ctx, message_box, codepage, message);
+}
 
-	/* we need to convert newlines */
-	size_t len = strlen(message);
-	char *message_converted = (char*)calloc(len, 2);
-	for (size_t i = 0, j = 0; i < len; i++) {
-		/* XXX: could be faster? */
-		if (message[i] == '\n') {
-			message_converted[j] = '\r';
-			message_converted[j + 1] = '\n';
-			j += 2;
-		} else {
-			message_converted[j++] = message[i];
-		}
-	}
-	/* then convert to UCS-2 */
-	int new_len = MultiByteToWideChar(codepage, 0, message_converted, -1, NULL, 0);
-	if (new_len > 0) {
-		/* enjoy your mojibake */
-		SetWindowText(message_box, message_converted);
-		goto not_unicode;
-	}
-	new_msg_conv = (wchar_t*)calloc(new_len + 1, sizeof(wchar_t));
-	if (new_msg_conv == NULL) {
-		SetWindowText(message_box, message_converted);
-		goto not_unicode;
-	}
-	MultiByteToWideChar(codepage, 0, message_converted, -1, new_msg_conv, new_len + 1);
-	SetWindowTextW(message_box, new_msg_conv);
-	free(new_msg_conv);
-not_unicode:
-	free(message_converted);
+static void FillTagView(HWND hwnd, LGitCommitInfoDialogParams *params)
+{
+	UINT codepage = CP_UTF8; /* git tag has no encoding property */
+
+	const git_oid *oid = git_tag_id(params->tag);
+	char *oid_s = git_oid_tostr_s(oid);
+	SetDlgItemText(hwnd, IDC_TAGINFO_OID, oid_s);
+
+	const git_signature *author;
+	const char *message;
+	author = git_tag_tagger(params->tag);
+	message = git_tag_message(params->tag);
+
+	wchar_t sig_msg[512], sig_person[256];
+
+	LGitTimeToStringW(&author->when, sig_msg, 512);
+	wcslcat(sig_msg, L" ", 512);
+	LGitFormatSignatureW(author, sig_person, 256);
+	wcslcat(sig_msg, sig_person, 512);
+	SetDlgItemTextW(hwnd, IDC_TAGINFO_AUTHOR, sig_msg);
+
+	/* set the font THEN prep the message */
+	HWND message_box = GetDlgItem(hwnd, IDC_TAGINFO_MESSAGE);
+	SetMessageFont(params->ctx, message_box);
+	SetMessageFromAnsi(params->ctx, message_box, CP_UTF8, message);
 }
 
 static BOOL CALLBACK CommitInfoDialogProc(HWND hwnd,
@@ -81,9 +123,11 @@ static BOOL CALLBACK CommitInfoDialogProc(HWND hwnd,
 										  LPARAM lParam)
 {
 	LGitCommitInfoDialogParams *param;
+	PROPSHEETPAGE *psp;
 	switch (iMsg) {
 	case WM_INITDIALOG:
-		param = (LGitCommitInfoDialogParams*)lParam;
+		psp = (PROPSHEETPAGE*)lParam;
+		param = (LGitCommitInfoDialogParams*)psp->lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		FillCommitView(hwnd, param);
 		return TRUE;
@@ -101,22 +145,146 @@ static BOOL CALLBACK CommitInfoDialogProc(HWND hwnd,
 	}
 }
 
-void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit)
+static BOOL CALLBACK TagInfoDialogProc(HWND hwnd,
+									   unsigned int iMsg,
+									   WPARAM wParam,
+									   LPARAM lParam)
+{
+	LGitCommitInfoDialogParams *param;
+	PROPSHEETPAGE *psp;
+	switch (iMsg) {
+	case WM_INITDIALOG:
+		psp = (PROPSHEETPAGE*)lParam;
+		param = (LGitCommitInfoDialogParams*)psp->lParam;
+		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		FillTagView(hwnd, param);
+		return TRUE;
+	case WM_COMMAND:
+		param = (LGitCommitInfoDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		switch (LOWORD(wParam)) {
+		case IDOK:
+		case IDCANCEL:
+			EndDialog(hwnd, 1);
+			return TRUE;
+		}
+		return FALSE;
+	default:
+		return FALSE;
+	}
+}
+
+static void FillRefsView(HWND hwnd, LGitCommitInfoDialogParams *params)
+{
+	HWND lb = GetDlgItem(hwnd, IDC_COMMITINFO_REFERENCES);
+	/* We need to get a list of refs, then see if the ref has the commit */
+	git_reference_iterator *iter = NULL;
+	git_reference *ref = NULL;
+	const git_oid *this_oid = git_commit_id(params->commit);
+	const git_oid *ref_oid = NULL;
+	if (git_reference_iterator_new(&iter, params->ctx->repo) != 0) {
+		LGitLibraryError(hwnd, "git_reference_iterator_new");
+		return;
+	}
+	int rc;
+	while ((rc = git_reference_next(&ref, iter)) == 0) {
+		const char *name = git_reference_name(ref);
+		/* If hard tag, get the commit first. It'll be null if not tag */
+		ref_oid = git_reference_target_peel(ref);
+		if (ref_oid == NULL) {
+			ref_oid = git_reference_target(ref);
+		}
+		if (ref_oid == NULL) {
+			LGitLog("!! %s has no OID?\n", name);
+			continue;
+		}
+		if (git_oid_equal(ref_oid, this_oid) == 1
+			|| git_graph_descendant_of(params->ctx->repo, ref_oid, this_oid) == 1) {
+			SendMessage(lb, LB_ADDSTRING, 0, (LPARAM)name);
+		}
+	}
+	if (rc != GIT_ITEROVER) {
+		LGitLibraryError(hwnd, "git_reference_next");
+		return;
+	}
+	if (iter != NULL) {
+		git_reference_iterator_free(iter);
+	}
+}
+
+static BOOL CALLBACK RefsDialogProc(HWND hwnd,
+								    unsigned int iMsg,
+								    WPARAM wParam,
+								    LPARAM lParam)
+{
+	LGitCommitInfoDialogParams *param;
+	PROPSHEETPAGE *psp;
+	switch (iMsg) {
+	case WM_INITDIALOG:
+		psp = (PROPSHEETPAGE*)lParam;
+		param = (LGitCommitInfoDialogParams*)psp->lParam;
+		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		FillRefsView(hwnd, param);
+		return TRUE;
+	case WM_COMMAND:
+		param = (LGitCommitInfoDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		switch (LOWORD(wParam)) {
+		case IDOK:
+		case IDCANCEL:
+			EndDialog(hwnd, 1);
+			return TRUE;
+		}
+		return FALSE;
+	default:
+		return FALSE;
+	}
+}
+
+void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit, git_tag *tag)
 {
 	LGitLog("**LGitViewCommitInfo** Context=%p\n", ctx);
 	LGitCommitInfoDialogParams params;
 	params.ctx = ctx;
 	params.commit = commit;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_COMMITINFO),
-		hWnd,
-		CommitInfoDialogProc,
-		(LPARAM)&params)) {
-	case 0:
-	case -1:
-		LGitLog(" ! Uh-oh, dialog error\n");
-		break;
-	default:
-		break;
+	params.tag = tag;
+
+	int page_count = 0;
+	PROPSHEETPAGE psp[3];
+	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
+	psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+	psp[page_count].hInstance = ctx->dllInst;
+	psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_COMMITINFO);
+	psp[page_count].pfnDlgProc = CommitInfoDialogProc;
+	psp[page_count].lParam = (LPARAM)&params;
+	page_count++;
+	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
+	psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+	psp[page_count].hInstance = ctx->dllInst;
+	psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_COMMITINFO_REFERENCES);
+	psp[page_count].pfnDlgProc = RefsDialogProc;
+	psp[page_count].lParam = (LPARAM)&params;
+	if (tag != NULL) {
+		page_count++;
+		ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
+		psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+		psp[page_count].hInstance = ctx->dllInst;
+		psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_TAGINFO);
+		psp[page_count].pfnDlgProc = TagInfoDialogProc;
+		psp[page_count].lParam = (LPARAM)&params;
 	}
+	page_count++; /* for nPages */
+	PROPSHEETHEADER psh;
+	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
+	psh.dwSize = sizeof(PROPSHEETHEADER);
+	psh.dwFlags =  PSH_PROPSHEETPAGE
+		| PSH_NOAPPLYNOW
+		| PSH_NOCONTEXTHELP
+		| PSH_USECALLBACK;
+	psh.pfnCallback = LGitImmutablePropSheetProc;
+	psh.hwndParent = hWnd;
+	psh.hInstance = ctx->dllInst;
+	psh.pszCaption = "Commit Details";
+	psh.nPages = page_count;
+	psh.ppsp = psp;
+
+	PropertySheet(&psh);
 }

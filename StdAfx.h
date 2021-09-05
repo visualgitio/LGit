@@ -79,6 +79,7 @@
 #include <git2/revert.h>
 #include <git2/reset.h>
 #include <git2/tag.h>
+#include <git2/graph.h>
 
 // our own stuff, after the prereqs
 #include "resource.h"

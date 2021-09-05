@@ -37,6 +37,10 @@
 #define IDD_FILEPROPS_FILE              133
 #define IDD_BRANCHES                    134
 #define IDD_BRANCH_ADD                  135
+#define IDD_TAGINFO                     136
+#define IDR_REFERENCE_MENU              137
+#define IDD_TAG_ADD                     138
+#define IDD_COMMITINFO_REFERENCES       139
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -97,16 +101,18 @@
 #define IDC_PULL_FETCH                  1051
 #define IDC_FILEPROPS_STAGE_TYPE        1058
 #define IDC_BRANCH_LIST                 1059
-#define IDC_BRANCH_ADD                  1060
-#define IDC_BRANCH_DELETE               1061
 #define IDC_BRANCH_ADD_NAME             1062
-#define IDC_BRANCH_CHECKOUT             1062
 #define IDC_BRANCH_ADD_FORCE            1063
-#define IDC_BRANCH_MERGE                1063
-#define IDC_BRANCH_HISTORY              1064
 #define IDC_BRANCH_ADD_BASED_ON         1064
 #define IDC_BRANCH_ADD_CHECKOUT         1065
-#define IDC_BRANCH_DIFF                 1066
+#define IDC_TAGINFO_MESSAGE             1065
+#define IDC_TAGINFO_OID                 1066
+#define IDC_TAGINFO_AUTHOR              1067
+#define IDC_TAG_ADD_MESSAGE             1068
+#define IDC_TAG_ADD_NAME                1069
+#define IDC_TAG_ADD_BASED_ON            1070
+#define IDC_TAG_ADD_FORCE               1071
+#define IDC_COMMITINFO_REFERENCES       1072
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -126,14 +132,23 @@
 #define ID_HISTORY_COMMIT_CHECKOUT      40021
 #define ID_HISTORY_COMMIT_REVERT        40022
 #define ID_HISTORY_COMMIT_RESET_HARD    40024
+#define ID_REFERENCE_VIEW               40025
+#define ID_REFERENCE_CHECKOUT           40026
+#define ID_REFERENCE_MERGE              40027
+#define ID_REFERENCE_REMOVE             40028
+#define ID_REFERENCE_HISTORY            40029
+#define ID_REFERENCE_DIFF               40030
+#define ID_REFERENCE_CLOSE              40031
+#define ID_BRANCH_ADD                   40032
+#define ID_TAG_ADD                      40033
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        136
-#define _APS_NEXT_COMMAND_VALUE         40025
-#define _APS_NEXT_CONTROL_VALUE         1065
+#define _APS_NEXT_RESOURCE_VALUE        140
+#define _APS_NEXT_COMMAND_VALUE         40035
+#define _APS_NEXT_CONTROL_VALUE         1073
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

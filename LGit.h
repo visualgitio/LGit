@@ -112,6 +112,9 @@ SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index);
 /* clone.cpp */
 SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
 
+/* tag.cpp */
+SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd);
+
 /* diffwin.cpp */
 typedef struct _LGitDiffDialogParams {
 	LGitContext *ctx;
@@ -133,7 +136,7 @@ SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, g
 BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz);
 
 /* commitvw.cpp */
-void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit);
+void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit, git_tag *tag);
 
 /* gitconf.cpp */
 SCCRTN LGitManageConfig(LGitContext *ctx, HWND hwnd, git_config *config, const char *title);
@@ -172,6 +175,9 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
 void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx);
 BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
+BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd, unsigned int iMsg, LPARAM lParam);
+BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y);
+void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);
 
 /* about.cpp */
 void LGitAbout(HWND hwnd, LGitContext *ctx);

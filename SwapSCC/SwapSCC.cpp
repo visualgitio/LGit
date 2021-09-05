@@ -33,25 +33,29 @@ static BOOL GetProviders(void)
 	/* value */
 	BYTE skValue[255], selectedValue[255];
 	DWORD skValueLen, type;
-	// get the current provider
+	// get the current provider, which could be null
 	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
 		SWAP_KEY_SCC,
 		0,
 		KEY_READ,
 		&providersKey);
 	if (ret != ERROR_SUCCESS) {
+		OutputDebugString("SwapSCC: SCC key doesn't exist\n");
 		return FALSE;
 	}
 	skValueLen = 255;
 	ret = RegQueryValueEx(providersKey, SWAP_KEY_PROVIDER, NULL, &type, selectedValue, &skValueLen);
 	if (ret != ERROR_SUCCESS) {
-		return FALSE;
+		/* Don't fail */
+		current = std::string("");
+	} else {
+		if (REG_SZ != type) {
+			OutputDebugString("SwapSCC: Value is not a string\n");
+			return FALSE;
+		}
+		current = std::string((const char*)selectedValue);
+		RegCloseKey(providersKey);
 	}
-	if (REG_SZ != type) {
-		return FALSE;
-	}
-	current = std::string((const char*)selectedValue);
-	RegCloseKey(providersKey);
 	// now provider list
 	ret = RegOpenKeyEx(HKEY_LOCAL_MACHINE,
 		SWAP_KEY_INSTALLED,
@@ -59,6 +63,7 @@ static BOOL GetProviders(void)
 		KEY_READ,
 		&providersKey);
 	if (ret != ERROR_SUCCESS) {
+		OutputDebugString("SwapSCC: No installed provider key\n");
 		return FALSE;
 	}
 	ret = RegQueryInfoKey(
@@ -74,6 +79,10 @@ static BOOL GetProviders(void)
         &cbMaxValueData,         // longest value data 
         &cbSecurityDescriptor,   // security descriptor 
         &ftLastWriteTime);       // last write time 
+	if (ret != ERROR_SUCCESS) {
+		OutputDebugString("SwapSCC: No installed provider values\n");
+		return FALSE;
+	}
 	for (i = 0; i < cValues; i++) {
 		cchValue = 255; 
         achValue[0] = '\0'; 
@@ -87,6 +96,7 @@ static BOOL GetProviders(void)
 		skValueLen = 255;
 		ret = RegQueryValueEx(providersKey, achValue, NULL, &type, skValue, &skValueLen);
 		if (REG_SZ != type) {
+			OutputDebugString("SwapSCC: Skipping, value of provider is not a string\n");
 			continue;
 		}
 		std::string k(achValue);
@@ -194,6 +204,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
                      int       nCmdShow)
 {
 	if (!GetProviders()) {
+		OutputDebugString("SwapSCC: Couldn't get providers");
 		return 3;
 	}
 	// If we have command-line arguments, use them and exit without UI
@@ -207,7 +218,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	int ret = DialogBoxParam(hInstance, MAKEINTRESOURCE(IDD_SWAP), NULL, SwapProc, 0);
 	if (ret == -1) {
 		char msg[256];
-		_snprintf(msg, 256, "Couldn't make dialog window (%x)\n", GetLastError());
+		_snprintf(msg, 256, "SwapSCC: Couldn't make dialog window (%x)\n", GetLastError());
 		OutputDebugString(msg);
 		return 2;
 	}

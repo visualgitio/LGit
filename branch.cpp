@@ -98,6 +98,7 @@ static BOOL CALLBACK AddBranchDialogProc(HWND hwnd,
 
 typedef struct _LGitBranchDialogParams {
 	LGitContext *ctx;
+	HMENU menu;
 	/* for label editor */
 	char old_name[128];
 	BOOL editing;
@@ -118,6 +119,7 @@ static LVCOLUMN type_column = {
 
 static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 {
+	SetMenu(hwnd, params->menu);
 	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
 
 	ListView_InsertColumn(lv, 0, &name_column);
@@ -128,26 +130,24 @@ static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
-	size_t index = 0, i;
+	size_t index = 0;
 	/* clear if we're replenishing */
 	ListView_DeleteAllItems(lv);
-	git_branch_iterator *iter = NULL;
+	git_reference_iterator *iter = NULL;
 	git_reference *ref = NULL;
-	git_branch_t type;
 	int rc;
-	/* First branches (XXX: convert to ref list, maybe we can ignore notes) */
-	if (git_branch_iterator_new(&iter, params->ctx->repo, GIT_BRANCH_ALL) != 0) {
-		LGitLibraryError(hwnd, "git_branch_iterator_new");
+	if (git_reference_iterator_new(&iter, params->ctx->repo) != 0) {
+		LGitLibraryError(hwnd, "git_reference_iterator_new");
 		return;
 	}
 	LVITEM lvi;
-	while ((rc = git_branch_next(&ref, &type, iter)) == 0) {
-		const char *name = NULL;
-		if (git_branch_name(&name, ref) != 0) {
+	while ((rc = git_reference_next(&ref, iter)) == 0) {
+		const char *name = git_reference_shorthand(ref);
+		if (name == NULL) {
 			LGitLog("!! Ope\n");
 			continue;
 		}
-		LGitLog(" ! %x %s\n", type, name);
+		LGitLog(" ! %s\n", name);
 		
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
@@ -165,7 +165,17 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		lvi.pszText = (char*)git_reference_name(ref);
 		ListView_SetItem(lv, &lvi);
 		char type_str[128];
-		strlcpy(type_str, LGitBranchType(type), 128);
+		if (git_reference_is_remote(ref)) {
+			strlcpy(type_str, "Remote", 128);
+		} else if (git_reference_is_branch(ref)) {
+			strlcpy(type_str, "Local", 128);
+		} else if (git_reference_is_tag(ref)) {
+			strlcpy(type_str, "Tag", 128);
+		} else if (git_reference_is_note(ref)) {
+			strlcpy(type_str, "Note", 128);
+		} else {
+			strlcpy(type_str, "Unknown", 128);
+		}
 		if (git_branch_is_checked_out(ref)) {
 			strlcat(type_str, ", Checked Out", 128);
 		}
@@ -177,45 +187,12 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		ListView_SetItem(lv, &lvi);
 	}
 	if (rc != GIT_ITEROVER) {
-		LGitLibraryError(hwnd, "git_branch_next");
+		LGitLibraryError(hwnd, "git_reference_next");
 		return;
 	}
 	if (iter != NULL) {
-		git_branch_iterator_free(iter);
+		git_reference_iterator_free(iter);
 	}
-	/* Now for tags. We'll want the long name, but we can just add the prefix */
-	git_strarray tags = {0};
-	if (git_tag_list(&tags, params->ctx->repo) != 0) {
-		LGitLibraryError(hwnd, "git_tag_list");
-		return;
-	}
-	LGitLog(" ! tag count %d\n", tags.count);
-	for (i = 0; i < tags.count; i++) {
-		char fullname[128];
-		LGitLog(" ! tag %s\n", tags.strings[i]);
-		
-		ZeroMemory(&lvi, sizeof(LVITEM));
-		lvi.mask = LVIF_TEXT;
-		lvi.pszText = (char*)tags.strings[i];
-		lvi.iItem = index++;
-		lvi.iSubItem = 0;
-
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
-		if (lvi.iItem == -1) {
-			LGitLog(" ! ListView_InsertItem failed\n");
-			continue;
-		}
-		/* now for the subitems... */
-		lvi.iSubItem = 1;
-		strlcpy(fullname, "refs/tags/", 128);
-		strlcat(fullname, tags.strings[i], 128);
-		lvi.pszText = (char*)fullname;
-		ListView_SetItem(lv, &lvi);
-		lvi.iSubItem = 2;
-		lvi.pszText = (char*)"Tag"; /* XXX: It can never be HEAD, but guess */
-		ListView_SetItem(lv, &lvi);
-	}
-	git_strarray_dispose(&tags);
 }
 
 static BOOL GetSelectedBranch(HWND hwnd, char *buf, size_t bufsz)
@@ -230,6 +207,20 @@ static BOOL GetSelectedBranch(HWND hwnd, char *buf, size_t bufsz)
 	}
 	/* We want the full reference name here */
 	ListView_GetItemText(lv, selected, 1, buf, bufsz);
+	return TRUE;
+}
+
+static BOOL GetSelectedBranch(HWND hwnd, int *index)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
+	if (lv == NULL) {
+		return FALSE;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return FALSE;
+	}
+	*index = selected;
 	return TRUE;
 }
 
@@ -331,7 +322,8 @@ static void ReferenceView(HWND hwnd, LGitBranchDialogParams* params)
 	}
 	LGitLog(" ! View for %s?\n", name);
 	git_commit *selected = NULL;
-	git_object *selected_object;
+	git_tag *selected_tag = NULL;
+	git_object *selected_object = NULL;
 	git_oid selected_oid;
 	if (git_reference_name_to_id(&selected_oid, params->ctx->repo, name) != 0) {
 		LGitLibraryError(hwnd, "git_reference_name_to_id");
@@ -346,8 +338,14 @@ static void ReferenceView(HWND hwnd, LGitBranchDialogParams* params)
 		LGitLibraryError(hwnd, "Commit git_object_peel");
 		goto fin;
 	}
-	LGitViewCommitInfo(params->ctx, hwnd, selected);
+	if (git_object_peel((git_object**)&selected_tag, selected_object, GIT_OBJECT_TAG) != 0) {
+		/* not important */
+	}
+	LGitViewCommitInfo(params->ctx, hwnd, selected, selected_tag);
 fin:
+	if (selected_tag != NULL) {
+		git_tag_free(selected_tag);
+	}
 	if (selected != NULL) {
 		git_commit_free(selected);
 	}
@@ -373,7 +371,7 @@ static void BranchRemove(HWND hwnd, LGitBranchDialogParams* params)
 	}
 	if (MessageBox(hwnd,
 		"The reference will be removed.",
-		"Remove Branch?",
+		"Remove Reference?",
 		MB_ICONWARNING | MB_YESNO) != IDYES) {
 		goto err;
 	}
@@ -397,6 +395,13 @@ err:
 	}
 }
 
+static void TagAdd(HWND hwnd, LGitBranchDialogParams *params)
+{
+	if (LGitAddTagDialog(params->ctx, hwnd) == SCC_OK) {
+		FillBranchView(hwnd, params);
+	}
+}
+
 static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 {
 	LGitAddBranchDialogParams ab_params;
@@ -408,6 +413,7 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 		AddBranchDialogProc,
 		(LPARAM)&ab_params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		return;
 	case 1:
@@ -421,7 +427,6 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 	const char *branch_name;
 	int rc;
 	/*
-	 * We need the commit of the branch to base off of; assume HEAD for now.
 	 * XXX: Is it safe to make a branch without a commit (unborn); if so, just
 	 * skip the init here and go to the branch create call.
 	 */
@@ -559,6 +564,21 @@ fin:
 	return ret;
 }
 
+static void UpdateRefMenu(HWND hwnd, LGitBranchDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
+	UINT selected = ListView_GetSelectedCount(lv);
+	UINT newState = MF_BYCOMMAND
+		| (selected ? MF_ENABLED : MF_GRAYED);
+#define EnableMenuItemIfCommitSelected(id) EnableMenuItem(params->menu,id,newState)
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_REMOVE);
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_CHECKOUT);
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_MERGE);
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_HISTORY);
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_DIFF);
+	EnableMenuItemIfCommitSelected(ID_REFERENCE_VIEW);
+}
+
 static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 											 unsigned int iMsg,
 											 WPARAM wParam,
@@ -571,7 +591,15 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitBranchView(hwnd, param);
 		FillBranchView(hwnd, param);
+		LGitControlFillsParentDialog(hwnd, IDC_BRANCH_LIST);
+		UpdateRefMenu(hwnd, param);
 		return TRUE;
+	case WM_SIZE:
+		LGitControlFillsParentDialog(hwnd, IDC_BRANCH_LIST);
+		return TRUE;
+	case WM_CONTEXTMENU:
+		param = (LGitBranchDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
+		return LGitContextMenuFromSubmenu(hwnd, param->menu, 1, LOWORD(lParam), HIWORD(lParam));
 	case WM_COMMAND:
 		param = (LGitBranchDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		if (param->editing) {
@@ -579,24 +607,44 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 			return TRUE;
 		}
 		switch (LOWORD(wParam)) {
-		case IDC_BRANCH_ADD:
+		case ID_BRANCH_ADD:
 			BranchAdd(hwnd, param);
 			return TRUE;
-		case IDC_BRANCH_DELETE:
+		case ID_TAG_ADD:
+			TagAdd(hwnd, param);
+			return TRUE;
+		case ID_REFERENCE_REMOVE:
 			BranchRemove(hwnd, param);
 			return TRUE;
-		case IDC_BRANCH_CHECKOUT:
+		case ID_REFERENCE_CHECKOUT:
 			BranchCheckout(hwnd, param);
 			return TRUE;
-		case IDC_BRANCH_MERGE:
+		case ID_REFERENCE_MERGE:
 			BranchMerge(hwnd, param);
 			return TRUE;
-		case IDC_BRANCH_HISTORY:
+		case ID_REFERENCE_HISTORY:
 			BranchHistory(hwnd, param);
 			return TRUE;
-		case IDC_BRANCH_DIFF:
+		case ID_REFERENCE_DIFF:
 			BranchDiff(hwnd, param);
 			return TRUE;
+		case ID_REFERENCE_VIEW:
+			ReferenceView(hwnd, param);
+			return TRUE;
+		/* XXX: LVM_EDITLABEL doesn't want to work, yet does when by user?
+		case ID_REFERENCE_RENAME:
+			{
+				// we need to get the index ourselves, also focus
+				HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
+				SetFocus(lv);
+				int selected;
+				if (GetSelectedBranch(hwnd, &selected)) {
+					LGitLog(" ! %p <- %d\n", ListView_EditLabel(hwnd, selected), selected);
+				}
+			}
+			return TRUE;
+		*/
+		case ID_REFERENCE_CLOSE:
 		case IDOK:
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
@@ -620,6 +668,7 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 			case LVN_ENDLABELEDIT:
 				return BranchRename(hwnd, param, child_edit->item.pszText);
 			case LVN_ITEMCHANGED:
+				UpdateRefMenu(hwnd, param);
 				return TRUE;
 			}
 		}
@@ -635,6 +684,7 @@ SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd)
 	LGitBranchDialogParams params;
 	ZeroMemory(&params, sizeof(LGitBranchDialogParams));
 	params.ctx = ctx;
+	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_REFERENCE_MENU));
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_BRANCHES),
 		hwnd,
@@ -647,5 +697,6 @@ SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd)
 	default:
 		break;
 	}
+	DestroyMenu(params.menu);
 	return SCC_OK;
 }

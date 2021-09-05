@@ -17,6 +17,48 @@ void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name)
 	}
 }
 
+void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item)
+{
+	RECT rect;
+	HWND lv = GetDlgItem(hwnd, dlg_item);
+	GetClientRect(hwnd, &rect);
+	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
+}
+
+BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y)
+{
+	/* are we in non-client area? */
+	RECT clientArea;
+	POINT pos = { x, y };
+	GetClientRect(hwnd, &clientArea);
+	ScreenToClient(hwnd, &pos);
+	if (!PtInRect(&clientArea, pos)) {
+		return FALSE;
+	}
+	/* this should be the "commit" menu */
+	HMENU commitMenu = GetSubMenu(menu, position);
+	TrackPopupMenu(commitMenu, TPM_LEFTALIGN, x, y, 0, hwnd, NULL);
+	/* do we need to free GetSubMenu items? */
+	return TRUE;
+}
+
+/**
+ * Used to hide the OK button and mark the cancel button as close. Used for
+ * property sheets representing immutable data, where having two buttons is
+ * just confusing.
+ */
+BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd,
+										 unsigned int iMsg,
+										 LPARAM lParam)
+{
+	if (iMsg == PSCB_INITIALIZED) {
+		ShowWindow(GetDlgItem(hwnd, IDOK), SW_HIDE);
+		SetWindowText(GetDlgItem(hwnd, IDCANCEL), "Close");
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static int CALLBACK BrowseCallbackProc(HWND hwnd,
 									   UINT uMsg,
 									   LPARAM lParam,
