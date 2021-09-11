@@ -78,6 +78,11 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	case ID_EXPLORER_REPOSITORY_REFRESH:
 		RefreshExplorer(hwnd, params);
 		return TRUE;
+	case ID_EXPLORER_REPOSITORY_APPLYPATCH:
+		if (LGitApplyPatchDialog(params->ctx, hwnd) == SCC_OK) {
+			RefreshExplorer(hwnd, params);
+		}
+		return TRUE;
 	case ID_EXPLORER_REPOSITORY_BRANCHES:
 		LGitShowBranchManager(params->ctx, hwnd);
 		/* operations here can cause i.e. checkouts */
@@ -137,6 +142,7 @@ static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 		| (params->ctx->active ? MF_ENABLED : MF_GRAYED);
 #define EnableMenuItemIfInRepo(id) EnableMenuItem(params->menu,id,newState)
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_APPLYPATCH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_HISTORY);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);

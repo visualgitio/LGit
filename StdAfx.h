@@ -80,6 +80,7 @@
 #include <git2/reset.h>
 #include <git2/tag.h>
 #include <git2/graph.h>
+#include <git2/apply.h>
 
 // our own stuff, after the prereqs
 #include "resource.h"

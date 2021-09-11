@@ -100,6 +100,10 @@ SOURCE=.\addscc.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\apply.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\branch.cpp
 # End Source File
 # Begin Source File
@@ -245,6 +249,14 @@ SOURCE=.\StdAfx.h
 # PROP Default_Filter "ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe"
 # Begin Source File
 
+SOURCE=.\branch.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\branch_r.ico
+# End Source File
+# Begin Source File
+
 SOURCE=.\diff.ico
 # End Source File
 # Begin Source File
@@ -286,6 +298,14 @@ SOURCE=.\lgit.ico
 # Begin Source File
 
 SOURCE=.\LGit.rc
+# End Source File
+# Begin Source File
+
+SOURCE=.\tag.ico
+# End Source File
+# Begin Source File
+
+SOURCE=.\tag_l.ico
 # End Source File
 # End Group
 # Begin Source File

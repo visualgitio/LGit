@@ -132,6 +132,11 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 SCCRTN LGitCommitToCommitDiff(LGitContext *ctx, HWND hwnd, git_commit *commit_b, git_commit *commit_a, git_diff_options *diffopts);
 SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, git_diff_options *diffopts);
 
+/* apply.cpp */
+SCCRTN LGitApplyPatch(LGitContext *ctx, HWND hwnd, git_diff *diff, git_apply_location_t loc, BOOL check_only);
+SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const char *file, git_diff **out);
+SCCRTN LGitApplyPatchDialog(LGitContext *ctx, HWND hwnd);
+
 /* sigwin.cpp */
 BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz);
 

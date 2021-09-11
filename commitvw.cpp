@@ -177,38 +177,51 @@ static void FillRefsView(HWND hwnd, LGitCommitInfoDialogParams *params)
 {
 	HWND lb = GetDlgItem(hwnd, IDC_COMMITINFO_REFERENCES);
 	/* We need to get a list of refs, then see if the ref has the commit */
-	git_reference_iterator *iter = NULL;
-	git_reference *ref = NULL;
+	git_strarray refs = {0,0};
+	size_t i;
 	const git_oid *this_oid = git_commit_id(params->commit);
 	const git_oid *ref_oid = NULL;
-	if (git_reference_iterator_new(&iter, params->ctx->repo) != 0) {
+	if (git_reference_list(&refs, params->ctx->repo) != 0) {
 		LGitLibraryError(hwnd, "git_reference_iterator_new");
 		return;
 	}
-	int rc;
-	while ((rc = git_reference_next(&ref, iter)) == 0) {
-		const char *name = git_reference_name(ref);
+	/* this can be slow; progress dialog and make quantifiable w/ list */
+	LGitProgressInit(params->ctx, "Checking References for Commit", 0);
+	/* XXX: make blocking since we can switch tabs between */
+	LGitProgressStart(params->ctx, hwnd, TRUE);
+	for (i = 0; i < refs.count; i++) {
+		if (LGitProgressCancelled(params->ctx)) {
+			/* We'll work with what we have. */
+			break;
+		}
+		const char *name = refs.strings[i];
+		git_reference *ref = NULL;
+		if (git_reference_lookup(&ref, params->ctx->repo, name) != 0) {
+			LGitLog("!! Failed to lookup %s\n", name);
+			continue;
+		}
+		char msg[128];
+		_snprintf(msg, 128, "Checking %s", name);
+		LGitProgressText(params->ctx, msg, 1);
+		LGitProgressSet(params->ctx, i, refs.count);
 		/* If hard tag, get the commit first. It'll be null if not tag */
 		ref_oid = git_reference_target_peel(ref);
 		if (ref_oid == NULL) {
 			ref_oid = git_reference_target(ref);
 		}
-		if (ref_oid == NULL) {
-			LGitLog("!! %s has no OID?\n", name);
-			continue;
-		}
-		if (git_oid_equal(ref_oid, this_oid) == 1
-			|| git_graph_descendant_of(params->ctx->repo, ref_oid, this_oid) == 1) {
+		/* it's accepted if the ref_oid is NULL; i.e. origin/HEAD */
+		if (ref_oid != NULL
+			&& (git_oid_equal(ref_oid, this_oid) == 1
+			|| git_graph_descendant_of(params->ctx->repo, ref_oid, this_oid) == 1)) {
+			/* XXX: this could be a listview like refs dialog instead */
 			SendMessage(lb, LB_ADDSTRING, 0, (LPARAM)name);
 		}
+		if (ref != NULL) {
+			git_reference_free(ref);
+		}
 	}
-	if (rc != GIT_ITEROVER) {
-		LGitLibraryError(hwnd, "git_reference_next");
-		return;
-	}
-	if (iter != NULL) {
-		git_reference_iterator_free(iter);
-	}
+	LGitProgressDeinit(params->ctx);
+	git_strarray_dispose(&refs);
 }
 
 static BOOL CALLBACK RefsDialogProc(HWND hwnd,

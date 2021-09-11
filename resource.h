@@ -41,6 +41,10 @@
 #define IDR_REFERENCE_MENU              137
 #define IDD_TAG_ADD                     138
 #define IDD_COMMITINFO_REFERENCES       139
+#define IDI_BRANCH                      140
+#define IDI_TAG                         141
+#define IDI_BRANCH_REMOTE               142
+#define IDI_TAG_LIGHT                   143
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -141,13 +145,14 @@
 #define ID_REFERENCE_CLOSE              40031
 #define ID_BRANCH_ADD                   40032
 #define ID_TAG_ADD                      40033
+#define ID_EXPLORER_REPOSITORY_APPLYPATCH 40035
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        140
-#define _APS_NEXT_COMMAND_VALUE         40035
+#define _APS_NEXT_RESOURCE_VALUE        144
+#define _APS_NEXT_COMMAND_VALUE         40036
 #define _APS_NEXT_CONTROL_VALUE         1073
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

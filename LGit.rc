@@ -273,7 +273,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,197,60,50,14
     CTEXT           "&Remote",IDC_STATIC,7,7,40,14,SS_CENTERIMAGE
     CTEXT           "Re&ference",IDC_STATIC,7,26,40,14,SS_CENTERIMAGE
-    COMBOBOX        IDC_PUSH_REMOTE,47,7,200,30,CBS_DROPDOWNLIST | CBS_SORT | 
+    COMBOBOX        IDC_PUSH_REMOTE,47,7,200,67,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     COMBOBOX        IDC_PUSH_REF,47,26,200,56,CBS_DROPDOWN | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
@@ -301,7 +301,7 @@ BEGIN
     DEFPUSHBUTTON   "OK",IDOK,140,60,50,14
     PUSHBUTTON      "Cancel",IDCANCEL,197,60,50,14
     CTEXT           "&Remote",IDC_STATIC,7,7,40,14,SS_CENTERIMAGE
-    COMBOBOX        IDC_PULL_REMOTE,47,7,200,30,CBS_DROPDOWNLIST | CBS_SORT | 
+    COMBOBOX        IDC_PULL_REMOTE,47,7,200,67,CBS_DROPDOWNLIST | CBS_SORT | 
                     WS_VSCROLL | WS_TABSTOP
     PUSHBUTTON      "Remote&s...",IDC_PULL_MANAGE_REMOTES,7,60,50,14
     CONTROL         "&Merge changes (pull)",IDC_PULL_FETCH,"Button",
@@ -429,7 +429,7 @@ BEGIN
     LTEXT           "&Name",IDC_STATIC,7,7,33,14,SS_CENTERIMAGE
     EDITTEXT        IDC_BRANCH_ADD_NAME,40,7,207,14,ES_AUTOHSCROLL
     LTEXT           "&Base on",IDC_STATIC,7,26,33,12,SS_CENTERIMAGE
-    COMBOBOX        IDC_BRANCH_ADD_BASED_ON,40,26,207,30,CBS_DROPDOWN | 
+    COMBOBOX        IDC_BRANCH_ADD_BASED_ON,40,26,207,57,CBS_DROPDOWN | 
                     CBS_SORT | WS_VSCROLL | WS_TABSTOP
     CONTROL         "&Checkout after creation",IDC_BRANCH_ADD_CHECKOUT,
                     "Button",BS_AUTOCHECKBOX | WS_TABSTOP,7,43,240,10
@@ -464,7 +464,7 @@ BEGIN
     LTEXT           "&Name",IDC_STATIC,7,7,33,14,SS_CENTERIMAGE
     EDITTEXT        IDC_TAG_ADD_NAME,40,7,207,14,ES_AUTOHSCROLL
     LTEXT           "&Base on",IDC_STATIC,7,26,33,12,SS_CENTERIMAGE
-    COMBOBOX        IDC_TAG_ADD_BASED_ON,40,26,207,30,CBS_DROPDOWN | 
+    COMBOBOX        IDC_TAG_ADD_BASED_ON,40,26,207,93,CBS_DROPDOWN | 
                     CBS_SORT | WS_VSCROLL | WS_TABSTOP
     LTEXT           "&Message",IDC_STATIC,7,43,33,12,SS_CENTERIMAGE
     EDITTEXT        IDC_TAG_ADD_MESSAGE,40,43,207,42,ES_MULTILINE | 
@@ -849,6 +849,10 @@ IDI_DIFF_DEL            ICON    DISCARDABLE     "diffdel.ico"
 IDI_DIFF_FILE_B         ICON    DISCARDABLE     "difffilb.ico"
 IDI_HISTORY             ICON    DISCARDABLE     "history.ico"
 IDI_DIFF                ICON    DISCARDABLE     "diff.ico"
+IDI_BRANCH              ICON    DISCARDABLE     "branch.ico"
+IDI_TAG                 ICON    DISCARDABLE     "tag.ico"
+IDI_BRANCH_REMOTE       ICON    DISCARDABLE     "branch_r.ico"
+IDI_TAG_LIGHT           ICON    DISCARDABLE     "tag_l.ico"
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -888,6 +892,9 @@ BEGIN
     POPUP "&Repository"
     BEGIN
         MENUITEM "&Refresh",                    ID_EXPLORER_REPOSITORY_REFRESH
+
+        MENUITEM SEPARATOR
+        MENUITEM "&Apply Patch...",             ID_EXPLORER_REPOSITORY_APPLYPATCH
 
         MENUITEM SEPARATOR
         MENUITEM "Re&ferences...",              ID_EXPLORER_REPOSITORY_BRANCHES

@@ -114,7 +114,7 @@ static LVCOLUMN name_column = {
 };
 
 static LVCOLUMN type_column = {
-	LVCF_TEXT | LVCF_WIDTH, 0, 75, "Type"
+	LVCF_TEXT | LVCF_WIDTH, 0, 125, "Status"
 };
 
 static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
@@ -125,6 +125,27 @@ static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 	ListView_InsertColumn(lv, 0, &name_column);
 	ListView_InsertColumn(lv, 1, &full_name_column);
 	ListView_InsertColumn(lv, 2, &type_column);
+
+	/* XXX: It's unclear if we need to free this. */
+	HIMAGELIST icons;
+	HICON icon;
+	icons = ImageList_Create(GetSystemMetrics(SM_CXSMICON),
+		GetSystemMetrics(SM_CYSMICON),
+		ILC_MASK, 1, 1);
+	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH_REMOTE));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_TAG));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_TAG_LIGHT));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+
+	ListView_SetImageList(lv, icons, LVSIL_SMALL);
 }
 
 static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
@@ -150,7 +171,29 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		LGitLog(" ! %s\n", name);
 		
 		ZeroMemory(&lvi, sizeof(LVITEM));
-		lvi.mask = LVIF_TEXT;
+		lvi.mask = LVIF_TEXT | LVIF_IMAGE;
+		/* XXX: Image for checked out branch? */
+		if (git_reference_is_remote(ref)) {
+			lvi.iImage = 1;
+		} else if (git_reference_is_branch(ref)) {
+			lvi.iImage = 0;
+		} else if (git_reference_is_tag(ref)) {
+			/* peeled target unavail from iter, reopen to see if annotated */
+			git_object *ptr = NULL;
+			/* XXX: is this expensive? */
+			if (git_object_lookup(&ptr, params->ctx->repo, git_reference_target(ref), GIT_OBJECT_TAG) != 0) {
+				lvi.iImage = 3; /* annotated */
+			} else {
+				lvi.iImage = 2; /* lightweight */
+			}
+			if (ptr != NULL) {
+				git_object_free(ptr);
+			}
+		} else if (git_reference_is_note(ref)) {
+			lvi.iImage = 4;
+		} else {
+			lvi.iImage = 5;
+		}
 		lvi.pszText = (char*)name;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
@@ -161,21 +204,12 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 			continue;
 		}
 		/* now for the subitems... */
+		lvi.mask = LVIF_TEXT;
 		lvi.iSubItem = 1;
 		lvi.pszText = (char*)git_reference_name(ref);
 		ListView_SetItem(lv, &lvi);
-		char type_str[128];
-		if (git_reference_is_remote(ref)) {
-			strlcpy(type_str, "Remote", 128);
-		} else if (git_reference_is_branch(ref)) {
-			strlcpy(type_str, "Local", 128);
-		} else if (git_reference_is_tag(ref)) {
-			strlcpy(type_str, "Tag", 128);
-		} else if (git_reference_is_note(ref)) {
-			strlcpy(type_str, "Note", 128);
-		} else {
-			strlcpy(type_str, "Unknown", 128);
-		}
+		char type_str[32];
+		ZeroMemory(type_str, 32);
 		if (git_branch_is_checked_out(ref)) {
 			strlcat(type_str, ", Checked Out", 128);
 		}
@@ -183,7 +217,7 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 			strlcat(type_str, ", HEAD", 128);
 		}
 		lvi.iSubItem = 2;
-		lvi.pszText = (char*)type_str;
+		lvi.pszText = (char*)(type_str[0] == ',' ? type_str + 2 : type_str);
 		ListView_SetItem(lv, &lvi);
 	}
 	if (rc != GIT_ITEROVER) {
@@ -589,6 +623,7 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitBranchDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		LGitSetWindowIcon(hwnd, param->ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH));
 		InitBranchView(hwnd, param);
 		FillBranchView(hwnd, param);
 		LGitControlFillsParentDialog(hwnd, IDC_BRANCH_LIST);
