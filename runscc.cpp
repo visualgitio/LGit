@@ -9,6 +9,114 @@ typedef struct _LGitExplorerParams {
 	HMENU menu;
 } LGitExplorerParams;
 
+/* put here for convenience */
+static LVCOLUMN name_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 400, "Name"
+};
+static LVCOLUMN status_column = {
+	LVCF_TEXT | LVCF_WIDTH, 0, 125, "Status"
+};
+
+static void InitExplorerListView(HWND hwnd, LGitExplorerParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+
+	ListView_InsertColumn(lv, 0, &name_column);
+	ListView_InsertColumn(lv, 1, &status_column);
+}
+
+typedef struct _LGitExplorerStatusCallbackParams {
+	LGitContext *ctx;
+	HWND hwnd, lv;
+	int index;
+} LGitExplorerStatusCallbackParams;
+
+static BOOL StatusToString(unsigned int flags, char *buf, size_t bufsz)
+{
+	if (bufsz < 1) {
+		return FALSE;
+	}
+	int index = 0;
+	buf[0] = '\0';
+	/* now for the flags */
+#define AppendIfStatus(flag,str) if (flags & flag) { strlcat(buf, str, bufsz); if (index++) strlcat(buf, ", ", bufsz); }
+	AppendIfStatus(GIT_STATUS_INDEX_NEW, "New in stage");
+	AppendIfStatus(GIT_STATUS_INDEX_MODIFIED, "Changed in stage");
+	AppendIfStatus(GIT_STATUS_INDEX_DELETED, "Deleted from stage");
+	AppendIfStatus(GIT_STATUS_INDEX_TYPECHANGE, "Type changed in stage");
+	AppendIfStatus(GIT_STATUS_WT_NEW, "New");
+	AppendIfStatus(GIT_STATUS_WT_MODIFIED, "Changed");
+	AppendIfStatus(GIT_STATUS_WT_DELETED, "Deleted");
+	AppendIfStatus(GIT_STATUS_WT_TYPECHANGE, "Type changed");
+	AppendIfStatus(GIT_STATUS_WT_RENAMED, "Renaming");
+	AppendIfStatus(GIT_STATUS_WT_UNREADABLE, "Unreadable");
+	AppendIfStatus(GIT_STATUS_IGNORED, "Ignored");
+	AppendIfStatus(GIT_STATUS_CONFLICTED, "Conflicting");
+	return TRUE;
+}
+
+static int FillStatusItem(const char *relative_path,
+						  unsigned int flags,
+						  void *context)
+{
+	LVITEM lvi;
+
+	LGitExplorerStatusCallbackParams *params = (LGitExplorerStatusCallbackParams*)context;
+	/*
+	 * Unlike the equivalent in query.cpp, we can just turn a libgit2 flags
+	 * field into a string.
+	 */
+	ZeroMemory(&lvi, sizeof(LVITEM));
+	lvi.mask = LVIF_TEXT;
+	lvi.pszText = (char*)relative_path;
+	lvi.iItem = params->index;
+	lvi.iSubItem = 0;
+	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	if (lvi.iItem == -1) {
+		LGitLog(" ! ListView_InsertItem failed\n");
+		return GIT_EUSER;
+	}
+	
+	char msg[256];
+	StatusToString(flags, msg, 256);
+	lvi.mask = LVIF_TEXT;
+	lvi.pszText = (char*)msg;
+	lvi.iItem = params->index;
+	lvi.iSubItem = 1;
+	ListView_SetItem(params->lv, &lvi);
+
+	params->index++;
+	return 0;
+}
+
+static void FillExplorerListView(HWND hwnd, LGitExplorerParams *params)
+{
+	git_status_options sopts;
+	LGitExplorerStatusCallbackParams cbp;
+	git_status_options_init(&sopts, GIT_STATUS_OPTIONS_VERSION);
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+
+	/* See the notes for the git_status_options use in query,cpp... */
+	sopts.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
+	/* XXX: Make configurable */
+	sopts.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED
+		| GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS
+		| GIT_STATUS_OPT_INCLUDE_UNREADABLE
+		| GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
+
+	cbp.ctx = params->ctx;
+	cbp.hwnd = hwnd;
+	cbp.lv = lv;
+	cbp.index = 0;
+
+	ListView_DeleteAllItems(lv);
+	if (params->ctx->repo == NULL) {
+		return;
+	}
+	/* This gets us a stage scan too */
+	git_status_foreach_ext(params->ctx->repo, &sopts, FillStatusItem, &cbp);
+}
+
 static void GetHeadState(HWND hwnd, LGitExplorerParams *params, char *buf, size_t bufsz)
 {
 	git_reference *head = NULL;
@@ -77,6 +185,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	switch (cmd) {
 	case ID_EXPLORER_REPOSITORY_REFRESH:
 		RefreshExplorer(hwnd, params);
+		FillExplorerListView(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_APPLYPATCH:
 		if (LGitApplyPatchDialog(params->ctx, hwnd) == SCC_OK) {
@@ -134,6 +243,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 
 static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 {
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
 	LGitSetWindowIcon(hwnd, params->ctx->dllInst, MAKEINTRESOURCE(IDI_LGIT));
 	SetMenu(hwnd, params->menu);
 	RefreshExplorer(hwnd, params);
@@ -149,6 +259,13 @@ static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PUSH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PULL);
 	EnableMenuItemIfInRepo(ID_EXPLORER_CONFIG_REPOSITORY);
+	if (params->ctx->repo == NULL) {
+		/* We're gonna do stuff we can only do with i.e. a stage */
+		ListView_DeleteAllItems(lv);
+		EnableWindow(lv, FALSE);
+		return;
+	}
+	EnableWindow(lv, TRUE);
 }
 
 static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
@@ -162,7 +279,14 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitExplorerParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		InitExplorerListView(hwnd, param);
 		InitExplorerView(hwnd, param);
+		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
+		FillExplorerListView(hwnd, param);
+		/* SccRunScc can tell us to select some files. */
+		return TRUE;
+	case WM_SIZE:
+		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {

@@ -76,6 +76,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	params.commit = NULL;
 	switch (LGitDiffWindow(hWnd, &params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		git_diff_free(diff);
 		return SCC_E_NONSPECIFICERROR;
@@ -167,6 +168,7 @@ SCCRTN LGitCommitToCommitDiff(LGitContext *ctx,
 	diff_params.commit = commit_b;
 	switch (LGitDiffWindow(hwnd, &diff_params)) {
 	case 0:
+	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;

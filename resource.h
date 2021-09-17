@@ -117,6 +117,7 @@
 #define IDC_TAG_ADD_BASED_ON            1070
 #define IDC_TAG_ADD_FORCE               1071
 #define IDC_COMMITINFO_REFERENCES       1072
+#define IDC_EXPLORER_FILES              1073
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -153,7 +154,7 @@
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        144
 #define _APS_NEXT_COMMAND_VALUE         40036
-#define _APS_NEXT_CONTROL_VALUE         1073
+#define _APS_NEXT_CONTROL_VALUE         1074
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif
