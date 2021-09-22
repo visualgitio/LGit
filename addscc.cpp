@@ -32,13 +32,15 @@ static void InitAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 
 	lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
 
-	ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT
-		| LVS_EX_HEADERDRAGDROP
-		| LVS_EX_CHECKBOXES
-		| LVS_EX_LABELTIP);
+	/* We can't use checkboxes because of the icons */
+	ListView_SetExtendedListViewStyle(lv, LVS_EX_LABELTIP);
 
 	/* XXX: We could add more columns for other fields in git_index_entry */
 	ListView_InsertColumn(lv, 0, &path_column);
+
+	/* Initialize the system image list */
+	HIMAGELIST sil = LGitGetSystemImageList();
+	ListView_SetImageList(lv, sil, LVSIL_SMALL);
 }
 
 static BOOL FillAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
@@ -63,12 +65,22 @@ static BOOL FillAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 		}
 		LGitLog(" ! Adding %s to list\n", entry->path);
 
+		/* Get the system image list index for the file, needing the full path */
+		SHFILEINFO sfi;
+		ZeroMemory(&sfi, sizeof(sfi));
+		char path[2048];
+		strlcpy(path, params->ctx->workdir_path, 2048);
+		strlcat(path, entry->path, 2048);
+		LGitTranslateStringChars(path, '/', '\\');
+		/* XXX: Should this be cached i.e. by extension? */
+		SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
+
 		ZeroMemory(&lvi, sizeof(LVITEM));
-		lvi.mask = LVIF_TEXT;
+		lvi.mask = LVIF_TEXT | LVIF_IMAGE;
+		lvi.iImage = sfi.iIcon;
 		lvi.pszText = (char*)entry->path;
 		lvi.iSubItem = 0;
 		lvi.iItem = insert_index++;
-		/* XXX: Icons? or does checkboxes disable that? */
 
 		lvi.iItem = ListView_InsertItem(lv, &lvi);
 		if (lvi.iItem == -1) {
@@ -100,7 +112,7 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 		LVITEM lvi;
 		char *path, relative_path[1024];
 		/* Maybe change criteria; LVM_GETNEXTITEM looks neat */
-		if (!ListView_GetCheckState(lv, i)) {
+		if (!ListView_GetItemState(lv, i, LVIS_SELECTED)) {
 			continue;
 		}
 		path = (char*)malloc(2048);
@@ -155,6 +167,13 @@ static BOOL CALLBACK AddFromDialogProc(HWND hwnd,
 			return TRUE;
 		}
 		return FALSE;
+	case WM_DESTROY:
+		{
+			/* annoying dtor we have to do, or the SIL gets blown away */
+			HWND lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
+			ListView_SetImageList(lv, NULL, LVSIL_SMALL);
+		}
+		return TRUE;
 	default:
 		return FALSE;
 	}

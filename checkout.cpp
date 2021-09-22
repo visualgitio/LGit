@@ -163,6 +163,54 @@ err:
 	return ret;
 }
 
+SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths)
+{
+	LGitLog("**LGitCheckoutStaged** Context=%p\n");
+	LGitLog("  paths count %u\n", paths->count);
+	
+	git_checkout_options co_opts;
+	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
+	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
+	co_opts.paths.strings = paths->strings;
+	co_opts.paths.count = paths->count;
+
+	LGitProgressInit(ctx, "Checking Out Files", 0);
+	LGitProgressStart(ctx, hwnd, TRUE);
+	if (git_checkout_index(ctx->repo, NULL, &co_opts) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "LGitCheckoutStaged git_checkout_index");
+		return SCC_E_NONSPECIFICERROR;
+	}
+
+	LGitProgressDeinit(ctx);
+	return SCC_OK;
+}
+
+SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths)
+{
+	LGitLog("**LGitStageCheckoutHead** Context=%p\n");
+	LGitLog("  paths count %u\n", paths->count);
+	
+	git_checkout_options co_opts;
+	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
+	LGitInitCheckoutProgressCallback(ctx, &co_opts);
+	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
+	co_opts.paths.strings = paths->strings;
+	co_opts.paths.count = paths->count;
+
+	LGitProgressInit(ctx, "Checking Out Files", 0);
+	LGitProgressStart(ctx, hwnd, TRUE);
+	if (git_checkout_index(ctx->repo, NULL, &co_opts) != 0) {
+		LGitProgressDeinit(ctx);
+		LGitLibraryError(hwnd, "LGitCheckoutHead git_checkout_head");
+		return SCC_E_NONSPECIFICERROR;
+	}
+
+	LGitProgressDeinit(ctx);
+	return SCC_OK;
+}
+
 /**
  * This checkout emulates the SCC API semantics (list of files, use HEAD)
  */
@@ -176,7 +224,6 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	int i, path_count;
 	const char *raw_path;
 	char **paths;
-	git_checkout_options co_opts;
 	LGitContext *ctx = (LGitContext*)context;
 
 	/*
@@ -186,11 +233,6 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	 */
 	LGitLog("  flags %x", dwFlags);
 	LGitLog("  files %d", nFiles);
-
-	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
-	LGitInitCheckoutProgressCallback(ctx, &co_opts);
-	co_opts.checkout_strategy = GIT_CHECKOUT_FORCE;
-	/* XXX: Apply GIT_CHECKOUT_DONT_WRITE_INDEX? */
 
 	paths = (char**)calloc(sizeof(char*), nFiles);
 	if (paths == NULL) {
@@ -216,19 +258,12 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 		LGitLog("    In list, %s\n", path);
 	}
 	*/
-	co_opts.paths.strings = paths;
-	co_opts.paths.count = path_count;
+	git_strarray strpaths;
+	strpaths.strings = paths;
+	strpaths.count = path_count;
 
-	LGitProgressInit(ctx, "Checking Out Files", 0);
-	LGitProgressStart(ctx, hWnd, TRUE);
-	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
-		LGitProgressDeinit(ctx);
-		LGitLibraryError(hWnd, "SccUncheckout git_checkout_head");
-		LGitFreePathList(paths, path_count);
-		return SCC_E_NONSPECIFICERROR;
-	}
-
-	LGitProgressDeinit(ctx);
+	/* XXX: Use opts to check if we should checkout from idx or head */
+	SCCRTN ret = LGitCheckoutHead(ctx, hWnd, &strpaths);
 	LGitFreePathList(paths, path_count);
 	return SCC_OK;
 }

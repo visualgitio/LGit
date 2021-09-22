@@ -208,6 +208,10 @@ SOURCE=.\sigwin.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\stage.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\status.cpp
 # End Source File
 # Begin Source File

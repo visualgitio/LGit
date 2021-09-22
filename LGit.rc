@@ -162,7 +162,7 @@ BEGIN
     PUSHBUTTON      "Cancel",IDCANCEL,345,224,50,14
     LTEXT           "The files below are known by Git and can be added into your project.",
                     IDC_STATIC,7,7,388,10
-    CONTROL         "List1",IDC_ADDSCC_LIST,"SysListView32",LVS_REPORT | 
+    CONTROL         "List1",IDC_ADDSCC_LIST,"SysListView32",LVS_SMALLICON | 
                     LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | 
                     WS_TABSTOP,7,22,388,197
 END
@@ -371,6 +371,7 @@ BEGIN
     LTEXT           "Visual Git",IDC_ABOUT_VERSION,33,7,146,20
     LTEXT           "Copyright (c) Calvin Buckley 2021\r\n\r\nSpecial thanks to: A. Wilcox, Alin Constantin, Bartosz Milewski, Mark Laws",
                     IDC_STATIC,7,32,172,32
+    PUSHBUTTON      "On the &Web...",IDC_ABOUT_WEB,7,69,70,14
 END
 
 IDD_GITCONFIG DIALOG DISCARDABLE  0, 0, 402, 202
@@ -896,6 +897,8 @@ BEGIN
         MENUITEM "&Refresh",                    ID_EXPLORER_REPOSITORY_REFRESH
 
         MENUITEM SEPARATOR
+        MENUITEM "&Diff from Stage...",         ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE
+
         MENUITEM "&Apply Patch...",             ID_EXPLORER_REPOSITORY_APPLYPATCH
 
         MENUITEM SEPARATOR
@@ -905,6 +908,19 @@ BEGIN
 
         MENUITEM SEPARATOR
         MENUITEM "&Close",                      ID_EXPLORER_REPOSITORY_CLOSE
+    END
+    POPUP "&Stage"
+    BEGIN
+        MENUITEM "&Add Files...",               ID_EXPLORER_STAGE_ADDFILES
+        MENUITEM "&Update",                     ID_EXPLORER_STAGE_UPDATE
+        MENUITEM SEPARATOR
+        MENUITEM "&Remove...",                  ID_EXPLORER_STAGE_REMOVE
+        MENUITEM "U&nstage",                    ID_EXPLORER_STAGE_UNSTAGE
+        MENUITEM "Re&vert to Staged",           ID_EXPLORER_STAGE_REVERTTOSTAGED
+
+        MENUITEM SEPARATOR
+        MENUITEM "&Commit Staged...",           ID_EXPLORER_STAGE_COMMITSTAGED
+
     END
     POPUP "Re&mote"
     BEGIN

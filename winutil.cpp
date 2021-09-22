@@ -143,3 +143,28 @@ void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
 	git_strarray_dispose(&refs);
 	/* Unlike remotes, don't necessarily select first, could use HEAD */
 }
+
+/* not strictly necessary to cache it seems. problem is LV dtor destroys it */
+static HIMAGELIST sil;
+static BOOL sil_init = FALSE;
+
+HIMAGELIST LGitGetSystemImageList()
+{
+	if (sil_init) {
+		return sil;
+	}
+	SHFILEINFO sfi;
+	TCHAR windir[MAX_PATH];
+	ZeroMemory(&sfi, sizeof(sfi));
+	/* this is so we get a dir that we know exists */
+	GetWindowsDirectory(windir, MAX_PATH);
+	/* does the path matter? */
+	sil = (HIMAGELIST)SHGetFileInfo(
+		windir,
+		0,
+		&sfi,
+		sizeof(SHFILEINFO),
+		SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
+	sil_init = TRUE;
+	return sil;
+}

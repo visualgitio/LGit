@@ -4,6 +4,8 @@
 
 #include "stdafx.h"
 
+#define LG_URL "https://visualgit.io"
+
 #pragma comment(lib, "version.lib")
 
 typedef struct _LGitAboutParams {
@@ -79,6 +81,9 @@ static BOOL CALLBACK AboutDialogProc(HWND hwnd,
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
+		case IDC_ABOUT_WEB:
+			ShellExecute(NULL, "open", LG_URL, NULL, NULL, SW_SHOWNORMAL);
+			return TRUE;
 		case IDOK:
 		case IDCANCEL:
 			EndDialog(hwnd, 1);

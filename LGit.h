@@ -11,6 +11,10 @@
 #define LGIT_API __declspec(dllimport)
 #endif
 
+/* Useful macros */
+#define MF_IF(x) ((x) ? MF_ENABLED : MF_GRAYED)
+#define MF_IF_CMD(x) (MF_BYCOMMAND | MF_IF(x))
+
 /* XXX: Use a case-insensitive comparator */
 typedef std::set<std::string> CheckoutQueue;
 
@@ -75,6 +79,8 @@ const char *LGitRepoStateString(int state);
 const char *LGitBranchType(git_branch_t type);
 
 /* checkout.cpp */
+SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths);
+SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths);
 SCCRTN LGitCheckoutRefByName(LGitContext *ctx,  HWND hwnd, const char *name);
 SCCRTN LGitCheckoutTree(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
@@ -83,6 +89,9 @@ BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
 /* commit.cpp */
 SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
+
+/* status.cpp */
+SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path);
 
 /* revert.cpp */
 SCCRTN LGitRevertCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
@@ -112,6 +121,12 @@ SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index);
 /* clone.cpp */
 SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
 
+/* stage.cpp */
+SCCRTN LGitStageAddFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths, BOOL update);
+SCCRTN LGitStageRemoveFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths);
+SCCRTN LGitStageUnstageFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths);
+SCCRTN LGitStageAddDialog(LGitContext *ctx, HWND hwnd);
+
 /* tag.cpp */
 SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd);
 
@@ -131,6 +146,7 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 /* diff.cpp */
 SCCRTN LGitCommitToCommitDiff(LGitContext *ctx, HWND hwnd, git_commit *commit_b, git_commit *commit_a, git_diff_options *diffopts);
 SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, git_diff_options *diffopts);
+SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd);
 
 /* apply.cpp */
 SCCRTN LGitApplyPatch(LGitContext *ctx, HWND hwnd, git_diff *diff, git_apply_location_t loc, BOOL check_only);
@@ -183,6 +199,7 @@ void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
 BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd, unsigned int iMsg, LPARAM lParam);
 BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y);
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);
+HIMAGELIST LGitGetSystemImageList();
 
 /* about.cpp */
 void LGitAbout(HWND hwnd, LGitContext *ctx);

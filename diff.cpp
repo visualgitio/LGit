@@ -217,3 +217,44 @@ fin:
 	}
 	return ret;
 }
+
+SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd)
+{
+	LGitLog("**LGitCommitToCommitDiff** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	LGitDiffDialogParams params;
+	ZeroMemory(&params, sizeof(LGitDiffDialogParams));
+	git_diff *diff = NULL;
+	/* XXX: config opts since we have no flags? allow passing in? */
+	git_diff_options diffopts;
+	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	LGitInitDiffProgressCallback(ctx, &diffopts);
+	/* repo index on null */
+	LGitProgressInit(ctx, "Diffing Stage to Working Tree", 0);
+	LGitProgressStart(ctx, hwnd, FALSE);
+	if (git_diff_index_to_workdir(&diff, ctx->repo, NULL, &diffopts) != 0) {
+		LGitLibraryError(hwnd, "git_diff_index_to_workdir");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	LGitProgressDeinit(ctx);
+
+	params.ctx = ctx;
+	params.diff = diff;
+	params.path = "Stage to Working Directory";
+	params.commit = NULL;
+	switch (LGitDiffWindow(hwnd, &params)) {
+	case 0:
+	case -1:
+		LGitLog(" ! Uh-oh, dialog error\n");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	default:
+		break;
+	}
+fin:
+	if (diff != NULL) {
+		git_diff_free(diff);
+	}
+	return ret;
+}

@@ -118,6 +118,7 @@
 #define IDC_TAG_ADD_FORCE               1071
 #define IDC_COMMITINFO_REFERENCES       1072
 #define IDC_EXPLORER_FILES              1073
+#define IDC_ABOUT_WEB                   1074
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -147,14 +148,21 @@
 #define ID_BRANCH_ADD                   40032
 #define ID_TAG_ADD                      40033
 #define ID_EXPLORER_REPOSITORY_APPLYPATCH 40035
+#define ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE 40036
+#define ID_EXPLORER_STAGE_UPDATE        40037
+#define ID_EXPLORER_STAGE_ADDFILES      40038
+#define ID_EXPLORER_STAGE_REMOVE        40039
+#define ID_EXPLORER_STAGE_UNSTAGE       40040
+#define ID_EXPLORER_STAGE_COMMITSTAGED  40041
+#define ID_EXPLORER_STAGE_REVERTTOSTAGED 40042
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        144
-#define _APS_NEXT_COMMAND_VALUE         40036
-#define _APS_NEXT_CONTROL_VALUE         1074
+#define _APS_NEXT_COMMAND_VALUE         40043
+#define _APS_NEXT_CONTROL_VALUE         1075
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

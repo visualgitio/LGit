@@ -126,30 +126,14 @@ static BOOL CALLBACK GeneralDialogProc(HWND hwnd,
 	}
 }
 
-SCCRTN SccProperties (LPVOID context, 
-					  HWND hWnd, 
-					  LPCSTR lpFileName)
+static SCCRTN ShowPropertiesDialog(LGitContext *ctx,
+								   HWND hWnd,
+								   const char *full_path,
+								   const char *relative_path)
 {
 	LGitPropsDialogParams params;
-	const char *raw_path;
-	char path[1024];
 
-	int rc;
-	LGitContext *ctx = (LGitContext*)context;
-
-	LGitLog("**SccProperties** Context=%p\n", context);
-	LGitLog("  %s\n", lpFileName);
-
-	raw_path = LGitStripBasePath(ctx, lpFileName);
-	if (raw_path == NULL) {
-		LGitLog("     Couldn't get base path for %s\n", lpFileName);
-		return SCC_E_NONSPECIFICERROR;
-	}
-	/* Translate because libgit2 operates with forward slashes */
-	strlcpy(path, raw_path, 1024);
-	LGitTranslateStringChars(path, '\\', '/');
-
-	rc = git_status_file(&params.flags, ctx->repo, path);
+	int rc = git_status_file(&params.flags, ctx->repo, relative_path);
 	switch (rc) {
 	case 0:
 		break;
@@ -169,9 +153,9 @@ SCCRTN SccProperties (LPVOID context,
 	}
 
 	params.ctx = ctx;
-	params.path = path;
-	params.full_path = lpFileName;
-	params.entry = git_index_get_bypath(index, path, 0);
+	params.path = relative_path;
+	params.full_path = full_path;
+	params.entry = git_index_get_bypath(index, full_path, 0);
 	LGitLog(" ! Param %p\n", &params);
 
 	PROPSHEETPAGE psp[2];
@@ -198,7 +182,7 @@ SCCRTN SccProperties (LPVOID context,
 	psh.pfnCallback = LGitImmutablePropSheetProc;
 	psh.hwndParent = hWnd;
 	psh.hInstance = ctx->dllInst;
-	psh.pszCaption = path;
+	psh.pszCaption = relative_path;
 	psh.nPages = 2;
 	psh.ppsp = psp;
 
@@ -208,4 +192,42 @@ SCCRTN SccProperties (LPVOID context,
 		git_index_free(index);
 	}
 	return SCC_OK;
+}
+
+/**
+ * Like SccProperties, but takes a relative libgit2 path.
+ *
+ * (It will construct a full path based on the workdir.
+ */
+SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path)
+{
+	char path[1024];
+	strlcpy(path, ctx->workdir_path, 1024);
+	strlcat(path, relative_path, 1024);
+	LGitTranslateStringChars(path, '/', '\\');
+	return ShowPropertiesDialog(ctx, hWnd, path, relative_path);
+}
+
+SCCRTN SccProperties (LPVOID context, 
+					  HWND hWnd, 
+					  LPCSTR lpFileName)
+{
+	const char *raw_path;
+	char path[1024];
+
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**SccProperties** Context=%p\n", context);
+	LGitLog("  %s\n", lpFileName);
+
+	raw_path = LGitStripBasePath(ctx, lpFileName);
+	if (raw_path == NULL) {
+		LGitLog("     Couldn't get base path for %s\n", lpFileName);
+		return SCC_E_NONSPECIFICERROR;
+	}
+	/* Translate because libgit2 operates with forward slashes */
+	strlcpy(path, raw_path, 1024);
+	LGitTranslateStringChars(path, '\\', '/');
+
+	return ShowPropertiesDialog(ctx, hWnd, lpFileName, path);
 }
