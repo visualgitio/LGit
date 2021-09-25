@@ -488,6 +488,19 @@ BEGIN
                     LBS_NOINTEGRALHEIGHT | WS_VSCROLL | WS_TABSTOP
 END
 
+IDD_COMMIT_CREATE DIALOG DISCARDABLE  0, 0, 420, 182
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Commit"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,308,161,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,363,161,50,14
+    LTEXT           "&Message",IDC_STATIC,7,7,30,8
+    EDITTEXT        IDC_COMMIT_CREATE_MESSAGE,7,20,406,136,ES_MULTILINE | 
+                    ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN | 
+                    WS_VSCROLL | WS_HSCROLL
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -832,6 +845,18 @@ BEGIN
         TOPMARGIN, 7
         BOTTOMMARGIN, 175
     END
+
+    IDD_COMMIT_CREATE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 413
+        VERTGUIDE, 358
+        VERTGUIDE, 363
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 175
+        HORZGUIDE, 156
+        HORZGUIDE, 161
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -909,15 +934,27 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Close",                      ID_EXPLORER_REPOSITORY_CLOSE
     END
+    POPUP "&File"
+    BEGIN
+        MENUITEM "&Remove from Git...",         ID_EXPLORER_STAGE_REMOVE
+        MENUITEM "Revert to &Staged...",        ID_EXPLORER_STAGE_REVERTTOSTAGED
+
+        MENUITEM "Revert to &Last Commit...",   ID_EXPLORER_STAGE_REVERTTOHEAD
+
+        MENUITEM SEPARATOR
+        MENUITEM "&Properties...",              ID_EXPLORER_STAGE_FILEPROPERTIES
+
+        MENUITEM "&History...",                 ID_EXPLORER_FILE_HISTORY
+        MENUITEM "&Diff from Stage...",         ID_EXPLORER_FILE_DIFFFROMSTAGE
+
+    END
     POPUP "&Stage"
     BEGIN
-        MENUITEM "&Add Files...",               ID_EXPLORER_STAGE_ADDFILES
-        MENUITEM "&Update",                     ID_EXPLORER_STAGE_UPDATE
-        MENUITEM SEPARATOR
-        MENUITEM "&Remove...",                  ID_EXPLORER_STAGE_REMOVE
-        MENUITEM "U&nstage",                    ID_EXPLORER_STAGE_UNSTAGE
-        MENUITEM "Re&vert to Staged",           ID_EXPLORER_STAGE_REVERTTOSTAGED
-
+        MENUITEM "&Stage...",                   ID_EXPLORER_STAGE_ADDFILES
+        MENUITEM "Stage &All",                  ID_EXPLORER_STAGE_ADDALL
+        MENUITEM "Stage All &Changes",          ID_EXPLORER_STAGE_UPDATEALL
+        MENUITEM "Stage S&elected",             ID_EXPLORER_STAGE_UPDATE
+        MENUITEM "&Unstage Selected",           ID_EXPLORER_STAGE_UNSTAGE
         MENUITEM SEPARATOR
         MENUITEM "&Commit Staged...",           ID_EXPLORER_STAGE_COMMITSTAGED
 

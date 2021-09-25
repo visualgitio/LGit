@@ -23,6 +23,9 @@ SCCRTN LGitCommitIndex(HWND hWnd,
 	 * If we can use the prettified commit, do so, otherwise use the original.
 	 * git prefers prettified because it'll make sure there's all the fixings
 	 * like a trailing newline and no comments.
+	 *
+	 * XXX: SCC API will likely return this to us in terms of system locale.
+	 * Convert to UTF-8.
 	 */
 	if (lpComment == NULL) {
 		/* Null commit messages will crash libgit2 */

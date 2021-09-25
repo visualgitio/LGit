@@ -37,7 +37,6 @@ static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 	/* XXX: It's unclear if we need to free this. */
 	HIMAGELIST icons;
 	HICON icon;
-	HFONT font;
 
 	lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
 
@@ -70,9 +69,7 @@ static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 
 	ListView_InsertColumn(lv, 0, &diff_column);
 
-	font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
-
-	SendMessage(lv, WM_SETFONT, (WPARAM)font, TRUE);
+	LGitSetMonospaceFont(params->ctx, lv);
 }
 
 static int LGitDiffFileCallback(const git_diff_delta *delta,

@@ -45,6 +45,7 @@
 #define IDI_TAG                         141
 #define IDI_BRANCH_REMOTE               142
 #define IDI_TAG_LIGHT                   143
+#define IDD_COMMIT_CREATE               144
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -119,6 +120,7 @@
 #define IDC_COMMITINFO_REFERENCES       1072
 #define IDC_EXPLORER_FILES              1073
 #define IDC_ABOUT_WEB                   1074
+#define IDC_COMMIT_CREATE_MESSAGE       1075
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -155,14 +157,20 @@
 #define ID_EXPLORER_STAGE_UNSTAGE       40040
 #define ID_EXPLORER_STAGE_COMMITSTAGED  40041
 #define ID_EXPLORER_STAGE_REVERTTOSTAGED 40042
+#define ID_EXPLORER_STAGE_REVERTTOHEAD  40043
+#define ID_EXPLORER_STAGE_FILEPROPERTIES 40044
+#define ID_EXPLORER_FILE_HISTORY        40045
+#define ID_EXPLORER_FILE_DIFFFROMSTAGE  40046
+#define ID_EXPLORER_STAGE_UPDATEALL     40047
+#define ID_EXPLORER_STAGE_ADDALL        40048
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        144
-#define _APS_NEXT_COMMAND_VALUE         40043
-#define _APS_NEXT_CONTROL_VALUE         1075
+#define _APS_NEXT_RESOURCE_VALUE        145
+#define _APS_NEXT_COMMAND_VALUE         40049
+#define _APS_NEXT_CONTROL_VALUE         1076
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

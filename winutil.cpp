@@ -17,6 +17,13 @@ void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name)
 	}
 }
 
+void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl)
+{
+	/* GetStockObject doesn't need to be freed. */
+	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+	SendMessage(ctrl, WM_SETFONT, (WPARAM)font, TRUE);
+}
+
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item)
 {
 	RECT rect;

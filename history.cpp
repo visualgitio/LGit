@@ -457,8 +457,7 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 
 static SCCRTN LGitHistoryInternal(LGitContext *ctx,
 								  HWND hWnd, 
-								  LONG nFiles, 
-								  LPCSTR* lpFileNames, 
+								  git_strarray *paths,
 								  LONG dwFlags,
 								  LPCMDOPTS pvOptions,
 								  const char *ref)
@@ -474,40 +473,18 @@ static SCCRTN LGitHistoryInternal(LGitContext *ctx,
 
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 
-	char **paths = NULL;
-	int i, path_count;
-	if (nFiles > 0) {
-		const char *raw_path;
-		paths = (char**)calloc(sizeof(char*), nFiles);
-		if (paths == NULL) {
-			return SCC_E_NONSPECIFICERROR;
-		}
-		path_count = 0;
-		for (i = 0; i < nFiles; i++) {
-			char *path;
-			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
-			if (raw_path == NULL) {
-				LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
-				continue;
-			}
-			/* Translate because libgit2 operates with forward slashes */
-			path = strdup(raw_path);
-			LGitTranslateStringChars(path, '\\', '/');
-				LGitLog("    %s\n", path);
-			paths[path_count++] = path;
-		}
-
-		diffopts.pathspec.strings = paths;
-		diffopts.pathspec.count	  = path_count;
-		if (path_count > 0) {
+	if (paths != NULL) {
+		diffopts.pathspec.strings = paths->strings;
+		diffopts.pathspec.count	  = paths->count;
+		if (paths->count > 0) {
 			if (git_pathspec_new(&ps, &diffopts.pathspec) != 0) {
 				LGitLibraryError(hWnd, "SccHistory git_pathspec_new");
 				ret = SCC_E_NONSPECIFICERROR;
 				goto fin;
 			}
 		}
-		params.paths = paths;
-		params.path_count = path_count;
+		params.paths = paths->strings;
+		params.path_count = paths->count;
 	}
 
 	if (git_revwalk_new(&walker, ctx->repo) != 0) {
@@ -554,9 +531,6 @@ fin:
 	if (walker != NULL) {
 		git_revwalk_free(walker);
 	}
-	if (paths != NULL) {
-		LGitFreePathList(paths, path_count);
-	}
 	return ret;
 }
 
@@ -576,7 +550,38 @@ SCCRTN SccHistory (LPVOID context,
 	LGitLog("**SccHistory** Context=%p\n", context);
 	LGitLog("  files %d\n", nFiles);
 	LGitLog("  flags %x\n", dwFlags);
-	return LGitHistoryInternal(ctx, hWnd, nFiles, lpFileNames, dwFlags, pvOptions, NULL);
+
+	git_strarray strings;
+	ZeroMemory(&strings, sizeof(git_strarray));
+	if (nFiles > 0) {
+		char **paths = NULL;
+		int i, path_count = 0;
+		const char *raw_path;
+		paths = (char**)calloc(sizeof(char*), nFiles);
+		if (paths == NULL) {
+			return SCC_E_NONSPECIFICERROR;
+		}
+		for (i = 0; i < nFiles; i++) {
+			char *path;
+			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+			if (raw_path == NULL) {
+				LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+				continue;
+			}
+			/* Translate because libgit2 operates with forward slashes */
+			path = strdup(raw_path);
+			LGitTranslateStringChars(path, '\\', '/');
+				LGitLog("    %s\n", path);
+			paths[path_count++] = path;
+		}
+		strings.strings = paths;
+		strings.count = path_count;
+	}
+	SCCRTN ret = LGitHistoryInternal(ctx, hWnd, &strings, dwFlags, pvOptions, NULL);
+	if (strings.strings != NULL) {
+		LGitFreePathList(strings.strings, strings.count);
+	}
+	return ret;
 }
 
 SCCRTN LGitHistoryForRefByName(LPVOID context, 
@@ -587,5 +592,18 @@ SCCRTN LGitHistoryForRefByName(LPVOID context,
 
 	LGitLog("**LGitHistoryForRefByName** Context=%p\n", context);
 	LGitLog("  ref %s\n", ref);
-	return LGitHistoryInternal(ctx, hWnd, 0, NULL, 0, NULL, ref);
+	return LGitHistoryInternal(ctx, hWnd, NULL, 0, NULL, ref);
+}
+
+SCCRTN LGitHistory(LPVOID context, 
+				   HWND hWnd, 
+				   git_strarray *paths)
+{
+	LGitContext *ctx = (LGitContext*)context;
+
+	LGitLog("**LGitHistory** Context=%p\n", context);
+	if (paths != NULL) {
+		LGitLog("  path count %d\n", paths->count);
+	}
+	return LGitHistoryInternal(ctx, hWnd, paths, 0, NULL, NULL);
 }

@@ -132,6 +132,10 @@ SOURCE=.\commit.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\commitmk.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\commitvw.cpp
 # End Source File
 # Begin Source File

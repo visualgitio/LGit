@@ -246,9 +246,59 @@ static BOOL GetMultipleSelection(HWND hwnd, git_strarray *selection)
 	return TRUE;
 }
 
+static void SelectedFileProperties(HWND hwnd, LGitExplorerParams *params)
+{
+	/* the function only takes a single file ;) */
+	char path[1024];
+	if (!GetSingleSelection(hwnd, path, 1024)) {
+		return;
+	}
+	LGitFileProperties(params->ctx, hwnd, path);
+}
+
+static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+	UINT selected = ListView_GetSelectedCount(lv);
+	BOOL active = params->ctx->active;
+	int unborn = active ? git_repository_head_unborn(params->ctx->repo) : -1;
+	/* Because we can be invoked without a valid repo... */
+	UINT newState = MF_IF_CMD(active);
+	UINT newStateSelected = MF_IF_CMD(active && selected > 0);
+	UINT newStateSelectedBorn = MF_IF_CMD(active && selected > 0 && unborn == 0);
+	UINT newStateSelectedSingle = MF_IF_CMD(active && selected == 1);
+#define EnableMenuItemIfInRepo(id) EnableMenuItem(params->menu,id,newState)
+#define EnableMenuItemIfSelected(id) EnableMenuItem(params->menu,id,newStateSelected)
+#define EnableMenuItemIfSelectedAndBorn(id) EnableMenuItem(params->menu,id,newStateSelected)
+#define EnableMenuItemIfSelectedSingle(id) EnableMenuItem(params->menu,id,newStateSelectedSingle)
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_APPLYPATCH);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_HISTORY);
+	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDFILES);
+	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDALL);
+	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_UPDATEALL);
+	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_UPDATE);
+	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REMOVE);
+	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_UNSTAGE);
+	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOSTAGED);
+	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOHEAD);
+	EnableMenuItemIfSelectedSingle(ID_EXPLORER_STAGE_FILEPROPERTIES);
+	EnableMenuItemIfSelected(ID_EXPLORER_FILE_HISTORY);
+	EnableMenuItemIfSelected(ID_EXPLORER_FILE_DIFFFROMSTAGE);
+	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_COMMITSTAGED);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PUSH);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PULL);
+	EnableMenuItemIfInRepo(ID_EXPLORER_CONFIG_REPOSITORY);
+}
+
 static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *params)
 {
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
 	git_strarray strings;
+	ZeroMemory(&strings, sizeof(git_strarray));
 	int ret;
 	switch (cmd) {
 	case ID_EXPLORER_REPOSITORY_REFRESH:
@@ -256,7 +306,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		FillExplorerListView(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE:
-		LGitDiffStageToWorkdir(params->ctx, hwnd);
+		LGitDiffStageToWorkdir(params->ctx, hwnd, NULL);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_APPLYPATCH:
 		if (LGitApplyPatchDialog(params->ctx, hwnd) == SCC_OK) {
@@ -281,11 +331,23 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			LGitStageAddFiles(params->ctx, hwnd, &strings, TRUE);
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
 		}
+		return TRUE;
+	case ID_EXPLORER_STAGE_ADDALL:
+		LGitStageAddFiles(params->ctx, hwnd, &strings, FALSE);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_STAGE_UPDATEALL:
+		LGitStageAddFiles(params->ctx, hwnd, &strings, TRUE);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_STAGE_REMOVE:
 		ret = MessageBox(hwnd,
-			"The files will no longer be tracked by Git. Are you sure?",
+			"The selected files will no longer be tracked by Git. "
+			"It will not delete the files. Are you sure?",
 			"Really Remove?",
 			MB_ICONWARNING | MB_YESNO);
 		if (ret != IDYES) {
@@ -295,21 +357,66 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			LGitStageRemoveFiles(params->ctx, hwnd, &strings);
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_UNSTAGE:
-		/* XXX: make into a question? */
+		/* This is non-destructive */
 		if (GetMultipleSelection(hwnd, &strings)) {
 			LGitStageUnstageFiles(params->ctx, hwnd, &strings);
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_REVERTTOSTAGED:
-		/* XXX: make into a question? */
+		ret = MessageBox(hwnd,
+			"All changes in the selected files will be lost. Are you sure?",
+			"Really Revert?",
+			MB_ICONWARNING | MB_YESNO);
+		if (ret != IDYES) {
+			return TRUE;
+		}
 		if (GetMultipleSelection(hwnd, &strings)) {
 			LGitCheckoutStaged(params->ctx, hwnd, &strings);
 			LGitFreePathList(strings.strings, strings.count);
+			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
+		}
+		return TRUE;
+	case ID_EXPLORER_STAGE_REVERTTOHEAD:
+		ret = MessageBox(hwnd,
+			"All changes in the selected files will be lost. Are you sure?",
+			"Really Revert?",
+			MB_ICONWARNING | MB_YESNO);
+		if (ret != IDYES) {
+			return TRUE;
+		}
+		if (GetMultipleSelection(hwnd, &strings)) {
+			LGitCheckoutHead(params->ctx, hwnd, &strings);
+			LGitFreePathList(strings.strings, strings.count);
+			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
+		}
+		return TRUE;
+	case ID_EXPLORER_STAGE_FILEPROPERTIES:
+		SelectedFileProperties(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_FILE_HISTORY:
+		if (GetMultipleSelection(hwnd, &strings)) {
+			LGitHistory(params->ctx, hwnd, &strings);
+			LGitFreePathList(strings.strings, strings.count);
+		}
+		return TRUE;
+	case ID_EXPLORER_FILE_DIFFFROMSTAGE:
+		if (GetMultipleSelection(hwnd, &strings)) {
+			LGitDiffStageToWorkdir(params->ctx, hwnd, &strings);
+			LGitFreePathList(strings.strings, strings.count);
+		}
+		return TRUE;
+	case ID_EXPLORER_STAGE_COMMITSTAGED:
+		if (LGitCreateCommitDialog(params->ctx, hwnd) == SCC_OK) {
+			UpdateExplorerMenu(hwnd, params);
 			FillExplorerListView(hwnd, params);
 		}
 		return TRUE;
@@ -354,43 +461,6 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	}
 }
 
-static void SelectedFileProperties(HWND hwnd, LGitExplorerParams *params)
-{
-	/* the function only takes a single file ;) */
-	char path[1024];
-	if (!GetSingleSelection(hwnd, path, 1024)) {
-		return;
-	}
-	LGitFileProperties(params->ctx, hwnd, path);
-}
-
-static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
-{
-	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
-	UINT selected = ListView_GetSelectedCount(lv);
-	BOOL active = params->ctx->active;
-	/* Because we can be invoked without a valid repo... */
-	UINT newState = MF_IF_CMD(active);
-	UINT newStateSelected = MF_IF_CMD(active && selected > 0);
-#define EnableMenuItemIfInRepo(id) EnableMenuItem(params->menu,id,newState)
-#define EnableMenuItemIfSelected(id) EnableMenuItem(params->menu,id,newStateSelected)
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_APPLYPATCH);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_HISTORY);
-	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDFILES);
-	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_UPDATE);
-	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REMOVE);
-	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_UNSTAGE);
-	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOSTAGED);
-	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_COMMITSTAGED);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PUSH);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PULL);
-	EnableMenuItemIfInRepo(ID_EXPLORER_CONFIG_REPOSITORY);
-}
-
 static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
@@ -428,6 +498,8 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 	case WM_SIZE:
 		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
 		return TRUE;
+	case WM_CONTEXTMENU:
+		return LGitContextMenuFromSubmenu(hwnd, param->menu, 1, LOWORD(lParam), HIWORD(lParam));
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
 		case ID_EXPLORER_REPOSITORY_CLOSE:

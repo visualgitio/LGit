@@ -10,12 +10,6 @@ typedef struct _LGitCommitInfoDialogParams {
 	git_tag *tag;
 } LGitCommitInfoDialogParams;
 
-static void SetMessageFont(LGitContext *ctx, HWND ctrl)
-{
-	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
-	SendMessage(ctrl, WM_SETFONT, (WPARAM)font, TRUE);
-}
-
 static void SetMessageFromAnsi(LGitContext *ctx, HWND ctrl, UINT codepage, const char *message)
 {
 	wchar_t *new_msg_conv = NULL;
@@ -86,7 +80,7 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 
 	/* set the font THEN prep the message */
 	HWND message_box = GetDlgItem(hwnd, IDC_COMMITINFO_MESSAGE);
-	SetMessageFont(params->ctx, message_box);
+	LGitSetMonospaceFont(params->ctx, message_box);
 	SetMessageFromAnsi(params->ctx, message_box, codepage, message);
 }
 
@@ -113,7 +107,7 @@ static void FillTagView(HWND hwnd, LGitCommitInfoDialogParams *params)
 
 	/* set the font THEN prep the message */
 	HWND message_box = GetDlgItem(hwnd, IDC_TAGINFO_MESSAGE);
-	SetMessageFont(params->ctx, message_box);
+	LGitSetMonospaceFont(params->ctx, message_box);
 	SetMessageFromAnsi(params->ctx, message_box, CP_UTF8, message);
 }
 

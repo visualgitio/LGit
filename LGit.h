@@ -90,6 +90,9 @@ BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 /* commit.cpp */
 SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
 
+/* commitmk.cpp */
+SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd);
+
 /* status.cpp */
 SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path);
 
@@ -99,6 +102,7 @@ SCCRTN LGitResetToCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid,
 
 /* history.cpp */
 SCCRTN LGitHistoryForRefByName(LPVOID context, HWND hWnd, const char *ref);
+SCCRTN LGitHistory(LPVOID context, HWND hWnd, git_strarray *paths);
 
 /* pushpull.cpp */
 typedef enum _LGitPullStrategy {
@@ -146,7 +150,7 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 /* diff.cpp */
 SCCRTN LGitCommitToCommitDiff(LGitContext *ctx, HWND hwnd, git_commit *commit_b, git_commit *commit_a, git_diff_options *diffopts);
 SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, git_diff_options *diffopts);
-SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd);
+SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths);
 
 /* apply.cpp */
 SCCRTN LGitApplyPatch(LGitContext *ctx, HWND hwnd, git_diff *diff, git_apply_location_t loc, BOOL check_only);
@@ -196,6 +200,7 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
 void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx);
 BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
+void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl);
 BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd, unsigned int iMsg, LPARAM lParam);
 BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y);
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);

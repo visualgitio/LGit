@@ -218,7 +218,7 @@ fin:
 	return ret;
 }
 
-SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd)
+SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 {
 	LGitLog("**LGitCommitToCommitDiff** Context=%p\n", ctx);
 	SCCRTN ret = SCC_OK;
@@ -228,6 +228,10 @@ SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd)
 	/* XXX: config opts since we have no flags? allow passing in? */
 	git_diff_options diffopts;
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	if (paths != NULL) {
+		diffopts.pathspec.strings = paths->strings;
+		diffopts.pathspec.count = paths->count;
+	}
 	LGitInitDiffProgressCallback(ctx, &diffopts);
 	/* repo index on null */
 	LGitProgressInit(ctx, "Diffing Stage to Working Tree", 0);
