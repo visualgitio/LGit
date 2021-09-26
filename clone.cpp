@@ -140,11 +140,11 @@ static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 	}
 }
 
-SCCRTN LGitClone(LGitContext *ctx,
-				 HWND hWnd,
-				 LPSTR lpProjName, 
-				 LPSTR lpLocalPath,
-				 LPBOOL pbNew)
+LGIT_API SCCRTN LGitClone(LGitContext *ctx,
+						  HWND hWnd,
+						  LPSTR lpProjName, 
+						  LPSTR lpLocalPath,
+						  LPBOOL pbNew)
 {
 	SCCRTN ret = SCC_OK;
 	BOOL isNew = FALSE;

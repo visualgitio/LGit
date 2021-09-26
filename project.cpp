@@ -130,6 +130,7 @@ SCCRTN SccCloseProject (LPVOID context)
 		if (ctx->checkouts) {
 			LGitLog(" ! Free checkouts\n");
 			delete ctx->checkouts;
+			ctx->checkouts = NULL;
 		}
 		ctx->renameCb = NULL;
 		ctx->renameData = NULL;

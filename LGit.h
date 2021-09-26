@@ -6,9 +6,9 @@
 // LGIT_API functions as being imported from a DLL, wheras this DLL sees symbols
 // defined with this macro as being exported.
 #ifdef LGIT_EXPORTS
-#define LGIT_API __declspec(dllexport)
+#define LGIT_API extern "C" __declspec(dllexport)
 #else
-#define LGIT_API __declspec(dllimport)
+#define LGIT_API extern "C" __declspec(dllimport)
 #endif
 
 /* Useful macros */
@@ -65,9 +65,10 @@ void LGitLibraryError(HWND hWnd, LPCSTR title);
 
 /* path.cpp */
 void LGitFreePathList(char **paths, int path_count);
-void LGitTranslateStringChars(char *buf, int char1, int char2);
+LGIT_API void LGitTranslateStringChars(char *buf, int char1, int char2);
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
-BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
+LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
+void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 
 /* format.cpp */
 BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
@@ -123,7 +124,7 @@ SCCRTN LGitMergeRefByName(LGitContext *ctx, HWND hwnd, const char *name);
 SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index);
 
 /* clone.cpp */
-SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
+LGIT_API SCCRTN LGitClone(LGitContext *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
 
 /* stage.cpp */
 SCCRTN LGitStageAddFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths, BOOL update);
@@ -208,3 +209,6 @@ HIMAGELIST LGitGetSystemImageList();
 
 /* about.cpp */
 void LGitAbout(HWND hwnd, LGitContext *ctx);
+
+/* runscc */
+LGIT_API SCCRTN LGitStandaloneExplorer(LGitContext *ctx, LONG nFiles, LPCSTR* lpFileNames);

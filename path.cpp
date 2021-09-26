@@ -13,7 +13,7 @@ void LGitFreePathList(char **paths, int path_count)
  * We want to transform the input path to have backslashes, since the libgit2
  * function returns a workdir path with forward slashes.
  */
-void LGitTranslateStringChars(char *buf, int char1, int char2)
+LGIT_API void LGitTranslateStringChars(char *buf, int char1, int char2)
 {
 	size_t len = strlen(buf), i;
 	for (i = 0; i < len; i++) {
@@ -52,7 +52,7 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
  *
  * XXX: Maybe try the URL if we fail with the path?
  */
-BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz)
+LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz)
 {
 	char *temp_path = strdup(path);
 	if (temp_path == NULL) {
@@ -75,4 +75,25 @@ BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz)
 fin:
 	free(temp_path);
 	return begin != -1;
+}
+
+void LGitOpenFiles(LGitContext *ctx, git_strarray *paths)
+{
+	for (int i = 0; i < paths->count; i++) {
+		char full_path[2048];
+		strlcpy(full_path, ctx->workdir_path, 2048);
+		strlcat(full_path, paths->strings[i], 2048);
+		LGitTranslateStringChars(full_path, '/', '\\');
+
+		SHELLEXECUTEINFO info;
+		ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
+
+		info.cbSize = sizeof info;
+		info.lpFile = full_path;
+		info.nShow = SW_SHOW;
+		info.fMask = SEE_MASK_INVOKEIDLIST;
+		info.lpVerb = "open";
+
+		ShellExecuteEx(&info);
+	}
 }

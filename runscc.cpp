@@ -8,6 +8,7 @@ typedef struct _LGitExplorerParams {
 	LGitContext *ctx;
 	HMENU menu;
 	std::set<std::string> *initial_select;
+	BOOL standalone;
 } LGitExplorerParams;
 
 /* put here for convenience */
@@ -17,6 +18,21 @@ static LVCOLUMN name_column = {
 static LVCOLUMN status_column = {
 	LVCF_TEXT | LVCF_WIDTH, 0, 125, "Status"
 };
+
+static void InitStandaloneExplorer(HWND hwnd, LGitExplorerParams *params)
+{
+	/*
+	 *These commands shouldn't be available because they don't make sense in
+	 * the context of an IDE.
+	 */
+	if (!params->standalone) {
+		DeleteMenu(params->menu, ID_EXPLORER_REPOSITORY_OPEN, MF_BYCOMMAND);
+		return;
+	}
+	LONG style = GetWindowLong(hwnd, GWL_STYLE);
+	style |= WS_MINIMIZEBOX;
+	SetWindowLong(hwnd, GWL_STYLE, style);
+}
 
 static void InitExplorerListView(HWND hwnd, LGitExplorerParams *params)
 {
@@ -285,6 +301,7 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOSTAGED);
 	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOHEAD);
 	EnableMenuItemIfSelectedSingle(ID_EXPLORER_STAGE_FILEPROPERTIES);
+	EnableMenuItemIfSelected(ID_EXPLORER_FILE_OPEN);
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_HISTORY);
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_DIFFFROMSTAGE);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_COMMITSTAGED);
@@ -294,6 +311,47 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfInRepo(ID_EXPLORER_CONFIG_REPOSITORY);
 }
 
+/* This only makes sense in the context of a standalone instance. */
+static BOOL OpenRepository(HWND hwnd, LGitExplorerParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+	char proj_name[SCC_PRJPATH_SIZE], path[SCC_PRJPATH_LEN], user[SCC_USER_SIZE], aux_path[SCC_AUXLABEL_SIZE];
+	BOOL is_new = TRUE, retbool = TRUE;
+	SCCRTN ret;
+
+	ZeroMemory(aux_path, SCC_AUXLABEL_SIZE);
+	ZeroMemory(proj_name, SCC_PRJPATH_SIZE);
+	ZeroMemory(path, SCC_PRJPATH_SIZE);
+	strlcpy(user, params->ctx->username, SCC_USER_SIZE); /* who cares */
+	
+	/* don't bother with GetProjPath */
+	ret = LGitClone(params->ctx, hwnd, proj_name, path, &is_new);
+	if (ret == SCC_I_OPERATIONCANCELED) {
+		return FALSE;
+	} else if (ret != SCC_OK) {
+		LGitLibraryError(hwnd, "Selecting Different Project");
+		return FALSE;
+	}
+	/* we got it, let's go */
+	ret = SccCloseProject(params->ctx); /* always succeeds */
+	ret = SccOpenProject(params->ctx, hwnd, user, proj_name, path, aux_path, "", params->ctx->textoutCb, SCC_OP_CREATEIFNEW);
+	if (ret != SCC_OK && ret != SCC_I_OPERATIONCANCELED) {
+		LGitLibraryError(hwnd, "Opening Different Project");
+		retbool = FALSE;
+	}
+	RefreshExplorer(hwnd, params);
+	if (params->ctx->repo == NULL) {
+		/* We're gonna do stuff we can only do with i.e. a stage */
+		ListView_DeleteAllItems(lv);
+		EnableWindow(lv, FALSE);
+	} else {
+		EnableWindow(lv, TRUE);
+		FillExplorerListView(hwnd, params);
+	}
+	UpdateExplorerMenu(hwnd, params);
+	return retbool;
+}
+
 static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
@@ -301,6 +359,9 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	ZeroMemory(&strings, sizeof(git_strarray));
 	int ret;
 	switch (cmd) {
+	case ID_EXPLORER_REPOSITORY_OPEN:
+		OpenRepository(hwnd, params);
+		return TRUE;
 	case ID_EXPLORER_REPOSITORY_REFRESH:
 		RefreshExplorer(hwnd, params);
 		FillExplorerListView(hwnd, params);
@@ -402,6 +463,23 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	case ID_EXPLORER_STAGE_FILEPROPERTIES:
 		SelectedFileProperties(hwnd, params);
 		return TRUE;
+	case ID_EXPLORER_FILE_OPEN:
+		if (!params->standalone) {	
+			ret = MessageBox(hwnd,
+				"This will open the files in new instances of the default programs.\r\n\r\n"
+				"If you intend to open them in the IDE, you should open them from the IDE instead.\r\n"
+				"Are you sure you want to open the other programs?",
+				"Really Open?",
+				MB_ICONWARNING | MB_YESNO);
+			if (ret != IDYES) {
+				return TRUE;
+			}
+		}
+		if (GetMultipleSelection(hwnd, &strings)) {
+			LGitOpenFiles(params->ctx, &strings);
+			LGitFreePathList(strings.strings, strings.count);
+		}
+		return TRUE;
 	case ID_EXPLORER_FILE_HISTORY:
 		if (GetMultipleSelection(hwnd, &strings)) {
 			LGitHistory(params->ctx, hwnd, &strings);
@@ -488,12 +566,16 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitExplorerParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		InitStandaloneExplorer(hwnd, param);
 		InitExplorerListView(hwnd, param);
 		InitExplorerView(hwnd, param);
 		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
 		FillExplorerListView(hwnd, param);
 		/* empty the selection that we no longer need it */
 		param->initial_select->clear();
+		if (!param->ctx->active && param->standalone) {
+			OpenRepository(hwnd, param);
+		}
 		return TRUE;
 	case WM_SIZE:
 		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
@@ -537,15 +619,15 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 	}
 }
 
-SCCRTN SccRunScc(LPVOID context, 
-				 HWND hWnd, 
-				 LONG nFiles, 
-				 LPCSTR* lpFileNames)
+static SCCRTN LGitExplorer(LGitContext *ctx,
+						   HWND hWnd,
+						   LONG nFiles,
+						   LPCSTR* lpFileNames,
+						   BOOL standalone)
 {
 	int i, path_count = 0;
-	LGitContext *ctx = (LGitContext*)context;
-	LGitLog("**SccRunScc** Context=%p\n", context);
 	LGitLog("  files %d\n", nFiles);
+	LGitLog("  standalone %d\n", standalone);
 	std::set<std::string> initial_select;
 	for (i = 0; i < nFiles; i++) {
 		char *path;
@@ -564,6 +646,7 @@ SCCRTN SccRunScc(LPVOID context,
 	params.ctx = ctx;
 	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_EXPLORER_MENU));
 	params.initial_select = &initial_select;
+	params.standalone = standalone;
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_EXPLORER),
 		hWnd,
@@ -578,4 +661,21 @@ SCCRTN SccRunScc(LPVOID context,
 	}
 	DestroyMenu(params.menu);
 	return SCC_OK;
+}
+
+SCCRTN SccRunScc(LPVOID context, 
+				 HWND hWnd, 
+				 LONG nFiles, 
+				 LPCSTR* lpFileNames)
+{
+	LGitContext *ctx = (LGitContext*)context;
+	LGitLog("**SccRunScc** Context=%p\n", context);
+	return LGitExplorer(ctx, hWnd, nFiles, lpFileNames, FALSE);
+}
+
+LGIT_API SCCRTN LGitStandaloneExplorer(LGitContext *ctx, 
+									   LONG nFiles, 
+									   LPCSTR* lpFileNames) {
+	LGitLog("**LGitStandaloneExplorer** Context=%p\n", ctx);
+	return LGitExplorer(ctx, NULL, nFiles, lpFileNames, TRUE);
 }
