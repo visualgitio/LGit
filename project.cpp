@@ -63,12 +63,14 @@ SCCRTN SccOpenProject (LPVOID context,
 	}
 
 	// If flags & 1, it's probably init, but it could be called from existing
+	BOOL havent_init = TRUE;
+init_again:
 	rc = git_repository_open_ext(&ctx->repo, lpLocalProjPath, 0, NULL);
 	if (rc == 0) {
 		LGitLog("    Got it\n");
 		// Repo already exists, connect to it
 		strlcpy(ctx->path, lpLocalProjPath, 1024);
-	} else if (rc == GIT_ENOTFOUND && dwFlags & SCC_OP_CREATEIFNEW) {
+	} else if (rc == GIT_ENOTFOUND && dwFlags & SCC_OP_CREATEIFNEW && havent_init) {
 		// No repository, create/clone depending on bAllowChangePath
 		LGitLog("    Initializing\n");
 		/* This is ignored */
@@ -77,6 +79,7 @@ SCCRTN SccOpenProject (LPVOID context,
 		if (init_ret != 0) {
 			return SCC_E_COULDNOTCREATEPROJECT;
 		}
+		goto init_again;
 	} else if (rc == GIT_ENOTFOUND) {
 		LGitLog("    No repo\n");
 		return SCC_E_UNKNOWNPROJECT;

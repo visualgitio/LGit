@@ -79,3 +79,72 @@ UINT LGitGitToWindowsCodepage(const char *encoding)
 utf8:
 	return CP_UTF8;
 }
+
+/**
+ * Converts Unix to Windows newlines. crlf_len should be strlen(lf) * 2.
+ */
+void LGitLfToCrLf(char *crlf, const char *lf, size_t crlf_len)
+{
+	if (crlf_len < 1) {
+		return;
+	}
+	crlf[0] = '\0';
+	size_t len = strlen(lf);
+	for (size_t i = 0, j = 0; i < len; i++) {
+		/* XXX: could be faster? */
+		if (j >= crlf_len) {
+			break;
+		}
+		if (lf[i] == '\n' && i > 0 && lf[i - 1] != '\r') {
+			/*
+			crlf[j] = '\r';
+			crlf[j + 1] = '\n';
+			*/
+			j += 2;
+			/* check overflow and if last char is a CR, trunc */
+			if (strlcat(crlf, "\r\n", crlf_len) >= crlf_len
+				&& crlf[crlf_len - 1] == '\r') {
+				crlf[crlf_len - 1] = '\0';
+				break;
+			}
+		} else {
+			crlf[j++] = lf[i];
+		}
+	}
+}
+
+/**
+ * Primarily used for commit messages, which are usually stored with a charset
+ * and possibly Unix-style newlines we don't want in an edit control.
+ */
+void LGitSetWindowTextFromCommitMessage(HWND ctrl, UINT codepage, const char *message)
+{
+	wchar_t *new_msg_conv = NULL;
+	/* we need to convert newlines */
+	size_t len = strlen(message);
+	char *message_converted = (char*)calloc(len, 2);
+	if (message_converted == NULL) {
+		/* mojibake AND bad newlines! */
+		SetWindowTextA(ctrl, message);
+		return;
+	}
+	/* i think len * 2 is safe is calloc succeeded (no wrap?) */
+	LGitLfToCrLf(message_converted, message, len * 2);
+	/* then convert to UCS-2 */
+	int new_len = MultiByteToWideChar(codepage, 0, message_converted, -1, NULL, 0);
+	if (new_len < 0) {
+		/* enjoy your mojibake */
+		SetWindowTextA(ctrl, message_converted);
+		goto not_unicode;
+	}
+	new_msg_conv = (wchar_t*)calloc(new_len + 1, sizeof(wchar_t));
+	if (new_msg_conv == NULL) {
+		SetWindowTextA(ctrl, message_converted);
+		goto not_unicode;
+	}
+	MultiByteToWideChar(codepage, 0, message_converted, -1, new_msg_conv, new_len + 1);
+	SetWindowTextW(ctrl, new_msg_conv);
+	free(new_msg_conv);
+not_unicode:
+	free(message_converted);
+}

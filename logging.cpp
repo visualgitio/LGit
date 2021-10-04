@@ -69,7 +69,7 @@ const char *LGitRepoStateString(int state)
 	switch (state) {
 	/* much of this is irrelevant for us */
 	case GIT_REPOSITORY_STATE_NONE:
-		return "None";
+		return "Normal";
 	case GIT_REPOSITORY_STATE_MERGE:
 		return "Merging";
 	case GIT_REPOSITORY_STATE_REVERT:

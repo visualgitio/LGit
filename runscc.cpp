@@ -4,11 +4,17 @@
 
 #include "stdafx.h"
 
+#define STATUS_BAR_PART_COUNT 3
+
 typedef struct _LGitExplorerParams {
 	LGitContext *ctx;
 	HMENU menu;
+	HWND status_bar;
+	int status_bar_parts[STATUS_BAR_PART_COUNT];
 	std::set<std::string> *initial_select;
 	BOOL standalone;
+	/* for the view */
+	BOOL include_ignored, include_unmodified, include_untracked;
 } LGitExplorerParams;
 
 /* put here for convenience */
@@ -34,9 +40,25 @@ static void InitStandaloneExplorer(HWND hwnd, LGitExplorerParams *params)
 	SetWindowLong(hwnd, GWL_STYLE, style);
 }
 
+static WNDPROC ListViewProc;
+
+static LRESULT CALLBACK ExplorerListViewProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+	switch (msg) {
+	case WM_DROPFILES:
+		SendMessage(GetParent(hwnd), msg, wParam, lParam);
+		break;
+	}
+	return CallWindowProc(ListViewProc, hwnd, msg, wParam, lParam);
+}
+
 static void InitExplorerListView(HWND hwnd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+
+	/* HACK: It won't process WM_DROPFILES without it */
+	ListViewProc = (WNDPROC)GetWindowLong(lv, GWL_WNDPROC);
+	SetWindowLong(lv, GWL_WNDPROC, (long)ExplorerListViewProc);
 
 	ListView_InsertColumn(lv, 0, &name_column);
 	ListView_InsertColumn(lv, 1, &status_column);
@@ -136,10 +158,18 @@ static void FillExplorerListView(HWND hwnd, LGitExplorerParams *params)
 	/* See the notes for the git_status_options use in query,cpp... */
 	sopts.show = GIT_STATUS_SHOW_INDEX_AND_WORKDIR;
 	/* XXX: Make configurable */
-	sopts.flags = GIT_STATUS_OPT_INCLUDE_UNTRACKED
-		| GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS
-		| GIT_STATUS_OPT_INCLUDE_UNREADABLE
-		| GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
+	sopts.flags = GIT_STATUS_OPT_INCLUDE_UNREADABLE;
+	if (params->include_untracked) {
+		sopts.flags |= GIT_STATUS_OPT_INCLUDE_UNTRACKED
+			| GIT_STATUS_OPT_RECURSE_UNTRACKED_DIRS;
+	}
+	if (params->include_unmodified) {
+		sopts.flags |= GIT_STATUS_OPT_INCLUDE_UNMODIFIED;
+	}
+	if (params->include_ignored) {
+		sopts.flags |= GIT_STATUS_OPT_INCLUDE_IGNORED
+			| GIT_STATUS_OPT_RECURSE_IGNORED_DIRS;
+	}
 
 	cbp.ctx = params->ctx;
 	cbp.hwnd = hwnd;
@@ -194,28 +224,52 @@ err:
 	}
 }
 
-static void RefreshExplorer(HWND hwnd, LGitExplorerParams *params)
+static BOOL GetVisibleItemsText(HWND hwnd, LGitExplorerParams *params, char *buf, size_t bufsz)
 {
-	char newTitle[512];
+	if (bufsz < 1) {
+		return FALSE;
+	}
+	int index = 0;
+	strlcpy(buf, "Showing ", bufsz);
+#define AppendIfVisible(flag,str) if (flag) { if (index++) strlcat(buf, ", ", bufsz); strlcat(buf, str, bufsz); }
+	AppendIfVisible(params->include_ignored, "Ignored");
+	AppendIfVisible(params->include_unmodified, "Unchanged");
+	AppendIfVisible(params->include_untracked, "Untracked");
+	if (index == 0) {
+		strlcat(buf, "Only Changed", bufsz);
+	}
+	return TRUE;
+}
+
+static void UpdateExplorerStatus(HWND hwnd, LGitExplorerParams *params)
+{
+	char newTitle[512], statusText[128], visibleText[128];
+	const char *stateText = "";
+	params->status_bar_parts[2] = -1;
 	if (params->ctx->active && params->ctx->repo != NULL) {
-		char head[64], state_msg[32];
 		int state = git_repository_state(params->ctx->repo);
-		if (state != GIT_REPOSITORY_STATE_NONE) {
-			strlcpy(state_msg, ", ", 32);
-			strlcat(state_msg, LGitRepoStateString(state), 32);
-		} else {
-			strlcpy(state_msg, "", 32);
-		}
-		GetHeadState(hwnd, params, head, 64);
-		_snprintf(newTitle, 512,
-			"(%s%s) %s",
-			head,
-			state_msg,
-			params->ctx->workdir_path);
+		stateText = LGitRepoStateString(state);
+		GetHeadState(hwnd, params, statusText, 128);
+		strlcpy(newTitle, params->ctx->workdir_path, 512);
+		/* add some padding, plus account for border on sizes */
+		params->status_bar_parts[0] = LGitMeasureWidth(params->status_bar, stateText) +
+			(GetSystemMetrics(SM_CXBORDER) * 4) + 10;
+		GetVisibleItemsText(hwnd, params, visibleText, 128);
+		params->status_bar_parts[1] = params->status_bar_parts[0] +
+			LGitMeasureWidth(params->status_bar, visibleText) +
+			(GetSystemMetrics(SM_CXBORDER) * 4) + 10;
+		LGitLog(" ! %d %d\n", params->status_bar_parts[0], params->status_bar_parts[1]);
 	} else {
 		strlcpy(newTitle, "(no repo)", 512);
+		strlcpy(statusText, "", 128);
+		params->status_bar_parts[0] = 0;
+		params->status_bar_parts[1] = 0;
 	}
 	SetWindowText(hwnd, newTitle);
+	SendMessage(params->status_bar, SB_SETPARTS, STATUS_BAR_PART_COUNT, (LPARAM)params->status_bar_parts);
+	SendMessage(params->status_bar, SB_SETTEXT, 0, (LPARAM)stateText);
+	SendMessage(params->status_bar, SB_SETTEXT, 1, (LPARAM)visibleText);
+	SendMessage(params->status_bar, SB_SETTEXT, 2, (LPARAM)statusText);
 }
 
 /* doesn't handle more than one */
@@ -280,18 +334,21 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	int unborn = active ? git_repository_head_unborn(params->ctx->repo) : -1;
 	/* Because we can be invoked without a valid repo... */
 	UINT newState = MF_IF_CMD(active);
+	UINT newStateBorn = MF_IF_CMD(active && unborn == 0);
 	UINT newStateSelected = MF_IF_CMD(active && selected > 0);
 	UINT newStateSelectedBorn = MF_IF_CMD(active && selected > 0 && unborn == 0);
 	UINT newStateSelectedSingle = MF_IF_CMD(active && selected == 1);
 #define EnableMenuItemIfInRepo(id) EnableMenuItem(params->menu,id,newState)
+#define EnableMenuItemIfInRepoAndBorn(id) EnableMenuItem(params->menu,id,newStateBorn)
 #define EnableMenuItemIfSelected(id) EnableMenuItem(params->menu,id,newStateSelected)
-#define EnableMenuItemIfSelectedAndBorn(id) EnableMenuItem(params->menu,id,newStateSelected)
+#define EnableMenuItemIfSelectedAndBorn(id) EnableMenuItem(params->menu,id,newStateSelectedBorn)
 #define EnableMenuItemIfSelectedSingle(id) EnableMenuItem(params->menu,id,newStateSelectedSingle)
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_OPENINWINDOWS);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_APPLYPATCH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
-	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_HISTORY);
+	EnableMenuItemIfInRepoAndBorn(ID_EXPLORER_REPOSITORY_HISTORY);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDFILES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDALL);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_UPDATEALL);
@@ -299,15 +356,22 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REMOVE);
 	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_UNSTAGE);
 	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOSTAGED);
-	EnableMenuItemIfSelected(ID_EXPLORER_STAGE_REVERTTOHEAD);
+	EnableMenuItemIfSelectedAndBorn(ID_EXPLORER_STAGE_REVERTTOHEAD);
 	EnableMenuItemIfSelectedSingle(ID_EXPLORER_STAGE_FILEPROPERTIES);
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_OPEN);
-	EnableMenuItemIfSelected(ID_EXPLORER_FILE_HISTORY);
+	EnableMenuItemIfSelectedAndBorn(ID_EXPLORER_FILE_HISTORY);
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_DIFFFROMSTAGE);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_COMMITSTAGED);
+	EnableMenuItemIfInRepoAndBorn(ID_EXPLORER_STAGE_AMENDLASTCOMMIT);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PUSH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_PULL);
+	EnableMenuItemIfInRepo(ID_EXPLORER_VIEW_SHOWUNTRACKED);
+	CheckMenuItemIf(params->menu, ID_EXPLORER_VIEW_SHOWUNTRACKED, params->include_untracked);
+	EnableMenuItemIfInRepo(ID_EXPLORER_VIEW_SHOWUNCHANGED);
+	CheckMenuItemIf(params->menu, ID_EXPLORER_VIEW_SHOWUNCHANGED, params->include_unmodified);
+	EnableMenuItemIfInRepo(ID_EXPLORER_VIEW_SHOWIGNORED);
+	CheckMenuItemIf(params->menu, ID_EXPLORER_VIEW_SHOWIGNORED, params->include_ignored);
 	EnableMenuItemIfInRepo(ID_EXPLORER_CONFIG_REPOSITORY);
 }
 
@@ -339,7 +403,7 @@ static BOOL OpenRepository(HWND hwnd, LGitExplorerParams *params)
 		LGitLibraryError(hwnd, "Opening Different Project");
 		retbool = FALSE;
 	}
-	RefreshExplorer(hwnd, params);
+	UpdateExplorerStatus(hwnd, params);
 	if (params->ctx->repo == NULL) {
 		/* We're gonna do stuff we can only do with i.e. a stage */
 		ListView_DeleteAllItems(lv);
@@ -362,8 +426,22 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	case ID_EXPLORER_REPOSITORY_OPEN:
 		OpenRepository(hwnd, params);
 		return TRUE;
+	case ID_EXPLORER_REPOSITORY_OPENINWINDOWS:
+		{
+			SHELLEXECUTEINFO info;
+			ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
+
+			info.cbSize = sizeof info;
+			info.lpFile = params->ctx->workdir_path;
+			info.nShow = SW_SHOW;
+			info.fMask = SEE_MASK_INVOKEIDLIST;
+			info.lpVerb = "open";
+
+			ShellExecuteEx(&info);
+		}
+		return TRUE;
 	case ID_EXPLORER_REPOSITORY_REFRESH:
-		RefreshExplorer(hwnd, params);
+		UpdateExplorerStatus(hwnd, params);
 		FillExplorerListView(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE:
@@ -371,13 +449,13 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_APPLYPATCH:
 		if (LGitApplyPatchDialog(params->ctx, hwnd) == SCC_OK) {
-			RefreshExplorer(hwnd, params);
+			UpdateExplorerStatus(hwnd, params);
 		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_BRANCHES:
 		LGitShowBranchManager(params->ctx, hwnd);
 		/* operations here can cause i.e. checkouts */
-		RefreshExplorer(hwnd, params);
+		UpdateExplorerStatus(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_HISTORY:
 		SccHistory(params->ctx, hwnd, 0, NULL, 0, NULL);
@@ -385,11 +463,12 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	case ID_EXPLORER_STAGE_ADDFILES:
 		if (LGitStageAddDialog(params->ctx, hwnd) == SCC_OK) {
 			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
 		}
 		return TRUE;
-	case ID_EXPLORER_STAGE_UPDATE:
+	case ID_EXPLORER_STAGE_UPDATE: /* could also stage WT new, so NOT update */
 		if (GetMultipleSelection(hwnd, &strings)) {
-			LGitStageAddFiles(params->ctx, hwnd, &strings, TRUE);
+			LGitStageAddFiles(params->ctx, hwnd, &strings, FALSE);
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
 			UpdateExplorerMenu(hwnd, params);
@@ -493,7 +572,13 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_COMMITSTAGED:
-		if (LGitCreateCommitDialog(params->ctx, hwnd) == SCC_OK) {
+		if (LGitCreateCommitDialog(params->ctx, hwnd, FALSE) == SCC_OK) {
+			UpdateExplorerMenu(hwnd, params);
+			FillExplorerListView(hwnd, params);
+		}
+		return TRUE;
+	case ID_EXPLORER_STAGE_AMENDLASTCOMMIT:
+		if (LGitCreateCommitDialog(params->ctx, hwnd, TRUE) == SCC_OK) {
 			UpdateExplorerMenu(hwnd, params);
 			FillExplorerListView(hwnd, params);
 		}
@@ -531,6 +616,24 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			git_config_free(config);
 		}
 		return TRUE;
+	case ID_EXPLORER_VIEW_SHOWUNTRACKED:
+		params->include_untracked = !params->include_untracked;
+		UpdateExplorerStatus(hwnd, params);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_VIEW_SHOWUNCHANGED:
+		params->include_unmodified = !params->include_unmodified;
+		UpdateExplorerStatus(hwnd, params);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_VIEW_SHOWIGNORED:
+		params->include_ignored = !params->include_ignored;
+		UpdateExplorerStatus(hwnd, params);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
+		return TRUE;
 	case ID_EXPLORER_HELP_ABOUT:
 		LGitAbout(hwnd, params->ctx);
 		return TRUE;
@@ -541,18 +644,30 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 
 static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 {
+	/* XXX: do not hardcode the dialog ID */
+	params->status_bar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, "Visual Git", hwnd, 999);
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
 	LGitSetWindowIcon(hwnd, params->ctx->dllInst, MAKEINTRESOURCE(IDI_LGIT));
 	SetMenu(hwnd, params->menu);
-	RefreshExplorer(hwnd, params);
+	UpdateExplorerStatus(hwnd, params);
 	UpdateExplorerMenu(hwnd, params);
 	if (params->ctx->repo == NULL) {
 		/* We're gonna do stuff we can only do with i.e. a stage */
 		ListView_DeleteAllItems(lv);
-		EnableWindow(lv, FALSE);
 		return;
 	}
-	EnableWindow(lv, TRUE);
+	/* it's tempting to disable the listview but it gives visual oddities */
+}
+
+static void ResizeExplorerView(HWND hwnd, LGitExplorerParams *params)
+{
+	SendMessage(params->status_bar, WM_SIZE, 0, 0);
+	RECT carveout = {0, 0, 0, 0};
+	GetClientRect(params->status_bar, &carveout);
+	carveout.top = 0;
+	carveout.left = 0;
+	carveout.right = 0;
+	LGitControlFillsParentDialogCarveout(hwnd, IDC_EXPLORER_FILES, &carveout);
 }
 
 static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
@@ -569,7 +684,7 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 		InitStandaloneExplorer(hwnd, param);
 		InitExplorerListView(hwnd, param);
 		InitExplorerView(hwnd, param);
-		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
+		ResizeExplorerView(hwnd, param);
 		FillExplorerListView(hwnd, param);
 		/* empty the selection that we no longer need it */
 		param->initial_select->clear();
@@ -578,7 +693,7 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 		}
 		return TRUE;
 	case WM_SIZE:
-		LGitControlFillsParentDialog(hwnd, IDC_EXPLORER_FILES);
+		ResizeExplorerView(hwnd, param);
 		return TRUE;
 	case WM_CONTEXTMENU:
 		return LGitContextMenuFromSubmenu(hwnd, param->menu, 1, LOWORD(lParam), HIWORD(lParam));
@@ -593,6 +708,21 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 			/* we might have a LOT of commands here */
 			return HandleExplorerCommand(hwnd, LOWORD(wParam), param);
 		}
+	case WM_DROPFILES:
+		/*
+		 * XXX: Should we use COM drop? It's more flexible per
+		 * https://www.codeproject.com/Articles/840/How-to-Implement-Drag-and-Drop-Between-Your-Progra
+		 * but may be annoying from our C-flavour C++
+		 */
+		if (!param->ctx->active) {
+			return TRUE;
+		}
+		LGitLog(" ! Accepting drop\n");
+		if (LGitStageDragTarget(param->ctx, hwnd, (HDROP)wParam) == SCC_OK) {
+			FillExplorerListView(hwnd, param);
+			UpdateExplorerMenu(hwnd, param);
+		}
+		return TRUE;
 	case WM_NOTIFY:
 		switch (wParam) {
 		case IDC_EXPLORER_FILES:
@@ -608,6 +738,7 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 		}
 		return FALSE;
 	case WM_DESTROY:
+		DestroyWindow(param->status_bar);
 		{
 			/* annoying dtor we have to do, or the SIL gets blown away */
 			HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
@@ -647,6 +778,10 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_EXPLORER_MENU));
 	params.initial_select = &initial_select;
 	params.standalone = standalone;
+	/* initial view state */
+	params.include_ignored = FALSE;
+	params.include_unmodified = FALSE;
+	params.include_untracked = TRUE;
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_EXPLORER),
 		hWnd,
@@ -659,6 +794,7 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 	default:
 		break;
 	}
+	/* XXX: Persist changes made by the user in the menus */
 	DestroyMenu(params.menu);
 	return SCC_OK;
 }

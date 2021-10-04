@@ -5,17 +5,22 @@
 
 #include <stdafx.h>
 
+#define COMMIT_DIALOG_MESSAGE_SIZE 0x1000
+
 typedef struct _LGitCreateCommitDialogParams {
 	LGitContext *ctx;
 	/* XXX: Allow custom signatures */
 	/* In system enc, because SCC. It should be conv in commit func */
-	char message[0x1000];
+	char message[COMMIT_DIALOG_MESSAGE_SIZE];
 } LGitCreateCommitDialogParams;
 
 static void InitCreateCommitDialog(HWND hwnd, LGitCreateCommitDialogParams *params)
 {
 	HWND edit = GetDlgItem(hwnd, IDC_COMMIT_CREATE_MESSAGE);
 	LGitSetMonospaceFont(params->ctx, edit);
+
+	/* For any provided messages (i.e. merge_msg) */
+	SetWindowText(edit, params->message);
 }
 
 static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
@@ -52,12 +57,51 @@ static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 	}
 }
 
-SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd)
+static void InitAmendParams(HWND hwnd, LGitCreateCommitDialogParams *params)
+{
+	git_object *obj = NULL;
+	git_commit *commit = NULL;
+	const char *old_msg;
+	if (git_revparse_single(&obj, params->ctx->repo, "HEAD") != 0) {
+		LGitLibraryError(hwnd, "git_revparse_single");
+		goto fin;
+	}
+	if (git_object_peel((git_object**)&commit, obj, GIT_OBJECT_COMMIT) != 0) {
+		LGitLibraryError(hwnd, "git_object_peel");
+		goto fin;
+	}
+	/* Convert newlines; charset conversion is a concern, see commit.cpp. */
+	old_msg = git_commit_message(commit);
+	if (old_msg == NULL) {
+		old_msg = "";
+	}
+	LGitLfToCrLf(params->message, old_msg, COMMIT_DIALOG_MESSAGE_SIZE);
+fin:
+	git_commit_free(commit);
+	git_object_free(obj);
+}
+
+SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last)
 {
 	LGitLog("**LGitCreateCommitDialog** Context=%p\n", ctx);
 	LGitCreateCommitDialogParams cc_params;
 	ZeroMemory(&cc_params, sizeof(LGitCreateCommitDialogParams));
 	cc_params.ctx = ctx;
+	git_buf merge_msg = {0, 0};
+	int rc = git_repository_message(&merge_msg, ctx->repo);
+	/* If we're amending, put as much of the previous commit we can in. */
+	if (amend_last) {
+		InitAmendParams(hwnd, &cc_params);
+	}
+	if (rc == 0) {
+		/* XXX: Clean up, make sure uses Windows newlines */
+		if (strlen(cc_params.message)) {
+			strlcat(cc_params.message, "\r\n", COMMIT_DIALOG_MESSAGE_SIZE);
+		}
+		strlcat(cc_params.message, merge_msg.ptr, COMMIT_DIALOG_MESSAGE_SIZE);
+	} else if (rc != GIT_ENOTFOUND) {
+		LGitLibraryError(hwnd, "git_repository_message");
+	}
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_COMMIT_CREATE),
 		hwnd,
@@ -79,7 +123,12 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd)
 		ret = SCC_E_NONSPECIFICERROR;
 		goto err;
 	}
-	ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message);;
+	if (amend_last) {
+		ret = LGitCommitIndexAmendHead(hwnd, ctx, index, cc_params.message);
+	} else {
+		ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message);
+	}
 err:
+	git_buf_dispose(&merge_msg);
 	return ret;
 }

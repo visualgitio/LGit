@@ -194,3 +194,44 @@ fin:
 	LGitFreePathList(strings.strings, strings.count);
 	return ret;
 }
+
+SCCRTN LGitStageDragTarget(LGitContext *ctx, HWND hwnd, HDROP drop)
+{
+	LGitLog("**LGitStageDragTarget** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	UINT count, i;
+	char absolute_path[MAX_PATH];
+	git_strarray strings;
+	strings.count = 0;
+	char **paths = (char**)calloc(256, sizeof(char*));
+	strings.strings = paths;
+	if (paths == NULL) {
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	count = DragQueryFile(drop, -1, NULL, 0);
+	for (i = 0; i < count; i++) {
+		if (strings.count == 256) {
+			break;
+		}
+		if (DragQueryFile(drop, i, absolute_path, MAX_PATH) < 0) {
+			LGitLog("!! Failed to get file for %u\n", i);
+			continue;
+		}
+		/* for an absolute path: we need to strip the workdir */
+		char *stripped = (char*)LGitStripBasePath(ctx, absolute_path);
+		if (stripped == NULL) {
+			LGitLog("!! Couldn't get base path for %s\n", absolute_path);
+			continue;
+		}
+		/* it's safe to mutate now, we own the buf */
+		LGitTranslateStringChars(stripped, '\\', '/');
+		LGitLog(" ! Stripped path is %s\n", stripped);
+		paths[strings.count++] = strdup(stripped);
+	}
+fin:
+	DragFinish(drop);
+	ret = LGitStageAddFiles(ctx, hwnd, &strings, FALSE);
+	LGitFreePathList(strings.strings, strings.count);
+	return ret;
+}

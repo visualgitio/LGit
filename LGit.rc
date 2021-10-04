@@ -167,24 +167,28 @@ BEGIN
                     WS_TABSTOP,7,22,388,197
 END
 
-IDD_CLONE DIALOG DISCARDABLE  0, 0, 254, 99
-STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION
-CAPTION "Clone Git Repository"
+IDD_CLONE DIALOG DISCARDABLE  0, 0, 254, 191
+STYLE DS_MODALFRAME | DS_CENTER | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "Open Git Repository"
 FONT 8, "MS Sans Serif"
 BEGIN
+    GROUPBOX        "Open or Initialize",IDC_STATIC,7,7,240,51
+    LTEXT           "If your code already exists on the file system, select this. If a Git repository doesn't exist yet, it will be created.",
+                    IDC_STATIC,14,19,228,18
+    PUSHBUTTON      "&Open or Initialize Existing...",IDC_CLONE_EXISTING,144,
+                    39,98,14
+    GROUPBOX        "Clone Repository",IDC_STATIC,7,63,240,101
     LTEXT           "Enter the repository to clone and the location to put it.",
-                    IDC_STATIC,7,7,240,8
-    LTEXT           "&URL",IDC_STATIC,7,21,40,14,SS_CENTERIMAGE
-    EDITTEXT        IDC_CLONE_URL,47,21,200,14,ES_AUTOHSCROLL
-    LTEXT           "&Path",IDC_STATIC,7,40,40,14,SS_CENTERIMAGE
-    EDITTEXT        IDC_CLONE_PATH,47,40,145,14,ES_AUTOHSCROLL
-    PUSHBUTTON      "&Browse...",IDC_CLONE_BROWSE,197,40,50,14
-    LTEXT           "B&ranch",IDC_STATIC,7,59,40,14,SS_CENTERIMAGE
-    EDITTEXT        IDC_CLONE_BRANCH,47,59,200,14,ES_AUTOHSCROLL
-    DEFPUSHBUTTON   "OK",IDOK,141,78,50,14
-    PUSHBUTTON      "Cancel",IDCANCEL,197,78,50,14
-    PUSHBUTTON      "&Open or Initialize Existing...",IDC_CLONE_EXISTING,7,
-                    78,98,14
+                    IDC_STATIC,14,75,190,8
+    LTEXT           "&URL",IDC_STATIC,14,88,33,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_URL,47,88,195,14,ES_AUTOHSCROLL
+    LTEXT           "&Path",IDC_STATIC,14,107,33,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_PATH,47,107,145,14,ES_AUTOHSCROLL
+    PUSHBUTTON      "&Browse...",IDC_CLONE_BROWSE,197,107,45,14
+    LTEXT           "B&ranch",IDC_STATIC,14,126,33,14,SS_CENTERIMAGE
+    EDITTEXT        IDC_CLONE_BRANCH,47,126,195,14,ES_AUTOHSCROLL
+    DEFPUSHBUTTON   "Clone",IDOK,192,144,50,15
+    PUSHBUTTON      "Cancel",IDCANCEL,197,169,50,15
 END
 
 IDD_AUTH_USERPASS DIALOG DISCARDABLE  0, 0, 254, 81
@@ -353,14 +357,16 @@ BEGIN
                     IDC_STATIC,7,7,240,8
 END
 
-IDD_EXPLORER DIALOG DISCARDABLE  0, 0, 400, 200
+IDD_EXPLORER DIALOGEX 0, 0, 400, 200
 STYLE DS_CENTER | WS_MAXIMIZEBOX | WS_POPUP | WS_CAPTION | WS_SYSMENU | 
     WS_THICKFRAME
+EXSTYLE WS_EX_ACCEPTFILES
 CAPTION "Repository Explorer"
 FONT 8, "MS Sans Serif"
 BEGIN
     CONTROL         "List1",IDC_EXPLORER_FILES,"SysListView32",LVS_REPORT | 
-                    LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,386,186
+                    LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,386,186,
+                    WS_EX_ACCEPTFILES
 END
 
 IDD_ABOUT DIALOG DISCARDABLE  0, 0, 186, 90
@@ -570,11 +576,20 @@ BEGIN
     BEGIN
         LEFTMARGIN, 7
         RIGHTMARGIN, 247
+        VERTGUIDE, 14
         VERTGUIDE, 47
         VERTGUIDE, 192
         VERTGUIDE, 197
+        VERTGUIDE, 242
         TOPMARGIN, 7
-        BOTTOMMARGIN, 92
+        BOTTOMMARGIN, 184
+        HORZGUIDE, 19
+        HORZGUIDE, 53
+        HORZGUIDE, 58
+        HORZGUIDE, 63
+        HORZGUIDE, 159
+        HORZGUIDE, 164
+        HORZGUIDE, 169
     END
 
     IDD_AUTH_USERPASS, DIALOG
@@ -921,8 +936,9 @@ IDR_EXPLORER_MENU MENU DISCARDABLE
 BEGIN
     POPUP "&Repository"
     BEGIN
-        MENUITEM "&Open...",                    ID_EXPLORER_REPOSITORY_OPEN
-        MENUITEM "&Refresh",                    ID_EXPLORER_REPOSITORY_REFRESH
+        MENUITEM "&Open Repository...",         ID_EXPLORER_REPOSITORY_OPEN
+        MENUITEM "Open in &Windows Explorer...", 
+                                                ID_EXPLORER_REPOSITORY_OPENINWINDOWS
 
         MENUITEM SEPARATOR
         MENUITEM "&Diff from Stage...",         ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE
@@ -945,7 +961,7 @@ BEGIN
         MENUITEM "Revert to &Last Commit...",   ID_EXPLORER_STAGE_REVERTTOHEAD
 
         MENUITEM SEPARATOR
-        MENUITEM "&Open...",                    ID_EXPLORER_FILE_OPEN
+        MENUITEM "&Open in Default Program...", ID_EXPLORER_FILE_OPEN
         MENUITEM "&Properties...",              ID_EXPLORER_STAGE_FILEPROPERTIES
 
         MENUITEM SEPARATOR
@@ -963,6 +979,8 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "&Commit Staged...",           ID_EXPLORER_STAGE_COMMITSTAGED
 
+        MENUITEM "A&mend Last Commit...",       ID_EXPLORER_STAGE_AMENDLASTCOMMIT
+
     END
     POPUP "Re&mote"
     BEGIN
@@ -971,6 +989,17 @@ BEGIN
         MENUITEM SEPARATOR
         MENUITEM "Pus&h...",                    ID_EXPLORER_REMOTE_PUSH
         MENUITEM "Pu&ll...",                    ID_EXPLORER_REMOTE_PULL
+    END
+    POPUP "&View"
+    BEGIN
+        MENUITEM "&Refresh",                    ID_EXPLORER_REPOSITORY_REFRESH
+
+        MENUITEM SEPARATOR
+        MENUITEM "Show Un&changed",             ID_EXPLORER_VIEW_SHOWUNCHANGED
+
+        MENUITEM "Show Un&tracked",             ID_EXPLORER_VIEW_SHOWUNTRACKED
+
+        MENUITEM "Show &Ignored",               ID_EXPLORER_VIEW_SHOWIGNORED
     END
     POPUP "&Config"
     BEGIN

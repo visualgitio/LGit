@@ -155,8 +155,8 @@ static SCCRTN ShowPropertiesDialog(LGitContext *ctx,
 	params.ctx = ctx;
 	params.path = relative_path;
 	params.full_path = full_path;
-	params.entry = git_index_get_bypath(index, full_path, 0);
-	LGitLog(" ! Param %p\n", &params);
+	params.entry = git_index_get_bypath(index, relative_path, 0);
+	LGitLog(" ! Entry is %p\n", params.entry);
 
 	PROPSHEETPAGE psp[2];
 	ZeroMemory(&psp[0], sizeof(PROPSHEETPAGE));

@@ -14,6 +14,8 @@
 /* Useful macros */
 #define MF_IF(x) ((x) ? MF_ENABLED : MF_GRAYED)
 #define MF_IF_CMD(x) (MF_BYCOMMAND | MF_IF(x))
+#define CheckMenuItemIf(menu, command, cond) \
+	CheckMenuItem(menu, command, MF_BYCOMMAND | ((cond) ? MF_CHECKED : MF_UNCHECKED))
 
 /* XXX: Use a case-insensitive comparator */
 typedef std::set<std::string> CheckoutQueue;
@@ -78,6 +80,8 @@ int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz);
 UINT LGitGitToWindowsCodepage(const char *encoding);
 const char *LGitRepoStateString(int state);
 const char *LGitBranchType(git_branch_t type);
+void LGitLfToCrLf(char *crlf, const char *lf, size_t crlf_len);
+void LGitSetWindowTextFromCommitMessage(HWND ctrl, UINT codepage, const char *message);
 
 /* checkout.cpp */
 SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths);
@@ -90,9 +94,10 @@ BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
 /* commit.cpp */
 SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
+SCCRTN LGitCommitIndexAmendHead(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
 
 /* commitmk.cpp */
-SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd);
+SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last);
 
 /* status.cpp */
 SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path);
@@ -131,6 +136,7 @@ SCCRTN LGitStageAddFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths, BOOL 
 SCCRTN LGitStageRemoveFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths);
 SCCRTN LGitStageUnstageFiles(LGitContext *ctx, HWND hwnd, git_strarray *paths);
 SCCRTN LGitStageAddDialog(LGitContext *ctx, HWND hwnd);
+SCCRTN LGitStageDragTarget(LGitContext *ctx, HWND hwnd, HDROP drop);
 
 /* tag.cpp */
 SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd);
@@ -202,13 +208,15 @@ void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx);
 BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
 void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl);
+LONG LGitMeasureWidth(HWND measure_with, const char *text);
 BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd, unsigned int iMsg, LPARAM lParam);
 BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y);
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);
+void LGitControlFillsParentDialogCarveout(HWND hwnd, UINT dlg_item, RECT *bounds);
 HIMAGELIST LGitGetSystemImageList();
 
 /* about.cpp */
 void LGitAbout(HWND hwnd, LGitContext *ctx);
 
-/* runscc */
+/* runscc.cpp */
 LGIT_API SCCRTN LGitStandaloneExplorer(LGitContext *ctx, LONG nFiles, LPCSTR* lpFileNames);

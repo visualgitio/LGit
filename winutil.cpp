@@ -17,6 +17,32 @@ void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name)
 	}
 }
 
+/* primarily for status bars */
+LONG LGitMeasureWidth(HWND measure_with, const char *text)
+{
+	/* make sure we're using the correct font when measuring */
+	HDC dc = GetDC(measure_with);
+	HFONT current_font = (HFONT)SendMessage(measure_with, WM_GETFONT, 0, 0);
+	HGDIOBJ old_font;
+	if (current_font != NULL) {
+		old_font = SelectObject(dc, current_font);
+	}
+	if (dc == NULL) {
+		return 0;
+	}
+	SIZE size = {0, 0};
+	if (GetTextExtentPoint32(dc, text, strlen(text), &size) == 0) {
+		return 0;
+	}
+	if (current_font != NULL) {
+		/* restore */
+		SelectObject(dc, old_font);
+		/* XXX: Do we free current_font? */
+	}
+	ReleaseDC(measure_with, dc);
+	return size.cx;
+}
+
 void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl)
 {
 	/* GetStockObject doesn't need to be freed. */
@@ -29,6 +55,18 @@ void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item)
 	RECT rect;
 	HWND lv = GetDlgItem(hwnd, dlg_item);
 	GetClientRect(hwnd, &rect);
+	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
+}
+
+void LGitControlFillsParentDialogCarveout(HWND hwnd, UINT dlg_item, RECT *bounds)
+{
+	RECT rect;
+	HWND lv = GetDlgItem(hwnd, dlg_item);
+	GetClientRect(hwnd, &rect);
+	rect.left += bounds->left;
+	rect.top += bounds->top;
+	rect.right -= bounds->right;
+	rect.bottom -= bounds->bottom;
 	SetWindowPos(lv, NULL, 0, 0, rect.right, rect.bottom, 0);
 }
 

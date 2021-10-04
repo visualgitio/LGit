@@ -10,46 +10,6 @@ typedef struct _LGitCommitInfoDialogParams {
 	git_tag *tag;
 } LGitCommitInfoDialogParams;
 
-static void SetMessageFromAnsi(LGitContext *ctx, HWND ctrl, UINT codepage, const char *message)
-{
-	wchar_t *new_msg_conv = NULL;
-	/* we need to convert newlines */
-	size_t len = strlen(message);
-	char *message_converted = (char*)calloc(len, 2);
-	if (message_converted == NULL) {
-		/* mojibake AND bad newlines! */
-		SetWindowTextA(ctrl, message);
-		return;
-	}
-	for (size_t i = 0, j = 0; i < len; i++) {
-		/* XXX: could be faster? */
-		if (message[i] == '\n' && i > 0 && message[i - 1] != '\r') {
-			message_converted[j] = '\r';
-			message_converted[j + 1] = '\n';
-			j += 2;
-		} else {
-			message_converted[j++] = message[i];
-		}
-	}
-	/* then convert to UCS-2 */
-	int new_len = MultiByteToWideChar(codepage, 0, message_converted, -1, NULL, 0);
-	if (new_len < 0) {
-		/* enjoy your mojibake */
-		SetWindowTextA(ctrl, message_converted);
-		goto not_unicode;
-	}
-	new_msg_conv = (wchar_t*)calloc(new_len + 1, sizeof(wchar_t));
-	if (new_msg_conv == NULL) {
-		SetWindowTextA(ctrl, message_converted);
-		goto not_unicode;
-	}
-	MultiByteToWideChar(codepage, 0, message_converted, -1, new_msg_conv, new_len + 1);
-	SetWindowTextW(ctrl, new_msg_conv);
-	free(new_msg_conv);
-not_unicode:
-	free(message_converted);
-}
-
 static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 {
 	UINT codepage = LGitGitToWindowsCodepage(git_commit_message_encoding(params->commit));
@@ -81,7 +41,7 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	/* set the font THEN prep the message */
 	HWND message_box = GetDlgItem(hwnd, IDC_COMMITINFO_MESSAGE);
 	LGitSetMonospaceFont(params->ctx, message_box);
-	SetMessageFromAnsi(params->ctx, message_box, codepage, message);
+	LGitSetWindowTextFromCommitMessage(message_box, codepage, message);
 }
 
 static void FillTagView(HWND hwnd, LGitCommitInfoDialogParams *params)
@@ -108,7 +68,7 @@ static void FillTagView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	/* set the font THEN prep the message */
 	HWND message_box = GetDlgItem(hwnd, IDC_TAGINFO_MESSAGE);
 	LGitSetMonospaceFont(params->ctx, message_box);
-	SetMessageFromAnsi(params->ctx, message_box, CP_UTF8, message);
+	LGitSetWindowTextFromCommitMessage(message_box, CP_UTF8, message);
 }
 
 static BOOL CALLBACK CommitInfoDialogProc(HWND hwnd,
