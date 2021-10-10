@@ -40,25 +40,31 @@ static BOOL SetBranchAddParams(HWND hwnd, LGitAddBranchDialogParams* params)
 		return FALSE;
 	}
 	/* check if the reference exists */
-	git_reference *ref = NULL;
-	switch (git_reference_lookup(&ref, params->ctx->repo, params->based_on)) {
+	git_object *obj = NULL;
+	switch (git_revparse_single(&obj, params->ctx->repo, params->based_on)) {
 	case GIT_ENOTFOUND:
 		MessageBox(hwnd,
-			"The reference name to base off of doesn't exist.",
-			"Invalid Reference Name",
+			"The revision to base off of doesn't exist.",
+			"Invalid Revision",
 			MB_ICONWARNING);
 		return FALSE;
 	case GIT_EINVALIDSPEC:
 		MessageBox(hwnd,
-			"The reference name to base off of is invalid.",
-			"Invalid Reference Name",
+			"The revision to base off of is invalid.",
+			"Invalid Revision",
+			MB_ICONWARNING);
+		return FALSE;
+	case GIT_EAMBIGUOUS:
+		MessageBox(hwnd,
+			"The revision given isn't specific enough.",
+			"Invalid Revision",
 			MB_ICONWARNING);
 		return FALSE;
 	case 0:
-		git_reference_free(ref);
+		git_object_free(obj);
 		break;
 	default:
-		LGitLibraryError(hwnd, "git_reference_lookup");
+		LGitLibraryError(hwnd, "git_revparse_single");
 		return FALSE;
 	}
 	params->force = IsDlgButtonChecked(hwnd, IDC_BRANCH_ADD_FORCE) == BST_CHECKED;
@@ -456,7 +462,7 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 		break;
 	}
 	git_reference *branch = NULL;
-	git_oid commit_oid;
+	git_object *object = NULL;
 	git_commit *commit = NULL;
 	const char *branch_name;
 	int rc;
@@ -464,12 +470,12 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 	 * XXX: Is it safe to make a branch without a commit (unborn); if so, just
 	 * skip the init here and go to the branch create call.
 	 */
-	if (git_reference_name_to_id(&commit_oid, params->ctx->repo, ab_params.based_on) != 0) {
-		LGitLibraryError(hwnd, "git_reference_name_to_id");
+	if (git_revparse_single(&object, params->ctx->repo, ab_params.based_on) != 0) {
+		LGitLibraryError(hwnd, "git_revparse_single");
 		goto err;
 	}
-	if (git_commit_lookup(&commit, params->ctx->repo, &commit_oid) != 0) {
-		LGitLibraryError(hwnd, "git_commit_lookup");
+	if (git_object_peel((git_object**)&commit, object, GIT_OBJECT_COMMIT) != 0) {
+		LGitLibraryError(hwnd, "git_object_peel");
 		goto err;
 	}
 	rc = git_branch_create(&branch,
@@ -511,6 +517,9 @@ err:
 	}
 	if (commit != NULL) {
 		git_commit_free(commit);
+	}
+	if (object != NULL) {
+		git_object_free(object);
 	}
 }
 

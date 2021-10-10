@@ -346,9 +346,11 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_OPENINWINDOWS);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE);
+	EnableMenuItemIfInRepo(ID_EXPLORER_DIFF_DIFFFROMREVISION);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_APPLYPATCH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_BRANCHES);
 	EnableMenuItemIfInRepoAndBorn(ID_EXPLORER_REPOSITORY_HISTORY);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_CHECKOUT);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDFILES);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_ADDALL);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_UPDATEALL);
@@ -361,6 +363,7 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_OPEN);
 	EnableMenuItemIfSelectedAndBorn(ID_EXPLORER_FILE_HISTORY);
 	EnableMenuItemIfSelected(ID_EXPLORER_FILE_DIFFFROMSTAGE);
+	EnableMenuItemIfSelected(ID_EXPLORER_FILE_DIFFFROMREVISION);
 	EnableMenuItemIfInRepo(ID_EXPLORER_STAGE_COMMITSTAGED);
 	EnableMenuItemIfInRepoAndBorn(ID_EXPLORER_STAGE_AMENDLASTCOMMIT);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REMOTE_MANAGEREMOTES);
@@ -416,6 +419,29 @@ static BOOL OpenRepository(HWND hwnd, LGitExplorerParams *params)
 	return retbool;
 }
 
+static void DiffFromRevision(HWND hwnd, LGitExplorerParams *params, git_strarray *paths)
+{
+	git_object *obj = NULL;
+	git_reference *ref = NULL;
+	git_tree *tree = NULL;
+	if (LGitRevparseDialog(params->ctx, hwnd, "Diff from Revision", "HEAD", &obj, &ref) == SCC_OK) {
+		if (git_object_peel((git_object**)&tree, obj, GIT_OBJECT_TREE) != 0) {
+			LGitLibraryError(hwnd, "Couldn't Peel Tree");
+		} else {
+			LGitDiffTreeToWorkdir(params->ctx, hwnd, paths, tree);
+		}
+	}
+	if (tree != NULL) {
+		git_tree_free(tree);
+	}
+	if (obj != NULL) {
+		git_object_free(obj);
+	}
+	if (ref != NULL) {
+		git_reference_free(ref);
+	}
+}
+
 static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
@@ -443,22 +469,57 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 	case ID_EXPLORER_REPOSITORY_REFRESH:
 		UpdateExplorerStatus(hwnd, params);
 		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE:
 		LGitDiffStageToWorkdir(params->ctx, hwnd, NULL);
 		return TRUE;
+	case ID_EXPLORER_DIFF_DIFFFROMREVISION:
+		DiffFromRevision(hwnd, params, NULL);
+		return TRUE;
 	case ID_EXPLORER_REPOSITORY_APPLYPATCH:
 		if (LGitApplyPatchDialog(params->ctx, hwnd) == SCC_OK) {
 			UpdateExplorerStatus(hwnd, params);
+			FillExplorerListView(hwnd, params);
+			UpdateExplorerMenu(hwnd, params);
 		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_BRANCHES:
 		LGitShowBranchManager(params->ctx, hwnd);
-		/* operations here can cause i.e. checkouts */
+		/* XXX: Only if something changed as a result */
 		UpdateExplorerStatus(hwnd, params);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_HISTORY:
 		SccHistory(params->ctx, hwnd, 0, NULL, 0, NULL);
+		/* XXX: Only if something changed as a result */
+		UpdateExplorerStatus(hwnd, params);
+		FillExplorerListView(hwnd, params);
+		UpdateExplorerMenu(hwnd, params);
+		return TRUE;
+	case ID_EXPLORER_REPOSITORY_CHECKOUT:
+		{
+			git_object *obj = NULL;
+			git_reference *ref = NULL;
+			if (LGitRevparseDialog(params->ctx, hwnd, "Check Out Revision", "", &obj, &ref) == SCC_OK) {
+				if (ref != NULL) {
+					LGitCheckoutRef(params->ctx, hwnd, ref);
+				} else if (obj != NULL) {
+					/* automatically peeled */
+					LGitCheckoutTree(params->ctx, hwnd, git_object_id(obj));
+				}
+				UpdateExplorerStatus(hwnd, params);
+				FillExplorerListView(hwnd, params);
+				UpdateExplorerMenu(hwnd, params);
+			}
+			if (obj != NULL) {
+				git_object_free(obj);
+			}
+			if (ref != NULL) {
+				git_reference_free(ref);
+			}
+		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_ADDFILES:
 		if (LGitStageAddDialog(params->ctx, hwnd) == SCC_OK) {
@@ -533,6 +594,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			return TRUE;
 		}
 		if (GetMultipleSelection(hwnd, &strings)) {
+			/* XXX: Does unstaging make sense as well here? */
 			LGitCheckoutHead(params->ctx, hwnd, &strings);
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
@@ -571,14 +633,20 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			LGitFreePathList(strings.strings, strings.count);
 		}
 		return TRUE;
+	case ID_EXPLORER_FILE_DIFFFROMREVISION:
+		if (GetMultipleSelection(hwnd, &strings)) {
+			DiffFromRevision(hwnd, params, &strings);
+			LGitFreePathList(strings.strings, strings.count);
+		}
+		return TRUE;
 	case ID_EXPLORER_STAGE_COMMITSTAGED:
-		if (LGitCreateCommitDialog(params->ctx, hwnd, FALSE) == SCC_OK) {
+		if (LGitCreateCommitDialog(params->ctx, hwnd, FALSE, NULL, NULL) == SCC_OK) {
 			UpdateExplorerMenu(hwnd, params);
 			FillExplorerListView(hwnd, params);
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_AMENDLASTCOMMIT:
-		if (LGitCreateCommitDialog(params->ctx, hwnd, TRUE) == SCC_OK) {
+		if (LGitCreateCommitDialog(params->ctx, hwnd, TRUE, NULL, NULL) == SCC_OK) {
 			UpdateExplorerMenu(hwnd, params);
 			FillExplorerListView(hwnd, params);
 		}

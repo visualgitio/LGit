@@ -24,7 +24,6 @@ SCCRTN LGitRevertCommit(LGitContext *ctx,
 	LGitInitCheckoutProgressCallback(ctx, &revert_opts.checkout_opts);
 	git_commit *commit = NULL;
 	git_index *index = NULL;
-	char comment[128];
 	if (git_commit_lookup(&commit, ctx->repo, commit_oid) != 0) {
 		LGitLibraryError(hwnd, "git_commit_lookup");
 		goto err;
@@ -42,14 +41,14 @@ SCCRTN LGitRevertCommit(LGitContext *ctx,
 		LGitLibraryError(hwnd, "git_repository_index");
 		goto err;
 	}
-	/* XXX: Provide user a way to add details to comment */
-	_snprintf(comment, 128, "Revert %s", git_oid_tostr_s(commit_oid));
-	if (LGitCommitIndex(hwnd, ctx, index, comment) != SCC_OK) {
+	if (LGitCreateCommitDialog(ctx, hwnd, FALSE, NULL, index) != SCC_OK) {
 		/* it'll make the dialog for us */
 		goto err;
 	}
 	ret = SCC_OK;
 err:
+	/* The message is provided by the merge message, so remove it. */
+	git_repository_message_remove(ctx->repo);
 	if (index != NULL) {
 		git_index_free(index);
 	}

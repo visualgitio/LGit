@@ -262,3 +262,55 @@ fin:
 	}
 	return ret;
 }
+
+/* XXX: Assume peelable object? */
+SCCRTN LGitDiffTreeToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths, git_tree *tree)
+{
+	LGitLog("**LGitDiffTreeToWorkdir** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	LGitDiffDialogParams params;
+	ZeroMemory(&params, sizeof(LGitDiffDialogParams));
+	git_diff *diff = NULL;
+	/* XXX: config opts since we have no flags? allow passing in? */
+	git_diff_options diffopts;
+	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
+	if (paths != NULL) {
+		diffopts.pathspec.strings = paths->strings;
+		diffopts.pathspec.count = paths->count;
+	}
+	LGitInitDiffProgressCallback(ctx, &diffopts);
+	LGitProgressInit(ctx, "Diffing Tree to Working Tree", 0);
+	LGitProgressStart(ctx, hwnd, FALSE);
+	if (git_diff_tree_to_workdir(&diff, ctx->repo, tree, &diffopts) != 0) {
+		LGitLibraryError(hwnd, "git_diff_index_to_workdir");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	}
+	LGitProgressDeinit(ctx);
+
+	char title[128];
+	if (tree != NULL) {
+		const git_oid *tree_oid = git_tree_id(tree);
+		_snprintf(title, 128, "%s to Working Directory", git_oid_tostr_s(tree_oid));
+		params.path = title;
+	} else {
+		params.path = "Empty Tree to Working Directory";
+	}
+	params.ctx = ctx;
+	params.diff = diff;
+	params.commit = NULL;
+	switch (LGitDiffWindow(hwnd, &params)) {
+	case 0:
+	case -1:
+		LGitLog(" ! Uh-oh, dialog error\n");
+		ret = SCC_E_NONSPECIFICERROR;
+		goto fin;
+	default:
+		break;
+	}
+fin:
+	if (diff != NULL) {
+		git_diff_free(diff);
+	}
+	return ret;
+}

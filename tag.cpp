@@ -42,8 +42,8 @@ static BOOL SetTagAddParams(HWND hwnd, LGitAddTagDialogParams* params)
 		return FALSE;
 	}
 	/* check if the reference exists */
-	git_reference *ref = NULL;
-	switch (git_reference_lookup(&ref, params->ctx->repo, params->based_on)) {
+	git_object *obj = NULL;
+	switch (git_revparse_single(&obj, params->ctx->repo, params->based_on)) {
 	case GIT_ENOTFOUND:
 		MessageBox(hwnd,
 			"The reference name to base off of doesn't exist.",
@@ -56,11 +56,17 @@ static BOOL SetTagAddParams(HWND hwnd, LGitAddTagDialogParams* params)
 			"Invalid Reference Name",
 			MB_ICONWARNING);
 		return FALSE;
+	case GIT_EAMBIGUOUS:
+		MessageBox(hwnd,
+			"The revision given isn't specific enough.",
+			"Invalid Revision",
+			MB_ICONWARNING);
+		return FALSE;
 	case 0:
-		git_reference_free(ref);
+		git_object_free(obj);
 		break;
 	default:
-		LGitLibraryError(hwnd, "git_reference_lookup");
+		LGitLibraryError(hwnd, "git_revparse_single");
 		return FALSE;
 	}
 	params->force = IsDlgButtonChecked(hwnd, IDC_TAG_ADD_FORCE) == BST_CHECKED;
@@ -119,7 +125,7 @@ static SCCRTN CreateAnnotatedTag(LGitContext *ctx,
 	if (git_signature_default(&signature, ctx->repo) != 0) {
 		/* The git config is empty, so prompt for a signature */
 		char name[128], mail[128];
-		if (LGitSignatureDialog(ctx, hwnd, name, 128, mail, 128)) {
+		if (LGitSignatureDialog(ctx, hwnd, name, 128, mail, 128, TRUE)) {
 			if (git_signature_now(&signature, name, mail) != 0) {
 				/* You tried */
 				LGitLibraryError(hwnd, "Annotated Tag (new signature)");
@@ -221,18 +227,18 @@ SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd)
 	}
 	/* Common stuff before we decide this is an annotated tag or not */
 	SCCRTN ret = SCC_OK;
-	git_oid commit_oid;
+	git_object *object = NULL;
 	git_commit *commit = NULL;
 	/*
 	 * XXX: Is it safe to make a branch without a commit (unborn); if so, just
 	 * skip the init here and go to the branch create call.
 	 */
-	if (git_reference_name_to_id(&commit_oid, ctx->repo, at_params.based_on) != 0) {
-		LGitLibraryError(hwnd, "git_reference_name_to_id");
+	if (git_revparse_single(&object, ctx->repo, at_params.based_on) != 0) {
+		LGitLibraryError(hwnd, "git_revparse_single");
 		goto err;
 	}
-	if (git_commit_lookup(&commit, ctx->repo, &commit_oid) != 0) {
-		LGitLibraryError(hwnd, "git_commit_lookup");
+	if (git_object_peel((git_object**)&commit, object, GIT_OBJECT_COMMIT) != 0) {
+		LGitLibraryError(hwnd, "git_object_peel");
 		goto err;
 	}
 	/* Now decide. */
@@ -246,6 +252,9 @@ SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd)
 err:
 	if (commit != NULL) {
 		git_commit_free(commit);
+	}
+	if (object != NULL) {
+		git_object_free(object);
 	}
 	return ret;
 }

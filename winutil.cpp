@@ -180,6 +180,8 @@ void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
 	LGitLog(" ! Got back %d ref(s)\n", refs.count);
 	/* clean out in case of stale entries */
 	SendMessage(cb, CB_RESETCONTENT, 0, 0);
+	/* add HEAD */
+	SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)"HEAD");
 	for (i = 0; i < refs.count; i++) {
 		name = refs.strings[i];
 		LGitLog(" ! Adding ref %s\n", name);

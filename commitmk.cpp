@@ -81,7 +81,7 @@ fin:
 	git_object_free(obj);
 }
 
-SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last)
+SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, const char *proposed_message, git_index *proposed_index)
 {
 	LGitLog("**LGitCreateCommitDialog** Context=%p\n", ctx);
 	LGitCreateCommitDialogParams cc_params;
@@ -89,16 +89,24 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last)
 	cc_params.ctx = ctx;
 	git_buf merge_msg = {0, 0};
 	int rc = git_repository_message(&merge_msg, ctx->repo);
+	/* Temp buffer for any conversions */
+	char temp_message[COMMIT_DIALOG_MESSAGE_SIZE];
 	/* If we're amending, put as much of the previous commit we can in. */
 	if (amend_last) {
 		InitAmendParams(hwnd, &cc_params);
 	}
+	/* If we have a message (i.e. from revert), paste it in */
+	if (proposed_message != NULL) {
+		LGitLfToCrLf(temp_message, proposed_message, COMMIT_DIALOG_MESSAGE_SIZE);
+		strlcat(cc_params.message, temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
+	}
 	if (rc == 0) {
-		/* XXX: Clean up, make sure uses Windows newlines */
 		if (strlen(cc_params.message)) {
 			strlcat(cc_params.message, "\r\n", COMMIT_DIALOG_MESSAGE_SIZE);
 		}
-		strlcat(cc_params.message, merge_msg.ptr, COMMIT_DIALOG_MESSAGE_SIZE);
+		/* XXX: Check if we haven't copied more than buf size */
+		LGitLfToCrLf(temp_message, merge_msg.ptr, COMMIT_DIALOG_MESSAGE_SIZE);
+		strlcat(cc_params.message, temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
 	} else if (rc != GIT_ENOTFOUND) {
 		LGitLibraryError(hwnd, "git_repository_message");
 	}
@@ -117,18 +125,32 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last)
 		break;
 	}
 	SCCRTN ret = SCC_OK;
-	git_index *index;
-	if (git_repository_index(&index, ctx->repo) != 0) {
+	/*
+	 * If we have an index proposed to us (i.e. revert), use that; otherwise,
+	 * use the stage since the user has been building changes there..
+	 */
+	git_index *index = NULL;
+	git_signature *signature = NULL;
+	if (proposed_index != NULL) {
+		index = proposed_index;
+	} else if (git_repository_index(&index, ctx->repo) != 0) {
 		LGitLibraryError(hwnd, "git_repository_error");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto err;
 	}
+	if (!amend_last && LGitGetDefaultSignature(hwnd, ctx, &signature) != SCC_OK) {
+		goto err;
+	}
 	if (amend_last) {
-		ret = LGitCommitIndexAmendHead(hwnd, ctx, index, cc_params.message);
+		ret = LGitCommitIndexAmendHead(hwnd, ctx, index, cc_params.message, NULL, NULL);
 	} else {
-		ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message);
+		ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message, signature, signature);
 	}
 err:
 	git_buf_dispose(&merge_msg);
+	if (proposed_index == NULL) {
+		git_index_free(index);
+	}
+	git_signature_free(signature);
 	return ret;
 }

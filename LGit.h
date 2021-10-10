@@ -86,6 +86,7 @@ void LGitSetWindowTextFromCommitMessage(HWND ctrl, UINT codepage, const char *me
 /* checkout.cpp */
 SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths);
 SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths);
+SCCRTN LGitCheckoutRef(LGitContext *ctx, HWND hwnd, git_reference *branch);
 SCCRTN LGitCheckoutRefByName(LGitContext *ctx,  HWND hwnd, const char *name);
 SCCRTN LGitCheckoutTree(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
 void LGitPushCheckout(LGitContext *ctx, const char *fileName);
@@ -93,11 +94,11 @@ BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
 /* commit.cpp */
-SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
-SCCRTN LGitCommitIndexAmendHead(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment);
+SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment, git_signature *author, git_signature *committer);
+SCCRTN LGitCommitIndexAmendHead(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment, git_signature *author, git_signature *committer);
 
 /* commitmk.cpp */
-SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last);
+SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, const char *proposed_message, git_index *proposed_index);
 
 /* status.cpp */
 SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path);
@@ -158,6 +159,7 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params);
 SCCRTN LGitCommitToCommitDiff(LGitContext *ctx, HWND hwnd, git_commit *commit_b, git_commit *commit_a, git_diff_options *diffopts);
 SCCRTN LGitCommitToParentDiff(LGitContext *ctx, HWND hwnd, git_commit *commit, git_diff_options *diffopts);
 SCCRTN LGitDiffStageToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths);
+SCCRTN LGitDiffTreeToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths, git_tree *tree);
 
 /* apply.cpp */
 SCCRTN LGitApplyPatch(LGitContext *ctx, HWND hwnd, git_diff *diff, git_apply_location_t loc, BOOL check_only);
@@ -165,7 +167,8 @@ SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const char *file, git_diff **
 SCCRTN LGitApplyPatchDialog(LGitContext *ctx, HWND hwnd);
 
 /* sigwin.cpp */
-BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz);
+BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz, BOOL enable_set_default);
+SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **signature);
 
 /* commitvw.cpp */
 void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit, git_tag *tag);
@@ -191,6 +194,10 @@ SCCRTN LGitShowRemoteManager(LGitContext *ctx, HWND hwnd);
 
 /* remotecb.cpp */
 void LGitInitRemoteCallbacks(LGitContext *ctx, HWND hWnd, git_remote_callbacks *cb);
+
+/* revparse.cpp */
+SCCRTN LGitRevparseDialog(LGitContext *ctx, HWND hwnd, const char *title, const char *suggested_spec, git_object **obj, git_reference **ref);
+SCCRTN LGitRevparseDialogString(LGitContext *ctx, HWND hwnd, const char *title, char *spec, size_t bufsz);
 
 /* cert.cpp */
 BOOL LGitCertificatePrompt(LGitContext *ctx, HWND parent, git_cert *cert, const char *host);

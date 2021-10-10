@@ -12,8 +12,7 @@ static SCCRTN LGitCommitIndexCommon(HWND hWnd,
 									const char **comment,
 									git_buf *prettified_message,
 									git_oid *tree_oid,
-									git_tree **tree,
-									git_signature **signature)
+									git_tree **tree)
 {
 	SCCRTN ret = SCC_OK;
 	/*
@@ -49,23 +48,6 @@ static SCCRTN LGitCommitIndexCommon(HWND hWnd,
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
-	if (git_signature_default(signature, ctx->repo) != 0) {
-		/* The git config is empty, so prompt for a signature */
-		char name[128], mail[128];
-		if (LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128)) {
-			if (git_signature_now(signature, name, mail) != 0) {
-				/* You tried */
-				LGitLibraryError(hWnd, "Commit (new signature)");
-				ret = SCC_E_NONSPECIFICERROR;
-				goto fin;
-			}
-		} else {
-			/* You tried */
-			LGitLibraryError(hWnd, "Commit (existing signature)");
-			ret = SCC_E_NONSPECIFICERROR;
-			goto fin;
-		}
-	}
 fin:
 	return ret;
 }
@@ -73,13 +55,14 @@ fin:
 SCCRTN LGitCommitIndex(HWND hWnd,
 					   LGitContext *ctx,
 					   git_index *index,
-					   LPCSTR lpComment)
+					   LPCSTR lpComment,
+					   git_signature *author,
+					   git_signature *committer)
 {
 	git_oid commit_oid,tree_oid;
 	git_tree *tree = NULL;
 	git_object *parent = NULL;
 	git_reference *ref = NULL;
-	git_signature *signature = NULL;
 
 	SCCRTN ret = SCC_OK;
 
@@ -92,7 +75,7 @@ SCCRTN LGitCommitIndex(HWND hWnd,
 	}
 
 	ret = LGitCommitIndexCommon(hWnd, ctx, index, lpComment,
-		&comment, &prettified_message, &tree_oid, &tree, &signature);
+		&comment, &prettified_message, &tree_oid, &tree);
 	if (ret != SCC_OK) {
 		LGitLog("!! Failure from shared code\n");
 		goto fin;
@@ -102,8 +85,8 @@ SCCRTN LGitCommitIndex(HWND hWnd,
 			&commit_oid,
 			ctx->repo,
 			"HEAD",
-			signature,
-			signature,
+			author,
+			committer,
 			NULL,
 			comment,
 			tree,
@@ -127,16 +110,15 @@ fin:
 	if (tree != NULL) {
 		git_tree_free(tree);
 	}
-	if (signature != NULL) {
-		git_signature_free(signature);
-	}
 	return ret;
 }
 
 SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 								LGitContext *ctx,
 								git_index *index,
-								LPCSTR lpComment)
+								LPCSTR lpComment,
+								git_signature *author,
+								git_signature *committer)
 {
 
 	git_oid commit_oid,tree_oid;
@@ -144,7 +126,6 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 	git_commit *parent_commit = NULL;
 	git_object *parent = NULL;
 	git_reference *ref = NULL;
-	git_signature *signature = NULL;
 
 	SCCRTN ret = SCC_OK;
 
@@ -164,7 +145,7 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 	}
 
 	ret = LGitCommitIndexCommon(hWnd, ctx, index, lpComment,
-		&comment, &prettified_message, &tree_oid, &tree, &signature);
+		&comment, &prettified_message, &tree_oid, &tree);
 	if (ret != SCC_OK) {
 		LGitLog("!! Failure from shared code\n");
 		goto fin;
@@ -174,8 +155,8 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 			&commit_oid,
 			parent_commit,
 			"HEAD",
-			signature,
-			signature,
+			author == NULL ? git_commit_author(parent_commit) : author,
+			committer == NULL ? git_commit_committer(parent_commit) : committer,
 			NULL,
 			comment,
 			tree)) {
@@ -201,9 +182,6 @@ fin:
 	if (tree != NULL) {
 		git_tree_free(tree);
 	}
-	if (signature != NULL) {
-		git_signature_free(signature);
-	}
 	return ret;
 }
 
@@ -221,6 +199,8 @@ SCCRTN SccCheckin (LPVOID context,
 				   LPCMDOPTS pvOptions)
 {
 	git_index *index;
+	git_signature *signature = NULL;
+	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -253,12 +233,17 @@ SCCRTN SccCheckin (LPVOID context,
 		}
 		LGitPopCheckout(ctx, path);
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
+		goto fin;
+	}
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
+fin:
 	git_index_free(index);
+	git_signature_free(signature);
 	return inner_ret;
 }
 
@@ -274,6 +259,8 @@ SCCRTN SccAdd (LPVOID context,
 			   LPCMDOPTS pvOptions)
 {
 	git_index *index;
+	git_signature *signature = NULL;
+	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -315,12 +302,17 @@ SCCRTN SccAdd (LPVOID context,
 		}
 		LGitPopCheckout(ctx, path);
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
+		goto fin;
+	}
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
+fin:
 	git_index_free(index);
+	git_signature_free(signature);
 	return inner_ret;
 }
 
@@ -337,6 +329,8 @@ SCCRTN SccRemove (LPVOID context,
 				  LPCMDOPTS pvOptions)
 {
 	git_index *index;
+	git_signature *signature = NULL;
+	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
 	LGitContext *ctx = (LGitContext*)context;
@@ -369,12 +363,17 @@ SCCRTN SccRemove (LPVOID context,
 		}
 		LGitPopCheckout(ctx, path);
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment);
-	LGitCommitOpts *commitOpts = (LGitCommitOpts*)pvOptions;
+	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
+		goto fin;
+	}
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
+fin:
 	git_index_free(index);
+	git_signature_free(signature);
 	return inner_ret;
 }
 
@@ -385,6 +384,7 @@ SCCRTN SccRename (LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 	git_index *index;
+	git_signature *signature = NULL;
 	SCCRTN inner_ret;
 	const char *o_raw_path, *n_raw_path;
 	char o_path[1024], n_path[1024], comment[1024];
@@ -428,9 +428,13 @@ SCCRTN SccRename (LPVOID context,
 	}
 	/* XXX: Add a trailer? */
 	_snprintf(comment, 1024, "Rename %s to %s\n", o_path, n_path);
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, comment);
+	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
+		goto fail;
+	}
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, comment, signature, signature);
 	LGitPopCheckout(ctx, o_path);
 fail:
 	git_index_free(index);
+	git_signature_free(signature);
 	return inner_ret;
 }

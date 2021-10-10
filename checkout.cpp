@@ -21,25 +21,20 @@ static int AskIfCreateBranchFromRemote(HWND hwnd)
 		MB_ICONQUESTION | MB_YESNOCANCEL);
 }
 
-SCCRTN LGitCheckoutRefByName(LGitContext *ctx,
-							 HWND hwnd,
-							 const char *name)
+SCCRTN LGitCheckoutRef(LGitContext *ctx, HWND hwnd, git_reference *branch)
 {
-	LGitLog("**LGitCheckoutRefByName** Context=%p\n", ctx);
-	LGitLog("  refname %s\n", name);
+	LGitLog("**LGitCheckoutRef** Context=%p\n", ctx);
 	/* Resolve the name to a commit for checkout. Example uses annotated... */
 	BOOL attached = TRUE;
 	int remote_question;
 	SCCRTN ret = SCC_E_NONSPECIFICERROR;
-	git_reference *branch = NULL, *new_branch = NULL, *checkout_branch;
+	git_reference *new_branch = NULL, *checkout_branch;
 	git_oid commit_oid;
 	git_commit *commit = NULL;
 	git_checkout_options co_opts;
 	/* For future reference */
-	if (git_reference_lookup(&branch, ctx->repo, name) != 0) {
-		LGitLibraryError(hwnd, "git_repository_set_head");
-		goto err;
-	}
+	const char *name = git_reference_name(branch);
+	/* XXX: Convert to _target */
 	if (git_reference_name_to_id(&commit_oid, ctx->repo, name) != 0) {
 		LGitLibraryError(hwnd, "git_reference_name_to_id");
 		goto err;
@@ -112,11 +107,28 @@ err:
 	if (new_branch != NULL) {
 		git_reference_free(new_branch);
 	}
-	if (branch != NULL) {
-		git_reference_free(branch);
-	}
 	if (commit != NULL) {
 		git_commit_free(commit);
+	}
+	return ret;
+}
+
+SCCRTN LGitCheckoutRefByName(LGitContext *ctx,
+							 HWND hwnd,
+							 const char *name)
+{
+	LGitLog("**LGitCheckoutRefByName** Context=%p\n", ctx);
+	LGitLog("  refname %s\n", name);
+	git_reference *branch = NULL;
+	SCCRTN ret;
+	if (git_reference_lookup(&branch, ctx->repo, name) != 0) {
+		LGitLibraryError(hwnd, "git_reference_lookup");
+		goto err;
+	}
+	ret = LGitCheckoutRef(ctx, hwnd, branch);
+err:
+	if (branch != NULL) {
+		git_reference_free(branch);
 	}
 	return ret;
 }
@@ -201,7 +213,7 @@ SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 
 	LGitProgressInit(ctx, "Checking Out Files", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
-	if (git_checkout_index(ctx->repo, NULL, &co_opts) != 0) {
+	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "LGitCheckoutHead git_checkout_head");
 		return SCC_E_NONSPECIFICERROR;

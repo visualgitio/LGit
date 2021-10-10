@@ -10,7 +10,17 @@ typedef struct _LGitSignatureParams {
 	char name[128];
 	char mail[128];
 	BOOL useByDefault;
+	BOOL enableUseByDefault;
 } LGitSignatureParams;
+
+static void InitSignatureDialog(HWND hwnd, LGitSignatureParams *params)
+{
+	if (!params->enableUseByDefault) {
+		HWND checkbox = GetDlgItem(hwnd, IDC_SIGNATURE_MAKE_DEFAULT);
+		EnableWindow(checkbox, FALSE);
+		ShowWindow(checkbox, SW_HIDE);
+	}
+}
 
 static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 										 unsigned int iMsg,
@@ -22,6 +32,7 @@ static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitSignatureParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
+		InitSignatureDialog(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitSignatureParams*)GetWindowLong(hwnd, GWL_USERDATA);
@@ -29,7 +40,9 @@ static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 		case IDOK:
 			GetDlgItemText(hwnd, IDC_SIG_NAME, param->name, 128);
 			GetDlgItemText(hwnd, IDC_SIG_MAIL, param->mail, 128);
-			param->useByDefault = IsDlgButtonChecked(hwnd, IDC_SIGNATURE_MAKE_DEFAULT) == BST_CHECKED;
+			if (param->enableUseByDefault) {
+				param->useByDefault = IsDlgButtonChecked(hwnd, IDC_SIGNATURE_MAKE_DEFAULT) == BST_CHECKED;
+			}
 			EndDialog(hwnd, 2);
 			return TRUE;
 		case IDCANCEL:
@@ -66,9 +79,11 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 						 char *name,
 						 size_t name_sz,
 						 char *mail,
-						 size_t mail_sz)
+						 size_t mail_sz,
+						 BOOL enable_set_default)
 {
 	LGitSignatureParams params;
+	params.enableUseByDefault = enable_set_default;
 	/*
 	 * XXX: It might be a good idea to pre-initialize the dialog with some
 	 * reasonable values filled in from i.e. current user and domain.
@@ -103,4 +118,28 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 		LGitSetSignature(ctx, parent, params.name, params.mail);
 	}
 	return TRUE;
+}
+
+SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **signature)
+{
+	SCCRTN ret = SCC_OK;
+	/* The signature may already be provided, don't init unless null */
+	if (*signature == NULL && git_signature_default(signature, ctx->repo) != 0) {
+		/* The git config is empty, so prompt for a signature */
+		char name[128], mail[128];
+		if (LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128, TRUE)) {
+			if (git_signature_now(signature, name, mail) != 0) {
+				/* You tried */
+				LGitLibraryError(hWnd, "Creating Signature");
+				ret = SCC_E_NONSPECIFICERROR;
+			}
+		} else {
+			/* You tried */
+			LGitLibraryError(hWnd, "Acquiring Signature");
+			ret = SCC_E_NONSPECIFICERROR;
+			goto fin;
+		}
+	}
+fin:
+	return ret;
 }

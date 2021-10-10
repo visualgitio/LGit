@@ -509,6 +509,20 @@ BEGIN
                     WS_VSCROLL | WS_HSCROLL
 END
 
+IDD_REVPARSE DIALOG DISCARDABLE  0, 0, 254, 74
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION
+CAPTION "Select Revision"
+FONT 8, "MS Sans Serif"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,142,53,50,14
+    PUSHBUTTON      "Cancel",IDCANCEL,197,53,50,14
+    LTEXT           "&Revision",IDC_STATIC,7,7,28,8
+    COMBOBOX        IDC_REVPARSE_SPEC,7,21,240,30,CBS_DROPDOWN | CBS_SORT | 
+                    WS_VSCROLL | WS_TABSTOP
+    LTEXT           "Standard Git revision parsing rules apply.",IDC_STATIC,
+                    7,38,240,10
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -874,6 +888,20 @@ BEGIN
         HORZGUIDE, 156
         HORZGUIDE, 161
     END
+
+    IDD_REVPARSE, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 247
+        VERTGUIDE, 192
+        VERTGUIDE, 197
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 67
+        HORZGUIDE, 15
+        HORZGUIDE, 21
+        HORZGUIDE, 33
+        HORZGUIDE, 38
+    END
 END
 #endif    // APSTUDIO_INVOKED
 
@@ -941,14 +969,11 @@ BEGIN
                                                 ID_EXPLORER_REPOSITORY_OPENINWINDOWS
 
         MENUITEM SEPARATOR
-        MENUITEM "&Diff from Stage...",         ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE
-
-        MENUITEM "&Apply Patch...",             ID_EXPLORER_REPOSITORY_APPLYPATCH
-
-        MENUITEM SEPARATOR
         MENUITEM "Re&ferences...",              ID_EXPLORER_REPOSITORY_BRANCHES
 
         MENUITEM "&History...",                 ID_EXPLORER_REPOSITORY_HISTORY
+
+        MENUITEM "Ch&eckout Revision...",       ID_EXPLORER_REPOSITORY_CHECKOUT
 
         MENUITEM SEPARATOR
         MENUITEM "&Close",                      ID_EXPLORER_REPOSITORY_CLOSE
@@ -968,6 +993,8 @@ BEGIN
         MENUITEM "&History...",                 ID_EXPLORER_FILE_HISTORY
         MENUITEM "&Diff from Stage...",         ID_EXPLORER_FILE_DIFFFROMSTAGE
 
+        MENUITEM "Diff from R&evision...",      ID_EXPLORER_FILE_DIFFFROMREVISION
+
     END
     POPUP "&Stage"
     BEGIN
@@ -980,6 +1007,16 @@ BEGIN
         MENUITEM "&Commit Staged...",           ID_EXPLORER_STAGE_COMMITSTAGED
 
         MENUITEM "A&mend Last Commit...",       ID_EXPLORER_STAGE_AMENDLASTCOMMIT
+
+    END
+    POPUP "&Diff"
+    BEGIN
+        MENUITEM "Diff from &Stage...",         ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE
+
+        MENUITEM "Diff from &Revision...",      ID_EXPLORER_DIFF_DIFFFROMREVISION
+
+        MENUITEM "",                            1
+        MENUITEM "&Apply Patch...",             ID_EXPLORER_REPOSITORY_APPLYPATCH
 
     END
     POPUP "Re&mote"
