@@ -20,6 +20,8 @@ static void InitSignatureDialog(HWND hwnd, LGitSignatureParams *params)
 		EnableWindow(checkbox, FALSE);
 		ShowWindow(checkbox, SW_HIDE);
 	}
+	SetDlgItemText(hwnd, IDC_SIG_NAME, params->name);
+	SetDlgItemText(hwnd, IDC_SIG_MAIL, params->mail);
 }
 
 static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
@@ -87,10 +89,13 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	/*
 	 * XXX: It might be a good idea to pre-initialize the dialog with some
 	 * reasonable values filled in from i.e. current user and domain.
+	 * For now, just use the buffer provided to us.
 	 */
 	if (name == NULL || name_sz < 1 || mail == NULL || mail_sz < 1) {
 		return FALSE;
 	}
+	strlcpy(params.name, name, 128);
+	strlcpy(params.mail, mail, 128);
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_NEW_SIGNATURE),
 		parent,
@@ -127,6 +132,8 @@ SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **sign
 	if (*signature == NULL && git_signature_default(signature, ctx->repo) != 0) {
 		/* The git config is empty, so prompt for a signature */
 		char name[128], mail[128];
+		ZeroMemory(name, 128);
+		ZeroMemory(mail, 128);
 		if (LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128, TRUE)) {
 			if (git_signature_now(signature, name, mail) != 0) {
 				/* You tried */

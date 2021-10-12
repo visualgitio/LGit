@@ -77,6 +77,7 @@ BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
 BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);
 int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz);
+int LGitFormatSignatureWithTimeW(const git_signature *sig, wchar_t *buf, size_t bufsz);
 UINT LGitGitToWindowsCodepage(const char *encoding);
 const char *LGitRepoStateString(int state);
 const char *LGitBranchType(git_branch_t type);

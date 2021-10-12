@@ -688,6 +688,9 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 			}
 			return TRUE;
 		*/
+		case ID_REFERENCE_REFRESH:
+			FillBranchView(hwnd, param);
+			return TRUE;
 		case ID_REFERENCE_CLOSE:
 		case IDOK:
 		case IDCANCEL:

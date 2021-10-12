@@ -135,10 +135,21 @@ static BOOL FillHistoryListView(HWND hwnd,
 	git_revwalk *walker = param->walker;
 	git_pathspec *ps = param->ps;
 	git_diff_options *diffopts = param->diffopts;
+	const char *ref = param->ref;
 
 	lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
 	/* clear if we're replenishing */
 	ListView_DeleteAllItems(lv);
+
+	/* Push HEAD again */
+	if (ref == NULL && git_revwalk_push_head(walker) != 0) {
+		LGitLibraryError(hwnd, "History (Pushing Reference)");
+		return FALSE;
+	}
+	if (ref != NULL && git_revwalk_push_ref(walker, ref) != 0) {
+		LGitLibraryError(hwnd, "History (Pushing Reference)");
+		return FALSE;
+	}
 
 	/*
 	 * We can only get the revision count by walking it like we're doing now,
@@ -323,7 +334,9 @@ static void CheckoutSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
 		LGitLibraryError(hwnd, "git_oid_fromstr");
 		return;
 	}
-	LGitCheckoutTree(params->ctx, hwnd, &oid);
+	if (LGitCheckoutTree(params->ctx, hwnd, &oid) == SCC_OK) {
+		FillHistoryListView(hwnd, params, params->path_count == 0);
+	}
 }
 
 static void RevertSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
@@ -428,6 +441,9 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		case ID_HISTORY_COMMIT_RESET_HARD:
 			ResetSelectedCommit(hwnd, param, TRUE);
 			return TRUE;
+		case ID_HISTORY_REFRESH:
+			FillHistoryListView(hwnd, param, param->path_count == 0);
+			return TRUE;
 		case ID_HISTORY_CLOSE:
 		case IDOK:
 		case IDCANCEL:
@@ -489,16 +505,6 @@ static SCCRTN LGitHistoryInternal(LGitContext *ctx,
 
 	if (git_revwalk_new(&walker, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "SccHistory git_revwalk_new");
-		ret = SCC_E_NONSPECIFICERROR;
-		goto fin;
-	}
-	if (ref == NULL && git_revwalk_push_head(walker) != 0) {
-		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
-		ret = SCC_E_NONSPECIFICERROR;
-		goto fin;
-	}
-	if (ref != NULL && git_revwalk_push_ref(walker, ref) != 0) {
-		LGitLibraryError(hWnd, "SccHistory git_revwalk_push_head");
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}

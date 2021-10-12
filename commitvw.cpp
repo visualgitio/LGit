@@ -24,18 +24,10 @@ static void FillCommitView(HWND hwnd, LGitCommitInfoDialogParams *params)
 	committer = git_commit_committer(params->commit);
 	message = git_commit_message(params->commit);
 
-	wchar_t sig_msg[512], sig_person[256];
-
-	LGitTimeToStringW(&author->when, sig_msg, 512);
-	wcslcat(sig_msg, L" ", 512);
-	LGitFormatSignatureW(author, sig_person, 256);
-	wcslcat(sig_msg, sig_person, 512);
+	wchar_t sig_msg[512];
+	LGitFormatSignatureWithTimeW(author, sig_msg, 512);
 	SetDlgItemTextW(hwnd, IDC_COMMITINFO_AUTHOR, sig_msg);
-
-	LGitTimeToStringW(&committer->when, sig_msg, 512);
-	wcslcat(sig_msg, L" ", 512);
-	LGitFormatSignatureW(committer, sig_person, 256);
-	wcslcat(sig_msg, sig_person, 512);
+	LGitFormatSignatureWithTimeW(committer, sig_msg, 512);
 	SetDlgItemTextW(hwnd, IDC_COMMITINFO_COMMITTER, sig_msg);
 
 	/* set the font THEN prep the message */

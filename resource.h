@@ -123,6 +123,10 @@
 #define IDC_ABOUT_WEB                   1074
 #define IDC_COMMIT_CREATE_MESSAGE       1075
 #define IDC_REVPARSE_SPEC               1076
+#define IDC_COMMIT_CREATE_AUTHOR        1077
+#define IDC_COMMIT_CREATE_CHANGEAUTHOR  1078
+#define IDC_COMMIT_CREATE_COMMITTER     1079
+#define IDC_COMMIT_CREATE_CHANGECOMMITTER 1080
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
 #define ID_DIFF_CLOSE                   40003
@@ -175,14 +179,16 @@
 #define ID_EXPLORER_REPOSITORY_CHECKOUT 40057
 #define ID_EXPLORER_DIFF_DIFFFROMREVISION 40058
 #define ID_EXPLORER_FILE_DIFFFROMREVISION 40059
+#define ID_HISTORY_REFRESH              40060
+#define ID_REFERENCE_REFRESH            40061
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        146
-#define _APS_NEXT_COMMAND_VALUE         40060
-#define _APS_NEXT_CONTROL_VALUE         1077
+#define _APS_NEXT_COMMAND_VALUE         40062
+#define _APS_NEXT_CONTROL_VALUE         1079
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

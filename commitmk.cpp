@@ -12,7 +12,16 @@ typedef struct _LGitCreateCommitDialogParams {
 	/* XXX: Allow custom signatures */
 	/* In system enc, because SCC. It should be conv in commit func */
 	char message[COMMIT_DIALOG_MESSAGE_SIZE];
+	git_signature *author;
+	git_signature *committer;
 } LGitCreateCommitDialogParams;
+
+static void SetSignatureWindowText(HWND hwnd, LGitCreateCommitDialogParams *params, UINT control, const git_signature *signature)
+{
+	wchar_t buf[512];
+	LGitFormatSignatureWithTimeW(signature, buf, 512);
+	SetDlgItemTextW(hwnd, control, buf);
+}
 
 static void InitCreateCommitDialog(HWND hwnd, LGitCreateCommitDialogParams *params)
 {
@@ -21,6 +30,30 @@ static void InitCreateCommitDialog(HWND hwnd, LGitCreateCommitDialogParams *para
 
 	/* For any provided messages (i.e. merge_msg) */
 	SetWindowText(edit, params->message);
+	SetSignatureWindowText(hwnd, params, IDC_COMMIT_CREATE_AUTHOR, params->author);
+	SetSignatureWindowText(hwnd, params, IDC_COMMIT_CREATE_COMMITTER, params->committer);
+}
+
+static void ChangeSignature(HWND hwnd, LGitCreateCommitDialogParams *params, UINT control, git_signature **signature)
+{
+	char name[128], mail[128];
+	if (*signature != NULL) {
+		strlcpy(name, (*signature)->name, 128);
+		strlcpy(mail, (*signature)->email, 128);
+	} else {
+		ZeroMemory(name, 128);
+		ZeroMemory(mail, 128);
+	}
+	if (!LGitSignatureDialog(params->ctx, hwnd, name, 128, mail, 128, FALSE)) {
+		return;
+	}
+	git_signature_free(*signature);
+	*signature = NULL;
+	if (git_signature_now(signature, name, mail) != 0) {
+		LGitLibraryError(hwnd, "git_signature_now");
+		return;
+	}
+	SetSignatureWindowText(hwnd, params, control, *signature);
 }
 
 static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
@@ -43,6 +76,12 @@ static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 	case WM_COMMAND:
 		param = (LGitCreateCommitDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
+		case IDC_COMMIT_CREATE_CHANGEAUTHOR:
+			ChangeSignature(hwnd, param, IDC_COMMIT_CREATE_AUTHOR, &param->author);
+			return TRUE;
+		case IDC_COMMIT_CREATE_CHANGECOMMITTER:
+			ChangeSignature(hwnd, param, IDC_COMMIT_CREATE_COMMITTER, &param->committer);
+			return TRUE;
 		case IDOK:
 			GetDlgItemText(hwnd, IDC_COMMIT_CREATE_MESSAGE, param->message, 0x1000);
 			EndDialog(hwnd, 2);
@@ -55,6 +94,26 @@ static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 	default:
 		return FALSE;
 	}
+}
+
+static void InitFreshParams(HWND hwnd, LGitCreateCommitDialogParams *params)
+{
+	/* Since it can be called from partially initialized amend */
+	git_signature_free(params->author);
+	git_signature_free(params->committer);
+
+	/* The commit message can be blank, but we do want the user's sig here */
+	git_signature *signature = NULL;
+	if (LGitGetDefaultSignature(hwnd, params->ctx, &signature) != SCC_OK) {
+		return;
+	}
+	if (git_signature_dup(&params->author, signature) != 0) {
+		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Author Signature)");
+	}
+	if (git_signature_dup(&params->committer, signature) != 0) {
+		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Committer Signature)");
+	}
+	git_signature_free(signature);
 }
 
 static void InitAmendParams(HWND hwnd, LGitCreateCommitDialogParams *params)
@@ -76,9 +135,40 @@ static void InitAmendParams(HWND hwnd, LGitCreateCommitDialogParams *params)
 		old_msg = "";
 	}
 	LGitLfToCrLf(params->message, old_msg, COMMIT_DIALOG_MESSAGE_SIZE);
+	/* Now copy the signatures */
+	if (git_signature_dup(&params->author, git_commit_author(commit)) != 0) {
+		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Author Signature)");
+		/* If this fails, just try using a default signature and punt */
+		InitFreshParams(hwnd, params);
+		goto fin;
+	}
+	if (git_signature_dup(&params->committer, git_commit_committer(commit)) != 0) {
+		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Committer Signature)");
+		InitFreshParams(hwnd, params);
+		goto fin;
+	}
 fin:
 	git_commit_free(commit);
 	git_object_free(obj);
+}
+
+static void InitRepoMessage(HWND hwnd, LGitCreateCommitDialogParams *params)
+{
+	git_buf merge_msg = {0, 0};
+	/* Temp buffer for any conversions */
+	char temp_message[COMMIT_DIALOG_MESSAGE_SIZE];
+	ZeroMemory(temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
+	int rc = git_repository_message(&merge_msg, params->ctx->repo);
+	if (rc == 0) {
+		if (strlen(params->message)) {
+			strlcat(params->message, "\r\n", COMMIT_DIALOG_MESSAGE_SIZE);
+		}
+		LGitLfToCrLf(temp_message, merge_msg.ptr, COMMIT_DIALOG_MESSAGE_SIZE);
+		strlcat(params->message, temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
+	} else if (rc != GIT_ENOTFOUND) {
+		LGitLibraryError(hwnd, "git_repository_message");
+	}
+	git_buf_dispose(&merge_msg);
 }
 
 SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, const char *proposed_message, git_index *proposed_index)
@@ -87,28 +177,19 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, cons
 	LGitCreateCommitDialogParams cc_params;
 	ZeroMemory(&cc_params, sizeof(LGitCreateCommitDialogParams));
 	cc_params.ctx = ctx;
-	git_buf merge_msg = {0, 0};
-	int rc = git_repository_message(&merge_msg, ctx->repo);
-	/* Temp buffer for any conversions */
-	char temp_message[COMMIT_DIALOG_MESSAGE_SIZE];
 	/* If we're amending, put as much of the previous commit we can in. */
 	if (amend_last) {
 		InitAmendParams(hwnd, &cc_params);
+	} else {
+		InitFreshParams(hwnd, &cc_params);
 	}
 	/* If we have a message (i.e. from revert), paste it in */
+	InitRepoMessage(hwnd, &cc_params);
 	if (proposed_message != NULL) {
+		char temp_message[COMMIT_DIALOG_MESSAGE_SIZE];
+		ZeroMemory(temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
 		LGitLfToCrLf(temp_message, proposed_message, COMMIT_DIALOG_MESSAGE_SIZE);
 		strlcat(cc_params.message, temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
-	}
-	if (rc == 0) {
-		if (strlen(cc_params.message)) {
-			strlcat(cc_params.message, "\r\n", COMMIT_DIALOG_MESSAGE_SIZE);
-		}
-		/* XXX: Check if we haven't copied more than buf size */
-		LGitLfToCrLf(temp_message, merge_msg.ptr, COMMIT_DIALOG_MESSAGE_SIZE);
-		strlcat(cc_params.message, temp_message, COMMIT_DIALOG_MESSAGE_SIZE);
-	} else if (rc != GIT_ENOTFOUND) {
-		LGitLibraryError(hwnd, "git_repository_message");
 	}
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_COMMIT_CREATE),
@@ -130,7 +211,6 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, cons
 	 * use the stage since the user has been building changes there..
 	 */
 	git_index *index = NULL;
-	git_signature *signature = NULL;
 	if (proposed_index != NULL) {
 		index = proposed_index;
 	} else if (git_repository_index(&index, ctx->repo) != 0) {
@@ -138,19 +218,16 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, cons
 		ret = SCC_E_NONSPECIFICERROR;
 		goto err;
 	}
-	if (!amend_last && LGitGetDefaultSignature(hwnd, ctx, &signature) != SCC_OK) {
-		goto err;
-	}
 	if (amend_last) {
 		ret = LGitCommitIndexAmendHead(hwnd, ctx, index, cc_params.message, NULL, NULL);
 	} else {
-		ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message, signature, signature);
+		ret = LGitCommitIndex(hwnd, ctx, index, cc_params.message, cc_params.author, cc_params.committer);
 	}
 err:
-	git_buf_dispose(&merge_msg);
 	if (proposed_index == NULL) {
 		git_index_free(index);
 	}
-	git_signature_free(signature);
+	git_signature_free(cc_params.author);
+	git_signature_free(cc_params.committer);
 	return ret;
 }

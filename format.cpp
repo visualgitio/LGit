@@ -69,6 +69,15 @@ int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz)
 	return _snwprintf(buf, bufsz, L"%s <%s>", name, email);
 }
 
+int LGitFormatSignatureWithTimeW(const git_signature *sig, wchar_t *buf, size_t bufsz)
+{
+	wchar_t name[128], email[128], time[128];
+	MultiByteToWideChar(CP_UTF8, 0, sig->name, -1, name, 128);
+	MultiByteToWideChar(CP_UTF8, 0, sig->email, -1, email, 128);
+	LGitTimeToStringW(&sig->when, time, 128);
+	return _snwprintf(buf, bufsz, L"%s %s <%s>", time, name, email);
+}
+
 UINT LGitGitToWindowsCodepage(const char *encoding)
 {
 	/* Likely */
