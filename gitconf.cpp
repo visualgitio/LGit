@@ -7,25 +7,31 @@
 typedef struct _LGitEditConfigDialogParams {
 	LGitContext *ctx;
 	BOOL is_new;
-	char new_name[128];
-	char new_value[128];
+	wchar_t new_name[128];
+	wchar_t new_value[128];
 } LGitEditConfigDialogParams;
 
 static void InitConfigEditView(HWND hwnd, LGitEditConfigDialogParams* params)
 {
-	SetDlgItemText(hwnd, IDC_CONFIG_EDIT_NAME, params->new_name);
-	if (!params->is_new) {
+	SetDlgItemTextW(hwnd, IDC_CONFIG_EDIT_NAME, params->new_name);
+	HWND focus_on;
+	if (params->is_new) {
+		focus_on = GetDlgItem(hwnd, IDC_CONFIG_EDIT_NAME);
+	} else {
 		SendDlgItemMessage(hwnd, IDC_CONFIG_EDIT_NAME, EM_SETREADONLY, TRUE, 0);
+		/* no point in changing the name */
+		focus_on = GetDlgItem(hwnd, IDC_CONFIG_EDIT_VALUE);
 	}
-	SetDlgItemText(hwnd, IDC_CONFIG_EDIT_VALUE, params->new_value);
+	SetFocus(focus_on);
+	SetDlgItemTextW(hwnd, IDC_CONFIG_EDIT_VALUE, params->new_value);
 }
 
 static SetConfigEditParams(HWND hwnd, LGitEditConfigDialogParams* params)
 {
 	if (params->is_new) {
-		GetDlgItemText(hwnd, IDC_CONFIG_EDIT_NAME, params->new_name, 128);
+		GetDlgItemTextW(hwnd, IDC_CONFIG_EDIT_NAME, params->new_name, 128);
 	}
-	GetDlgItemText(hwnd, IDC_CONFIG_EDIT_VALUE, params->new_value, 128);
+	GetDlgItemTextW(hwnd, IDC_CONFIG_EDIT_VALUE, params->new_value, 128);
 }
 
 static BOOL CALLBACK ConfigEditorDialogProc(HWND hwnd,
@@ -39,7 +45,8 @@ static BOOL CALLBACK ConfigEditorDialogProc(HWND hwnd,
 		param = (LGitEditConfigDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitConfigEditView(hwnd, param);
-		return TRUE;
+		/* NOT an error to return false, but allows changing default focus */
+		return FALSE;
 	case WM_COMMAND:
 		param = (LGitEditConfigDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
@@ -63,32 +70,32 @@ typedef struct _LGitConfigDialogParams {
 	const char *title;
 } LGitConfigDialogParams;
 
-static const char *LevelName(git_config_level_t level)
+static const wchar_t *LevelName(git_config_level_t level)
 {
 	switch (level) {
 	case GIT_CONFIG_LEVEL_PROGRAMDATA:
 		/* Windows system-wide, implied for compat only? */
-		return "System (ProgramData)";
+		return L"System (ProgramData)";
 	case GIT_CONFIG_LEVEL_SYSTEM:
 		/* system-wide config */
-		return "System";
+		return L"System";
 	case GIT_CONFIG_LEVEL_XDG:
 		/* ~/.config/git/config; can this ever trigger on Windows? */
-		return "User (XDG)";
+		return L"User (XDG)";
 	case GIT_CONFIG_LEVEL_GLOBAL:
 		/* User level config, usually ~/.gitconfig */
-		return "User (Global)";
+		return L"User (Global)";
 	case GIT_CONFIG_LEVEL_LOCAL:
 		/* Repo .git/config */
-		return "Repository";
+		return L"Repository";
 	case GIT_CONFIG_LEVEL_APP:
 		/* defined by us */
-		return "Application-Defined";
+		return L"Application-Defined";
 	case GIT_CONFIG_HIGHEST_LEVEL:
 		/* XXX: shouldn't happen? */
-		return "Highest Level";
+		return L"Highest Level";
 	default:
-		return "Unknown";
+		return L"Unknown";
 	}
 }
 
@@ -114,29 +121,34 @@ int ConfigForeach(const git_config_entry *e, void *payload)
 	LGitConfigIterArgs *args = (LGitConfigIterArgs*)payload;
 	HWND lv = args->lv;
 
-	LGitLog("  (depth %d level %s) %s -> %s\n",
+	/*
+	LGitLog("  (depth %d level %S) %s -> %s\n",
 		e->include_depth,
 		LevelName(e->level),
 		e->name,
 		e->value);
+	*/
 
+	wchar_t buf[1024];
+	MultiByteToWideChar(CP_UTF8, 0, e->name, -1, buf, 1024);
 	/*
 	 * We should check if the item is already existant. If so, replace if the
 	 * level is higher. Otherwise, it can be confusing because operations will
 	 * take effect on the highest level config available.
 	 */
-	LVITEM lvi;
+	LVITEMW lvi;
 	ZeroMemory(&lvi, sizeof(LVITEM));
-	LVFINDINFO lvfi;
+	LVFINDINFOW lvfi;
 	lvfi.flags = LVFI_STRING;
-	lvfi.psz = e->name;
+	lvfi.psz = buf;
 	int oldIndex = ListView_FindItem(lv, -1, &lvfi);
+	SendMessage(lv, LVM_FINDITEMW, -1, (LPARAM)&lvfi);
 	int oldLevel = 0;
 	if (oldIndex != -1) {
 		lvi.iItem = oldIndex;
 		lvi.iSubItem = 0;
 		lvi.mask = LVIF_PARAM;
-		ListView_GetItem(lv, &lvi);
+		SendMessage(lv, LVM_GETITEMW, 0, (LPARAM)&lvi);
 		oldLevel = lvi.lParam;
 	}
 	/* If the level is higher, update, else insert */
@@ -145,38 +157,41 @@ int ConfigForeach(const git_config_entry *e, void *payload)
 		lvi.iItem = oldIndex;
 		lvi.iSubItem = 0;
 		lvi.mask = LVIF_TEXT | LVIF_PARAM;
-		lvi.pszText = (char*)e->name;
+		lvi.pszText = buf;
 		lvi.lParam = e->level;
-		ListView_SetItem(lv, &lvi);
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	} else {
 		lvi.mask = LVIF_TEXT | LVIF_PARAM;
-		lvi.pszText = (char*)e->name;
+		lvi.pszText = (wchar_t*)buf;
 		lvi.lParam = e->level;
 		lvi.iItem = args->index++;
 		lvi.iSubItem = 0;
 
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		SendMessage(lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 		if (lvi.iItem == -1) {
 			LGitLog(" ! ListView_InsertItem failed\n");
 			return -1;
 		}
 	}
 	/* now for the subitems... */
+	MultiByteToWideChar(CP_UTF8, 0, e->value, -1, buf, 1024);
 	lvi.mask = LVIF_TEXT;
 	lvi.iSubItem = 1;
-	lvi.pszText = (char*)e->value;
-	ListView_SetItem(lv, &lvi);
+	lvi.pszText = (wchar_t*)buf;
+	SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 
 	lvi.iSubItem = 2;
-	lvi.pszText = (char*)LevelName(e->level);
-	ListView_SetItem(lv, &lvi);
+	lvi.pszText = (wchar_t*)LevelName(e->level);
+	SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	return 0;
 }
 
 static void InitConfigView(HWND hwnd, LGitConfigDialogParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_CONFIG_LIST);
+	ListView_SetUnicodeFormat(lv, TRUE);
 
+	/* I think ANSI InsertColumn is still OK with Unicode for now */
 	ListView_InsertColumn(lv, 0, &name_column);
 	ListView_InsertColumn(lv, 1, &value_column);
 	ListView_InsertColumn(lv, 2, &from_column);
@@ -222,8 +237,8 @@ static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const ch
 	ZeroMemory(&ec_params, sizeof(LGitEditConfigDialogParams));
 	ec_params.ctx = params->ctx;
 	ec_params.is_new = isNew;
-	strlcpy(ec_params.new_name, name == NULL ? "" : name, 128);
-	strlcpy(ec_params.new_value, value == NULL ? "" : value, 128);
+	MultiByteToWideChar(CP_UTF8, 0, name == NULL ? "" : name, -1, ec_params.new_name, 128);
+	MultiByteToWideChar(CP_UTF8, 0, value == NULL ? "" : value, -1, ec_params.new_value, 128);
 	switch (DialogBoxParam(params->ctx->dllInst,
 		MAKEINTRESOURCE(IDD_CONFIG_EDIT),
 		hwnd,
@@ -238,8 +253,13 @@ static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const ch
 	case 2:
 		break;
 	}
-	if (strlen(ec_params.new_value) > 0) {
-		if (git_config_set_string(params->config, ec_params.new_name, ec_params.new_value) != 0) {
+	if (wcslen(ec_params.new_value) > 0) {
+		/* convert */
+		char new_name[256];
+		char new_value[256];
+		WideCharToMultiByte(CP_UTF8, 0, ec_params.new_name, -1, new_name, 256, NULL, NULL);
+		WideCharToMultiByte(CP_UTF8, 0, ec_params.new_value, -1, new_value, 256, NULL, NULL);
+		if (git_config_set_string(params->config, new_name, new_value) != 0) {
 			LGitLibraryError(hwnd, "git_config_set_string");
 			return;
 		}

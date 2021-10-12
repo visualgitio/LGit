@@ -122,22 +122,8 @@ static SCCRTN CreateAnnotatedTag(LGitContext *ctx,
 	} else {
 		message_to_use = prettified_message.ptr;
 	}
-	if (git_signature_default(&signature, ctx->repo) != 0) {
-		/* The git config is empty, so prompt for a signature */
-		char name[128], mail[128];
-		if (LGitSignatureDialog(ctx, hwnd, name, 128, mail, 128, TRUE)) {
-			if (git_signature_now(&signature, name, mail) != 0) {
-				/* You tried */
-				LGitLibraryError(hwnd, "Annotated Tag (new signature)");
-				ret = SCC_E_NONSPECIFICERROR;
-				goto fin;
-			}
-		} else {
-			/* You tried */
-			LGitLibraryError(hwnd, "Annotated Tag (existing signature)");
-			ret = SCC_E_NONSPECIFICERROR;
-			goto fin;
-		}
+	if (LGitGetDefaultSignature(hwnd, ctx, &signature) != SCC_OK) {
+		goto fin;
 	}
 	switch (git_tag_create(&tag_oid, ctx->repo, name, (git_object*)based_on, signature, message_to_use, force)) {
 	case 0:

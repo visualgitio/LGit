@@ -7,8 +7,8 @@
 #include "stdafx.h"
 
 typedef struct _LGitSignatureParams {
-	char name[128];
-	char mail[128];
+	wchar_t name[128];
+	wchar_t mail[128];
 	BOOL useByDefault;
 	BOOL enableUseByDefault;
 } LGitSignatureParams;
@@ -20,8 +20,8 @@ static void InitSignatureDialog(HWND hwnd, LGitSignatureParams *params)
 		EnableWindow(checkbox, FALSE);
 		ShowWindow(checkbox, SW_HIDE);
 	}
-	SetDlgItemText(hwnd, IDC_SIG_NAME, params->name);
-	SetDlgItemText(hwnd, IDC_SIG_MAIL, params->mail);
+	SetDlgItemTextW(hwnd, IDC_SIG_NAME, params->name);
+	SetDlgItemTextW(hwnd, IDC_SIG_MAIL, params->mail);
 }
 
 static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
@@ -40,10 +40,12 @@ static BOOL CALLBACK SignatureDialogProc(HWND hwnd,
 		param = (LGitSignatureParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
-			GetDlgItemText(hwnd, IDC_SIG_NAME, param->name, 128);
-			GetDlgItemText(hwnd, IDC_SIG_MAIL, param->mail, 128);
+			GetDlgItemTextW(hwnd, IDC_SIG_NAME, param->name, 128);
+			GetDlgItemTextW(hwnd, IDC_SIG_MAIL, param->mail, 128);
 			if (param->enableUseByDefault) {
 				param->useByDefault = IsDlgButtonChecked(hwnd, IDC_SIGNATURE_MAKE_DEFAULT) == BST_CHECKED;
+			} else {
+				param->useByDefault = FALSE;
 			}
 			EndDialog(hwnd, 2);
 			return TRUE;
@@ -84,6 +86,10 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 						 size_t mail_sz,
 						 BOOL enable_set_default)
 {
+	LGitLog("**LGitSignatureDialog** Context=%p\n", ctx);
+	LGitLog("    name (%d)\n", name_sz);
+	LGitLog("    mail (%d)\n", mail_sz);
+	LGitLog("    set by default? %d\n", enable_set_default);
 	LGitSignatureParams params;
 	params.enableUseByDefault = enable_set_default;
 	/*
@@ -94,8 +100,8 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	if (name == NULL || name_sz < 1 || mail == NULL || mail_sz < 1) {
 		return FALSE;
 	}
-	strlcpy(params.name, name, 128);
-	strlcpy(params.mail, mail, 128);
+	MultiByteToWideChar(CP_UTF8, 0, name, -1, params.name, 128);
+	MultiByteToWideChar(CP_UTF8, 0, mail, -1, params.mail, 128);
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_NEW_SIGNATURE),
 		parent,
@@ -112,15 +118,16 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	}
 	LGitLog(" ! Signature name: %s\n", params.name);
 	LGitLog(" ! Signature mail: %s\n", params.mail);
-	strlcpy(name, params.name, name_sz);
-	strlcpy(mail, params.mail, mail_sz);
+	WideCharToMultiByte(CP_UTF8, 0, params.name, -1, name, name_sz, NULL, NULL);
+	WideCharToMultiByte(CP_UTF8, 0, params.mail, -1, mail, mail_sz, NULL, NULL);
 	/*
 	 * If the user checks this, then set it in the global (not repository
 	 * level) config so they won't be asked again. Assumes this window is
 	 * only invoked in contexts where that's not set.
 	 */
 	if (params.useByDefault) {
-		LGitSetSignature(ctx, parent, params.name, params.mail);
+		/* use what we already converted */
+		LGitSetSignature(ctx, parent, name, mail);
 	}
 	return TRUE;
 }
