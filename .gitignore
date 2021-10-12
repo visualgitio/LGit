@@ -1,0 +1,8 @@
+# Build configs
+Debug
+Release
+StaticRelease
+# VC++ sludge
+*.opt
+*.plg
+*.ncb
