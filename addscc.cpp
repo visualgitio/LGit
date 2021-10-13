@@ -167,13 +167,6 @@ static BOOL CALLBACK AddFromDialogProc(HWND hwnd,
 			return TRUE;
 		}
 		return FALSE;
-	case WM_DESTROY:
-		{
-			/* annoying dtor we have to do, or the SIL gets blown away */
-			HWND lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
-			ListView_SetImageList(lv, NULL, LVSIL_SMALL);
-		}
-		return TRUE;
 	default:
 		return FALSE;
 	}

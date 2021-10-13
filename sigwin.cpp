@@ -100,8 +100,8 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	if (name == NULL || name_sz < 1 || mail == NULL || mail_sz < 1) {
 		return FALSE;
 	}
-	MultiByteToWideChar(CP_UTF8, 0, name, -1, params.name, 128);
-	MultiByteToWideChar(CP_UTF8, 0, mail, -1, params.mail, 128);
+	LGitUtf8ToWide(name, params.name, 128);
+	LGitUtf8ToWide(mail, params.mail, 128);
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_NEW_SIGNATURE),
 		parent,
@@ -118,8 +118,8 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	}
 	LGitLog(" ! Signature name: %s\n", params.name);
 	LGitLog(" ! Signature mail: %s\n", params.mail);
-	WideCharToMultiByte(CP_UTF8, 0, params.name, -1, name, name_sz, NULL, NULL);
-	WideCharToMultiByte(CP_UTF8, 0, params.mail, -1, mail, mail_sz, NULL, NULL);
+	LGitWideToUtf8(params.name, name, name_sz);
+	LGitWideToUtf8(params.mail, mail, mail_sz);
 	/*
 	 * If the user checks this, then set it in the global (not repository
 	 * level) config so they won't be asked again. Assumes this window is

@@ -64,16 +64,16 @@ int LGitFormatSignatureW(const git_signature *sig, wchar_t *buf, size_t bufsz)
 {
 	/* I assume these are UTF-8; it's never clear */
 	wchar_t name[128], email[128];
-	MultiByteToWideChar(CP_UTF8, 0, sig->name, -1, name, 128);
-	MultiByteToWideChar(CP_UTF8, 0, sig->email, -1, email, 128);
+	LGitUtf8ToWide(sig->name, name, 128);
+	LGitUtf8ToWide(sig->email, email, 128);
 	return _snwprintf(buf, bufsz, L"%s <%s>", name, email);
 }
 
 int LGitFormatSignatureWithTimeW(const git_signature *sig, wchar_t *buf, size_t bufsz)
 {
 	wchar_t name[128], email[128], time[128];
-	MultiByteToWideChar(CP_UTF8, 0, sig->name, -1, name, 128);
-	MultiByteToWideChar(CP_UTF8, 0, sig->email, -1, email, 128);
+	LGitUtf8ToWide(sig->name, name, 128);
+	LGitUtf8ToWide(sig->email, email, 128);
 	LGitTimeToStringW(&sig->when, time, 128);
 	return _snwprintf(buf, bufsz, L"%s %s <%s>", time, name, email);
 }
@@ -83,6 +83,9 @@ UINT LGitGitToWindowsCodepage(const char *encoding)
 	/* Likely */
 	if (encoding == NULL || strcmp(encoding, "UTF-8") == 0) {
 		goto utf8;
+	} else if (strcmp(encoding, "iso-8859-4") == 0) {
+		/* found in libssh2 */
+		return 28594;
 	}
 	LGitLog(" ! Unknown encoding '%s'\n",  encoding);
 utf8:

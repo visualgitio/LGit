@@ -200,7 +200,7 @@ SCCRTN LGitStageDragTarget(LGitContext *ctx, HWND hwnd, HDROP drop)
 	LGitLog("**LGitStageDragTarget** Context=%p\n", ctx);
 	SCCRTN ret = SCC_OK;
 	UINT count, i;
-	char absolute_path[MAX_PATH];
+	wchar_t absolute_path[MAX_PATH];
 	git_strarray strings;
 	strings.count = 0;
 	char **paths = (char**)calloc(256, sizeof(char*));
@@ -209,29 +209,41 @@ SCCRTN LGitStageDragTarget(LGitContext *ctx, HWND hwnd, HDROP drop)
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
-	count = DragQueryFile(drop, -1, NULL, 0);
+	count = DragQueryFileW(drop, -1, NULL, 0);
 	for (i = 0; i < count; i++) {
 		if (strings.count == 256) {
 			break;
 		}
-		if (DragQueryFile(drop, i, absolute_path, MAX_PATH) < 0) {
+		if (DragQueryFileW(drop, i, absolute_path, MAX_PATH) < 0) {
 			LGitLog("!! Failed to get file for %u\n", i);
 			continue;
 		}
 		/* for an absolute path: we need to strip the workdir */
-		char *stripped = (char*)LGitStripBasePath(ctx, absolute_path);
+		wchar_t *stripped = (wchar_t*)LGitStripBasePathW(ctx, absolute_path);
 		if (stripped == NULL) {
-			LGitLog("!! Couldn't get base path for %s\n", absolute_path);
+			LGitLog("!! Couldn't get base path for %S\n", absolute_path);
 			continue;
 		}
 		/* it's safe to mutate now, we own the buf */
-		LGitTranslateStringChars(stripped, '\\', '/');
+		LGitTranslateStringCharsW(stripped, L'\\', L'/');
 		LGitLog(" ! Stripped path is %s\n", stripped);
-		paths[strings.count++] = strdup(stripped);
+		/* allocate what's needed */
+		size_t required_size = LGitWideToUtf8(stripped, NULL, 0);
+		char *allocated = (char*)malloc(required_size);
+		if (allocated == NULL) {
+			LGitLog("!! Couldn't allocate UTF-8 for %S\n", stripped);
+			continue;
+		}
+		LGitWideToUtf8(stripped, allocated, required_size);
+		paths[strings.count++] = allocated;
 	}
 fin:
 	DragFinish(drop);
-	ret = LGitStageAddFiles(ctx, hwnd, &strings, FALSE);
+	if (strings.count > 0) {
+		ret = LGitStageAddFiles(ctx, hwnd, &strings, FALSE);
+	} else {
+		ret = SCC_E_NONSPECIFICERROR;
+	}
 	LGitFreePathList(strings.strings, strings.count);
 	return ret;
 }

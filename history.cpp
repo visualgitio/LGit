@@ -41,18 +41,20 @@ typedef struct _LGitHistoryDialogParams {
 static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
 {
 	SetMenu(hwnd, params->menu);
-	char title[256];
+	wchar_t title[256], thing[256];
 	/* XXX: Load string resources */
 	if (params->path_count == 0 && params->ref == NULL) {
-		_snprintf(title, 256, "Commit History for Repository");
+		wcslcpy(title, L"Commit History for Repository", 256);
 	} else if (params->path_count == 0) {
-		_snprintf(title, 256, "Commit History for %s", params->ref);
+		LGitUtf8ToWide(params->ref, thing, 256);
+		_snwprintf(title, 256, L"Commit History for %s", thing);
 	} else if (params->path_count == 1) {
-		_snprintf(title, 256, "Commit History for %s", params->paths[0]);
+		LGitUtf8ToWide(params->paths[0], thing, 256);
+		_snwprintf(title, 256, L"Commit History for %s", thing);
 	} else {
-		_snprintf(title, 256, "Commit History for %d files", params->path_count);
+		_snwprintf(title, 256, L"Commit History for %d files", params->path_count);
 	}
-	SetWindowText(hwnd, title);
+	SetWindowTextW(hwnd, title);
 }
 
 static void InitializeHistoryListView(HWND hwnd)
@@ -217,7 +219,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 
 		ZeroMemory(&lvi, sizeof(LVITEM));
 		lvi.mask = LVIF_TEXT;
-		MultiByteToWideChar(CP_UTF8, 0, oid_str, -1, formatted, 256);
+		LGitUtf8ToWide(oid_str, formatted, 256);
 		lvi.pszText = formatted;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
@@ -516,8 +518,8 @@ static SCCRTN LGitHistoryInternal(LGitContext *ctx,
 	params.diffopts = &diffopts;
 	params.ref = ref;
 	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_HISTORY_MENU));
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_COMMITHISTORY),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_COMMITHISTORY),
 		hWnd,
 		HistoryDialogProc,
 		(LPARAM)&params)) {

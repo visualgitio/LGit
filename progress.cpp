@@ -38,7 +38,7 @@ BOOL LGitProgressInit(LGitContext *ctx, const char *title, UINT anim)
 	/* This API is wide */
 	wchar_t msg[512];
 	ZeroMemory(msg, 512);
-	if (MultiByteToWideChar(CP_UTF8, 0, title, -1, msg, 512) == 0) {
+	if (LGitUtf8ToWide(title, msg, 512) == 0) {
 		return FALSE;
 	}
 	ctx->progress->SetTitle(msg);
@@ -114,7 +114,7 @@ BOOL LGitProgressText(LGitContext *ctx, const char *text, int line)
 	}
 	wchar_t msg[512];
 	ZeroMemory(msg, 512);
-	if (MultiByteToWideChar(CP_UTF8, 0, text, -1, msg, 512) == 0) {
+	if (LGitUtf8ToWide(text, msg, 512) == 0) {
 		return FALSE;
 	}
 	ctx->progress->SetLine(line, msg, FALSE, NULL);

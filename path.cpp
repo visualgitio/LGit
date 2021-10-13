@@ -23,6 +23,16 @@ LGIT_API void LGitTranslateStringChars(char *buf, int char1, int char2)
 	}
 }
 
+LGIT_API void LGitTranslateStringCharsW(wchar_t *buf, int char1, int char2)
+{
+	size_t len = wcslen(buf), i;
+	for (i = 0; i < len; i++) {
+		if (buf[i] == char1) {
+			buf[i] = char2;
+		}
+	}
+}
+
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 {
 	if (ctx == NULL || strlen(ctx->workdir_path) < 1) {
@@ -41,6 +51,29 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 	}
 	abs += strlen(path);
 	if (abs[0] == '\\') {
+		abs++;
+	}
+	return abs;
+}
+
+const wchar_t *LGitStripBasePathW(LGitContext *ctx, const wchar_t *abs)
+{
+	if (ctx == NULL || strlen(ctx->workdir_path) < 1) {
+		return NULL;
+	}
+	wchar_t path[_MAX_PATH];
+	/* strip trailing backslash, then accomodate if we need to bump later */
+	LGitUtf8ToWide(ctx->workdir_path, path, _MAX_PATH);
+	wchar_t *last_backslash = wcsrchr(path, L'\\');
+	if (last_backslash != NULL && last_backslash[1] == L'\0') {
+		last_backslash[0] = '\0';
+	}
+	wchar_t *begin = wcscasestr(abs, path);
+	if (begin != abs) {
+		return NULL;
+	}
+	abs += wcslen(path);
+	if (abs[0] == L'\\') {
 		abs++;
 	}
 	return abs;
@@ -77,23 +110,25 @@ fin:
 	return begin != -1;
 }
 
+/* Assume paths contains UTF-8 strings... */
 void LGitOpenFiles(LGitContext *ctx, git_strarray *paths)
 {
 	for (int i = 0; i < paths->count; i++) {
-		char full_path[2048];
-		strlcpy(full_path, ctx->workdir_path, 2048);
-		strlcat(full_path, paths->strings[i], 2048);
-		LGitTranslateStringChars(full_path, '/', '\\');
+		wchar_t full_path[2048], relative_path[2048];
+		LGitUtf8ToWide(ctx->workdir_path, full_path, 2048);
+		LGitUtf8ToWide(paths->strings[i], relative_path, 2048);
+		wcslcat(full_path, relative_path, 2048);
+		LGitTranslateStringCharsW(full_path, '/', '\\');
 
-		SHELLEXECUTEINFO info;
+		SHELLEXECUTEINFOW info;
 		ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
 
 		info.cbSize = sizeof info;
 		info.lpFile = full_path;
 		info.nShow = SW_SHOW;
 		info.fMask = SEE_MASK_INVOKEIDLIST;
-		info.lpVerb = "open";
+		info.lpVerb = L"open";
 
-		ShellExecuteEx(&info);
+		ShellExecuteExW(&info);
 	}
 }

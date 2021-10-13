@@ -207,33 +207,33 @@ void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit, git_tag
 	params.tag = tag;
 
 	int page_count = 0;
-	PROPSHEETPAGE psp[3];
-	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
-	psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+	PROPSHEETPAGEW psp[3];
+	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGEW));
+	psp[page_count].dwSize = sizeof(PROPSHEETPAGEW);
 	psp[page_count].hInstance = ctx->dllInst;
-	psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_COMMITINFO);
+	psp[page_count].pszTemplate = MAKEINTRESOURCEW(IDD_COMMITINFO);
 	psp[page_count].pfnDlgProc = CommitInfoDialogProc;
 	psp[page_count].lParam = (LPARAM)&params;
 	page_count++;
-	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
-	psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+	ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGEW));
+	psp[page_count].dwSize = sizeof(PROPSHEETPAGEW);
 	psp[page_count].hInstance = ctx->dllInst;
-	psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_COMMITINFO_REFERENCES);
+	psp[page_count].pszTemplate = MAKEINTRESOURCEW(IDD_COMMITINFO_REFERENCES);
 	psp[page_count].pfnDlgProc = RefsDialogProc;
 	psp[page_count].lParam = (LPARAM)&params;
 	if (tag != NULL) {
 		page_count++;
-		ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGE));
-		psp[page_count].dwSize = sizeof(PROPSHEETPAGE);
+		ZeroMemory(&psp[page_count], sizeof(PROPSHEETPAGEW));
+		psp[page_count].dwSize = sizeof(PROPSHEETPAGEW);
 		psp[page_count].hInstance = ctx->dllInst;
-		psp[page_count].pszTemplate = MAKEINTRESOURCE(IDD_TAGINFO);
+		psp[page_count].pszTemplate = MAKEINTRESOURCEW(IDD_TAGINFO);
 		psp[page_count].pfnDlgProc = TagInfoDialogProc;
 		psp[page_count].lParam = (LPARAM)&params;
 	}
 	page_count++; /* for nPages */
-	PROPSHEETHEADER psh;
-	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
-	psh.dwSize = sizeof(PROPSHEETHEADER);
+	PROPSHEETHEADERW psh;
+	ZeroMemory(&psh, sizeof(PROPSHEETHEADERW));
+	psh.dwSize = sizeof(PROPSHEETHEADERW);
 	psh.dwFlags =  PSH_PROPSHEETPAGE
 		| PSH_NOAPPLYNOW
 		| PSH_NOCONTEXTHELP
@@ -241,9 +241,9 @@ void LGitViewCommitInfo(LGitContext *ctx, HWND hWnd, git_commit *commit, git_tag
 	psh.pfnCallback = LGitImmutablePropSheetProc;
 	psh.hwndParent = hWnd;
 	psh.hInstance = ctx->dllInst;
-	psh.pszCaption = "Commit Details";
+	psh.pszCaption = L"Commit Details";
 	psh.nPages = page_count;
 	psh.ppsp = psp;
 
-	PropertySheet(&psh);
+	PropertySheetW(&psh);
 }

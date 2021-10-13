@@ -163,8 +163,8 @@ BEGIN
     LTEXT           "The files below are known by Git and can be added into your project.",
                     IDC_STATIC,7,7,388,10
     CONTROL         "List1",IDC_ADDSCC_LIST,"SysListView32",LVS_SMALLICON | 
-                    LVS_NOCOLUMNHEADER | LVS_NOSORTHEADER | WS_BORDER | 
-                    WS_TABSTOP,7,22,388,197
+                    LVS_SHAREIMAGELISTS | LVS_NOCOLUMNHEADER | 
+                    LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,22,388,197
 END
 
 IDD_CLONE DIALOG DISCARDABLE  0, 0, 254, 191
@@ -365,8 +365,8 @@ CAPTION "Repository Explorer"
 FONT 8, "MS Sans Serif"
 BEGIN
     CONTROL         "List1",IDC_EXPLORER_FILES,"SysListView32",LVS_REPORT | 
-                    LVS_NOSORTHEADER | WS_BORDER | WS_TABSTOP,7,7,386,186,
-                    WS_EX_ACCEPTFILES
+                    LVS_SHAREIMAGELISTS | LVS_NOSORTHEADER | WS_BORDER | 
+                    WS_TABSTOP,7,7,386,186,WS_EX_ACCEPTFILES
 END
 
 IDD_ABOUT DIALOG DISCARDABLE  0, 0, 186, 90
@@ -987,11 +987,11 @@ BEGIN
                                                 ID_EXPLORER_REPOSITORY_OPENINWINDOWS
 
         MENUITEM SEPARATOR
-        MENUITEM "Re&ferences...",              ID_EXPLORER_REPOSITORY_BRANCHES
+        MENUITEM "&References...",              ID_EXPLORER_REPOSITORY_BRANCHES
 
         MENUITEM "&History...",                 ID_EXPLORER_REPOSITORY_HISTORY
 
-        MENUITEM "Ch&eckout Revision...",       ID_EXPLORER_REPOSITORY_CHECKOUT
+        MENUITEM "&Switch to Revision...",      ID_EXPLORER_REPOSITORY_CHECKOUT
 
         MENUITEM SEPARATOR
         MENUITEM "&Close",                      ID_EXPLORER_REPOSITORY_CLOSE
@@ -1033,7 +1033,7 @@ BEGIN
 
         MENUITEM "Diff from &Revision...",      ID_EXPLORER_DIFF_DIFFFROMREVISION
 
-        MENUITEM "",                            1
+        MENUITEM SEPARATOR
         MENUITEM "&Apply Patch...",             ID_EXPLORER_REPOSITORY_APPLYPATCH
 
     END

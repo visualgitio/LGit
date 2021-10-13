@@ -75,27 +75,27 @@ typedef struct _LGitExplorerStatusCallbackParams {
 	std::set<std::string> *initial_select;
 } LGitExplorerStatusCallbackParams;
 
-static BOOL StatusToString(unsigned int flags, char *buf, size_t bufsz)
+static BOOL StatusToString(unsigned int flags, wchar_t *buf, size_t bufsz)
 {
 	if (bufsz < 1) {
 		return FALSE;
 	}
 	int index = 0;
-	buf[0] = '\0';
+	buf[0] = L'\0';
 	/* now for the flags */
-#define AppendIfStatus(flag,str) if (flags & flag) { if (index++) strlcat(buf, ", ", bufsz); strlcat(buf, str, bufsz); }
-	AppendIfStatus(GIT_STATUS_INDEX_NEW, "New in stage");
-	AppendIfStatus(GIT_STATUS_INDEX_MODIFIED, "Changed in stage");
-	AppendIfStatus(GIT_STATUS_INDEX_DELETED, "Deleted from stage");
-	AppendIfStatus(GIT_STATUS_INDEX_TYPECHANGE, "Type changed in stage");
-	AppendIfStatus(GIT_STATUS_WT_NEW, "New");
-	AppendIfStatus(GIT_STATUS_WT_MODIFIED, "Changed");
-	AppendIfStatus(GIT_STATUS_WT_DELETED, "Deleted");
-	AppendIfStatus(GIT_STATUS_WT_TYPECHANGE, "Type changed");
-	AppendIfStatus(GIT_STATUS_WT_RENAMED, "Renaming");
-	AppendIfStatus(GIT_STATUS_WT_UNREADABLE, "Unreadable");
-	AppendIfStatus(GIT_STATUS_IGNORED, "Ignored");
-	AppendIfStatus(GIT_STATUS_CONFLICTED, "Conflicting");
+#define AppendIfStatus(flag,str) if (flags & flag) { if (index++) wcslcat(buf, L", ", bufsz); wcslcat(buf, str, bufsz); }
+	AppendIfStatus(GIT_STATUS_INDEX_NEW, L"New in stage");
+	AppendIfStatus(GIT_STATUS_INDEX_MODIFIED, L"Changed in stage");
+	AppendIfStatus(GIT_STATUS_INDEX_DELETED, L"Deleted from stage");
+	AppendIfStatus(GIT_STATUS_INDEX_TYPECHANGE, L"Type changed in stage");
+	AppendIfStatus(GIT_STATUS_WT_NEW, L"New");
+	AppendIfStatus(GIT_STATUS_WT_MODIFIED, L"Changed");
+	AppendIfStatus(GIT_STATUS_WT_DELETED, L"Deleted");
+	AppendIfStatus(GIT_STATUS_WT_TYPECHANGE, L"Type changed");
+	AppendIfStatus(GIT_STATUS_WT_RENAMED, L"Renaming");
+	AppendIfStatus(GIT_STATUS_WT_UNREADABLE, L"Unreadable");
+	AppendIfStatus(GIT_STATUS_IGNORED, L"Ignored");
+	AppendIfStatus(GIT_STATUS_CONFLICTED, L"Conflicting");
 	return TRUE;
 }
 
@@ -103,46 +103,47 @@ static int FillStatusItem(const char *relative_path,
 						  unsigned int flags,
 						  void *context)
 {
-	LVITEM lvi;
+	LVITEMW lvi;
 
 	LGitExplorerStatusCallbackParams *params = (LGitExplorerStatusCallbackParams*)context;
 
 	/* Get the system image list index for the file, needing the full path */
-	SHFILEINFO sfi;
+	SHFILEINFOW sfi;
 	ZeroMemory(&sfi, sizeof(sfi));
-	char path[2048];
-	strlcpy(path, params->ctx->workdir_path, 2048);
-	strlcat(path, relative_path, 2048);
-	LGitTranslateStringChars(path, '/', '\\');
+	wchar_t path[2048], relative_path_utf16[2048];
+	LGitUtf8ToWide(params->ctx->workdir_path, path, 2048);
+	LGitUtf8ToWide(relative_path, relative_path_utf16, 2048);
+	wcslcat(path, relative_path_utf16, 2048);
+	LGitTranslateStringCharsW(path, L'/', L'\\');
 	/* XXX: Should this be cached i.e. by extension? */
-	SHGetFileInfo(path, 0, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
+	SHGetFileInfoW(path, 0, &sfi, sizeof(sfi), SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
 
 	/*
 	 * Unlike the equivalent in query.cpp, we can just turn a libgit2 flags
 	 * field into a string.
 	 */
-	ZeroMemory(&lvi, sizeof(LVITEM));
+	ZeroMemory(&lvi, sizeof(LVITEMW));
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE | LVIF_STATE;
-	lvi.pszText = (char*)relative_path;
+	lvi.pszText = (wchar_t*)relative_path_utf16;
 	lvi.iImage = sfi.iIcon;
 	if (params->initial_select->count(relative_path)) {
 		lvi.state = LVIS_SELECTED;
 	}
 	lvi.iItem = params->index;
 	lvi.iSubItem = 0;
-	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	lvi.iItem = SendMessage(params->lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 	if (lvi.iItem == -1) {
 		LGitLog(" ! ListView_InsertItem failed\n");
 		return GIT_EUSER;
 	}
 	
-	char msg[256];
+	wchar_t msg[256];
 	StatusToString(flags, msg, 256);
 	lvi.mask = LVIF_TEXT;
-	lvi.pszText = (char*)msg;
+	lvi.pszText = (wchar_t*)msg;
 	lvi.iItem = params->index;
 	lvi.iSubItem = 1;
-	ListView_SetItem(params->lv, &lvi);
+	SendMessage(params->lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 
 	params->index++;
 	return 0;
@@ -283,7 +284,18 @@ static BOOL GetSingleSelection(HWND hwnd, char *buf, size_t bufsz)
 	if (selected == -1) {
 		return FALSE;
 	}
-	ListView_GetItemText(lv, selected, 0, buf, bufsz);
+	/* Convert to UTF-16, but then to UTF-8 immediately bc libgit2 mmostly */
+	wchar_t temp_buf[1024];
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = selected; /* in case */
+	lvi.pszText = temp_buf;
+	lvi.cchTextMax = 1024;
+	if (SendMessage(lv, LVM_GETITEMTEXTW, selected, (LPARAM)&lvi) < 1) {
+		return FALSE;
+	}
+	LGitWideToUtf8(temp_buf, buf, bufsz);
 	return TRUE;
 }
 
@@ -307,10 +319,20 @@ static BOOL GetMultipleSelection(HWND hwnd, git_strarray *selection)
 	selection->strings = strings;
 
 	int index = 0, selected = -1;
+	wchar_t temp_buf[1024];
 	while ((selected = ListView_GetNextItem(lv, selected, LVNI_SELECTED)) != -1) {
 		/* XXX: measure somehow */
 		char *buf = (char*)malloc(1024);
-		ListView_GetItemText(lv, selected, 0, buf, 1024);
+		LVITEMW lvi;
+		ZeroMemory(&lvi, sizeof(lvi));
+		lvi.mask = LVIF_TEXT;
+		lvi.iItem = selected; /* in case */
+		lvi.pszText = temp_buf;
+		lvi.cchTextMax = 1024;
+		if (SendMessage(lv, LVM_GETITEMTEXTW, selected, (LPARAM)&lvi) < 1) {
+			return FALSE;
+		}
+		LGitWideToUtf8(temp_buf, buf, 1024);
 		strings[index++] = buf;
 	}
 	return TRUE;
@@ -431,15 +453,9 @@ static void DiffFromRevision(HWND hwnd, LGitExplorerParams *params, git_strarray
 			LGitDiffTreeToWorkdir(params->ctx, hwnd, paths, tree);
 		}
 	}
-	if (tree != NULL) {
-		git_tree_free(tree);
-	}
-	if (obj != NULL) {
-		git_object_free(obj);
-	}
-	if (ref != NULL) {
-		git_reference_free(ref);
-	}
+	git_tree_free(tree);
+	git_object_free(obj);
+	git_reference_free(ref);
 }
 
 static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *params)
@@ -454,16 +470,18 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_OPENINWINDOWS:
 		{
-			SHELLEXECUTEINFO info;
+			SHELLEXECUTEINFOW info;
 			ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
+			wchar_t path[2048];
+			LGitUtf8ToWide(params->ctx->workdir_path, path, 2048);
 
 			info.cbSize = sizeof info;
-			info.lpFile = params->ctx->workdir_path;
+			info.lpFile = path;
 			info.nShow = SW_SHOW;
 			info.fMask = SEE_MASK_INVOKEIDLIST;
-			info.lpVerb = "open";
+			info.lpVerb = L"open";
 
-			ShellExecuteEx(&info);
+			ShellExecuteExW(&info);
 		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_REFRESH:
@@ -502,7 +520,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		{
 			git_object *obj = NULL;
 			git_reference *ref = NULL;
-			if (LGitRevparseDialog(params->ctx, hwnd, "Check Out Revision", "", &obj, &ref) == SCC_OK) {
+			if (LGitRevparseDialog(params->ctx, hwnd, "Switch to Revision", "", &obj, &ref) == SCC_OK) {
 				if (ref != NULL) {
 					LGitCheckoutRef(params->ctx, hwnd, ref);
 				} else if (obj != NULL) {
@@ -513,12 +531,8 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 				FillExplorerListView(hwnd, params);
 				UpdateExplorerMenu(hwnd, params);
 			}
-			if (obj != NULL) {
-				git_object_free(obj);
-			}
-			if (ref != NULL) {
-				git_reference_free(ref);
-			}
+			git_object_free(obj);
+			git_reference_free(ref);
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_ADDFILES:
@@ -807,11 +821,7 @@ static BOOL CALLBACK ExplorerDialogProc(HWND hwnd,
 		return FALSE;
 	case WM_DESTROY:
 		DestroyWindow(param->status_bar);
-		{
-			/* annoying dtor we have to do, or the SIL gets blown away */
-			HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
-			ListView_SetImageList(lv, NULL, LVSIL_SMALL);
-		}
+		/* no need to disassociate the SIL if the style is set to share */
 		return TRUE;
 	default:
 		return FALSE;
@@ -850,8 +860,8 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 	params.include_ignored = FALSE;
 	params.include_unmodified = FALSE;
 	params.include_untracked = TRUE;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_EXPLORER),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_EXPLORER),
 		hWnd,
 		ExplorerDialogProc,
 		(LPARAM)&params)) {

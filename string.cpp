@@ -62,6 +62,29 @@ strcasestr(const char *s, const char *find)
 	return ((char *)s);
 }
 
+/*
+ * Our own invention
+ */
+wchar_t *
+wcscasestr(const wchar_t *s, const wchar_t *find)
+{
+	wchar_t c, sc;
+	size_t len;
+
+	if ((c = *find++) != 0) {
+		c = (wchar_t)towlower((wint_t)c);
+		len = wcslen(find);
+		do {
+			do {
+				if ((sc = *s++) == 0)
+					return (NULL);
+			} while ((wchar_t)towlower((wint_t)sc) != c);
+		} while (_wcsnicmp(s, find, len) != 0);
+		s--;
+	}
+	return ((wchar_t *)s);
+}
+
 /*	$OpenBSD: strlcat.c,v 1.13 2005/08/08 08:05:37 espie Exp $	*/
 
 /*

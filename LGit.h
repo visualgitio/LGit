@@ -17,6 +17,11 @@
 #define CheckMenuItemIf(menu, command, cond) \
 	CheckMenuItem(menu, command, MF_BYCOMMAND | ((cond) ? MF_CHECKED : MF_UNCHECKED))
 
+/* Useful macros for simple conversions. Note -1 will copy the NUL too. */
+#define LGitWideToUtf8(wide, utf8, utf8size) WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, utf8size, NULL, NULL)
+/* this is in wide codepoints */
+#define LGitUtf8ToWide(utf8, wide, widesize) MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, widesize)
+
 /* XXX: Use a case-insensitive comparator */
 typedef std::set<std::string> CheckoutQueue;
 
@@ -68,7 +73,9 @@ void LGitLibraryError(HWND hWnd, LPCSTR title);
 /* path.cpp */
 void LGitFreePathList(char **paths, int path_count);
 LGIT_API void LGitTranslateStringChars(char *buf, int char1, int char2);
+LGIT_API void LGitTranslateStringCharsW(wchar_t *buf, int char1, int char2);
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs);
+const wchar_t *LGitStripBasePathW(LGitContext *ctx, const wchar_t *abs);
 LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 
@@ -205,6 +212,7 @@ BOOL LGitCertificatePrompt(LGitContext *ctx, HWND parent, git_cert *cert, const 
 
 /* string.cpp */
 char *strcasestr(const char *s, const char *find);
+wchar_t *wcscasestr(const wchar_t *s, const wchar_t *find);
 size_t strlcat(char *dst, const char *src, size_t siz);
 size_t strlcpy(char *dst, const char *src, size_t siz);
 size_t wcslcpy(wchar_t *dst, const wchar_t *src, size_t dsize);

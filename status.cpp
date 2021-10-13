@@ -8,6 +8,7 @@ typedef struct _LGitPropsDialogParams {
 	LGitContext *ctx;
 	unsigned int flags;
 	const char *path, *full_path;
+	wchar_t *path_utf16, *full_path_utf16;
 	const git_index_entry *entry;
 } LGitPropsDialogParams;
 
@@ -61,19 +62,19 @@ static BOOL CALLBACK StatusDialogProc(HWND hwnd,
 	}
 }
 
-static void ShowSysFileProperties(const char *fullpath)
+static void ShowSysFileProperties(wchar_t *fullpath)
 {
-	SHELLEXECUTEINFO info;
+	SHELLEXECUTEINFOW info;
 	ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
 
 	info.cbSize = sizeof info;
 	info.lpFile = fullpath;
 	info.nShow = SW_SHOW;
 	info.fMask = SEE_MASK_INVOKEIDLIST;
-	info.lpVerb = "properties";
+	info.lpVerb = L"properties";
 
 	/* XXX: COM should be initialized, VS does it for us? */
-	ShellExecuteEx(&info);
+	ShellExecuteExW(&info);
 }
 
 static void UpdateFileInfo(HWND hwnd, LGitPropsDialogParams *params)
@@ -117,7 +118,7 @@ static BOOL CALLBACK GeneralDialogProc(HWND hwnd,
 		param = (LGitPropsDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDC_FILESYSPROPS:
-			ShowSysFileProperties(param->full_path);
+			ShowSysFileProperties(param->full_path_utf16);
 			return TRUE;
 		}
 		return FALSE;
@@ -152,28 +153,35 @@ static SCCRTN ShowPropertiesDialog(LGitContext *ctx,
 		return SCC_E_NONSPECIFICERROR;
 	}
 
+	wchar_t relative_path_utf16[2048];
+	LGitUtf8ToWide(relative_path, relative_path_utf16, 2048);
+	wchar_t full_path_utf16[2048];
+	LGitUtf8ToWide(full_path, full_path_utf16, 2048);
+
 	params.ctx = ctx;
 	params.path = relative_path;
 	params.full_path = full_path;
+	params.path_utf16 = relative_path_utf16;
+	params.full_path_utf16 = full_path_utf16;
 	params.entry = git_index_get_bypath(index, relative_path, 0);
 	LGitLog(" ! Entry is %p\n", params.entry);
 
-	PROPSHEETPAGE psp[2];
-	ZeroMemory(&psp[0], sizeof(PROPSHEETPAGE));
-	psp[0].dwSize = sizeof(PROPSHEETPAGE);
+	PROPSHEETPAGEW psp[2];
+	ZeroMemory(&psp[0], sizeof(PROPSHEETPAGEW));
+	psp[0].dwSize = sizeof(PROPSHEETPAGEW);
 	psp[0].hInstance = ctx->dllInst;
-	psp[0].pszTemplate = MAKEINTRESOURCE(IDD_FILEPROPS_FILE);
+	psp[0].pszTemplate = MAKEINTRESOURCEW(IDD_FILEPROPS_FILE);
 	psp[0].pfnDlgProc = GeneralDialogProc;
 	psp[0].lParam = (LPARAM)&params;
-	ZeroMemory(&psp[1], sizeof(PROPSHEETPAGE));
-	psp[1].dwSize = sizeof(PROPSHEETPAGE);
+	ZeroMemory(&psp[1], sizeof(PROPSHEETPAGEW));
+	psp[1].dwSize = sizeof(PROPSHEETPAGEW);
 	psp[1].hInstance = ctx->dllInst;
-	psp[1].pszTemplate = MAKEINTRESOURCE(IDD_FILEPROPS_STATUS);
+	psp[1].pszTemplate = MAKEINTRESOURCEW(IDD_FILEPROPS_STATUS);
 	psp[1].pfnDlgProc = StatusDialogProc;
 	psp[1].lParam = (LPARAM)&params;
-	PROPSHEETHEADER psh;
-	ZeroMemory(&psh, sizeof(PROPSHEETHEADER));
-	psh.dwSize = sizeof(PROPSHEETHEADER);
+	PROPSHEETHEADERW psh;
+	ZeroMemory(&psh, sizeof(PROPSHEETHEADERW));
+	psh.dwSize = sizeof(PROPSHEETHEADERW);
 	psh.dwFlags =  PSH_PROPSHEETPAGE
 		| PSH_NOAPPLYNOW
 		| PSH_PROPTITLE
@@ -182,11 +190,11 @@ static SCCRTN ShowPropertiesDialog(LGitContext *ctx,
 	psh.pfnCallback = LGitImmutablePropSheetProc;
 	psh.hwndParent = hWnd;
 	psh.hInstance = ctx->dllInst;
-	psh.pszCaption = relative_path;
+	psh.pszCaption = relative_path_utf16;
 	psh.nPages = 2;
 	psh.ppsp = psp;
 
-	PropertySheet(&psh);
+	PropertySheetW(&psh);
 
 	if (index != NULL) {
 		git_index_free(index);

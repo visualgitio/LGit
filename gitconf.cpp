@@ -130,7 +130,7 @@ int ConfigForeach(const git_config_entry *e, void *payload)
 	*/
 
 	wchar_t buf[1024];
-	MultiByteToWideChar(CP_UTF8, 0, e->name, -1, buf, 1024);
+	LGitUtf8ToWide(e->name, buf, 1024);
 	/*
 	 * We should check if the item is already existant. If so, replace if the
 	 * level is higher. Otherwise, it can be confusing because operations will
@@ -174,7 +174,7 @@ int ConfigForeach(const git_config_entry *e, void *payload)
 		}
 	}
 	/* now for the subitems... */
-	MultiByteToWideChar(CP_UTF8, 0, e->value, -1, buf, 1024);
+	LGitUtf8ToWide(e->value, buf, 1024);
 	lvi.mask = LVIF_TEXT;
 	lvi.iSubItem = 1;
 	lvi.pszText = (wchar_t*)buf;
@@ -214,7 +214,7 @@ static void FillConfigView(HWND hwnd, LGitConfigDialogParams *params)
 	}
 }
 
-static BOOL GetSelectedConfig(HWND hwnd, char *buf, size_t bufsz)
+static BOOL GetSelectedConfig(HWND hwnd, wchar_t *buf, size_t bufsz)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_CONFIG_LIST);
 	if (lv == NULL) {
@@ -224,21 +224,26 @@ static BOOL GetSelectedConfig(HWND hwnd, char *buf, size_t bufsz)
 	if (selected == -1) {
 		return FALSE;
 	}
-	ListView_GetItemText(lv, selected, 0, buf, bufsz);
-	return TRUE;
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = selected; /* in case */
+	lvi.pszText = buf;
+	lvi.cchTextMax = bufsz;
+	return SendMessage(lv, LVM_GETITEMTEXTW, selected, (LPARAM)&lvi) > 0;
 }
 
 /**
  * Name and value are used to pre-fill the dialog; they aren't written to.
  */
-static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const char *name, const char *value, BOOL isNew)
+static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const wchar_t *name, const wchar_t *value, BOOL isNew)
 {
 	LGitEditConfigDialogParams ec_params;
 	ZeroMemory(&ec_params, sizeof(LGitEditConfigDialogParams));
 	ec_params.ctx = params->ctx;
 	ec_params.is_new = isNew;
-	MultiByteToWideChar(CP_UTF8, 0, name == NULL ? "" : name, -1, ec_params.new_name, 128);
-	MultiByteToWideChar(CP_UTF8, 0, value == NULL ? "" : value, -1, ec_params.new_value, 128);
+	wcslcpy(ec_params.new_name, name, 128);
+	wcslcpy(ec_params.new_value, value, 128);
 	switch (DialogBoxParam(params->ctx->dllInst,
 		MAKEINTRESOURCE(IDD_CONFIG_EDIT),
 		hwnd,
@@ -257,8 +262,8 @@ static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const ch
 		/* convert */
 		char new_name[256];
 		char new_value[256];
-		WideCharToMultiByte(CP_UTF8, 0, ec_params.new_name, -1, new_name, 256, NULL, NULL);
-		WideCharToMultiByte(CP_UTF8, 0, ec_params.new_value, -1, new_value, 256, NULL, NULL);
+		LGitWideToUtf8(ec_params.new_name, new_name, 256);
+		LGitWideToUtf8(ec_params.new_value, new_value, 256);
 		if (git_config_set_string(params->config, new_name, new_value) != 0) {
 			LGitLibraryError(hwnd, "git_config_set_string");
 			return;
@@ -269,34 +274,39 @@ static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const ch
 
 static void ConfigEdit(HWND hwnd, LGitConfigDialogParams *params)
 {
-	char name[128];
+	wchar_t name[128];
+	char name_utf8[128];
 	if (!GetSelectedConfig(hwnd, name, 128)) {
 		LGitLog(" ! No config?\n");
 		return;
 	}
+	LGitWideToUtf8(name, name_utf8, 128);
 	/*
 	 * XXX: Check if we're editing in the same level. If not, a new value is
 	 * inserted at the higher level which supersedes the lower one.
 	 */
 	git_buf old_val_buf = {0};
-	if (git_config_get_string_buf(&old_val_buf, params->config, name) != 0) {
+	wchar_t old_val_utf16[128];
+	if (git_config_get_string_buf(&old_val_buf, params->config, name_utf8) != 0) {
 		LGitLibraryError(hwnd, "git_config_get_string_buf");
 		return;
 	}
-	LGitLog(" ! Editing %s?\n", name);
-	ConfigEditDialog(hwnd, params, name, old_val_buf.ptr, FALSE);
+	LGitUtf8ToWide(old_val_buf.ptr, old_val_utf16, 128);
+	LGitLog(" ! Editing %s?\n", name_utf8);
+	ConfigEditDialog(hwnd, params, name, old_val_utf16, FALSE);
 	git_buf_dispose(&old_val_buf);
 }
 
 static void ConfigRemove(HWND hwnd, LGitConfigDialogParams *params)
 {
 	/* XXX: Multiple selection could be handy here */
-	char name[128];
+	wchar_t name[128];
+	char name_utf8[128];
 	if (!GetSelectedConfig(hwnd, name, 128)) {
 		LGitLog(" ! No config?\n");
 		return;
 	}
-	LGitLog(" ! Removing %s?\n", name);
+	LGitWideToUtf8(name, name_utf8, 128);
 	if (MessageBox(hwnd,
 		"This configuration entry will be deleted from its source. "
 		"It may be replaced with an inherited configuration. Are you sure?",
@@ -304,7 +314,7 @@ static void ConfigRemove(HWND hwnd, LGitConfigDialogParams *params)
 		MB_ICONWARNING | MB_YESNO) != IDYES) {
 		return;
 	}
-	if (git_config_delete_entry(params->config, name) != 0) {
+	if (git_config_delete_entry(params->config, name_utf8) != 0) {
 		LGitLibraryError(hwnd, "git_config_delete_entry");
 		return;
 	}
