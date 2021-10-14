@@ -20,12 +20,16 @@ static void InitRevparseView(HWND hwnd, LGitRevparseDialogParams* params)
 	/* yeah, we should load it from the struct... */
 	HWND ref_cb = GetDlgItem(hwnd, IDC_REVPARSE_SPEC);
 	LGitPopulateReferenceComboBox(hwnd, ref_cb, params->ctx);
-	SetWindowText(ref_cb, params->spec);
+	wchar_t spec[128];
+	LGitUtf8ToWide(params->spec, spec, 128);
+	SetWindowTextW(ref_cb, spec);
 }
 
 static BOOL SetRevparseParams(HWND hwnd, LGitRevparseDialogParams* params)
 {
-	GetDlgItemText(hwnd, IDC_REVPARSE_SPEC, params->spec, 128);
+	wchar_t spec[128];
+	GetDlgItemTextW(hwnd, IDC_REVPARSE_SPEC, spec, 128);
+	LGitWideToUtf8(spec, params->spec, 128);
 	int rc = git_revparse_ext(&params->obj, &params->ref, params->ctx->repo, params->spec);
 	BOOL ret = FALSE;
 	/* XXX: Should these be passed out? */;
@@ -102,8 +106,8 @@ SCCRTN LGitRevparseDialogString(LGitContext *ctx, HWND hwnd, const char *title, 
 	strlcpy(rp_params.title, title, 128);
 	strlcpy(rp_params.spec, spec, 128);
 	SCCRTN ret = SCC_OK;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_REVPARSE),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_REVPARSE),
 		hwnd,
 		RevparseDialogProc,
 		(LPARAM)&rp_params)) {

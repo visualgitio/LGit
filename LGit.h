@@ -50,14 +50,18 @@ typedef struct _LGitContext {
 	/* Progress dialog, used and destroyed on demand */
 	IProgressDialog *progress;
 	BOOL progressCancelled;
-	/* big in case of Windows 10 */
+	/* big in case of Windows 10. keep a wide copy in case */
 	char path[1024], workdir_path[1024];
+	/* path isn't really used right now */
+	wchar_t workdir_path_utf16[1024];
 	char appName[SCC_NAME_SIZE];
 	/* SCC provided username, used for some remote contexts */
 	char username[SCC_USER_SIZE];
 	/* Command options */
 	LGitCommitOpts commitOpts;
 	LGitGetOpts getOpts;
+	/* Fonts */
+	HFONT listviewFont, fixedFont;
 } LGitContext;
 
 /* LGit.cpp */
@@ -80,6 +84,7 @@ LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t
 void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 
 /* format.cpp */
+char *LGitWideToUtf8Alloc(wchar_t *buf);
 BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
 BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);
@@ -171,11 +176,11 @@ SCCRTN LGitDiffTreeToWorkdir(LGitContext *ctx, HWND hwnd, git_strarray *paths, g
 
 /* apply.cpp */
 SCCRTN LGitApplyPatch(LGitContext *ctx, HWND hwnd, git_diff *diff, git_apply_location_t loc, BOOL check_only);
-SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const char *file, git_diff **out);
+SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const wchar_t *file, git_diff **out);
 SCCRTN LGitApplyPatchDialog(LGitContext *ctx, HWND hwnd);
 
 /* sigwin.cpp */
-BOOL LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz, BOOL enable_set_default);
+SCCRTN LGitSignatureDialog(LGitContext *ctx, HWND parent, char *name,  size_t name_sz, char *mail, size_t mail_sz, BOOL enable_set_default);
 SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **signature);
 
 /* commitvw.cpp */
@@ -221,10 +226,13 @@ size_t wcslcat(wchar_t *dst, const wchar_t *src, size_t dsize);
 /* winutil.cpp */
 void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx);
 void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx);
-BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz);
+BOOL LGitBrowseForFolder(HWND hwnd, const wchar_t *title, wchar_t *buf, size_t bufsz);
 void LGitSetWindowIcon(HWND hwnd, HINSTANCE inst, LPCSTR name);
+void LGitUninitializeFonts(LGitContext *ctx);
+void LGitInitializeFonts(LGitContext *ctx);
 void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl);
 LONG LGitMeasureWidth(HWND measure_with, const char *text);
+LONG LGitMeasureWidthW(HWND measure_with, const wchar_t *text);
 BOOL CALLBACK LGitImmutablePropSheetProc(HWND hwnd, unsigned int iMsg, LPARAM lParam);
 BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int y);
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);

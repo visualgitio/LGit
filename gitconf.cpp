@@ -190,6 +190,7 @@ static void InitConfigView(HWND hwnd, LGitConfigDialogParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_CONFIG_LIST);
 	ListView_SetUnicodeFormat(lv, TRUE);
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	/* I think ANSI InsertColumn is still OK with Unicode for now */
 	ListView_InsertColumn(lv, 0, &name_column);
@@ -244,8 +245,8 @@ static void ConfigEditDialog(HWND hwnd, LGitConfigDialogParams *params, const wc
 	ec_params.is_new = isNew;
 	wcslcpy(ec_params.new_name, name, 128);
 	wcslcpy(ec_params.new_value, value, 128);
-	switch (DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_CONFIG_EDIT),
+	switch (DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_CONFIG_EDIT),
 		hwnd,
 		ConfigEditorDialogProc,
 		(LPARAM)&ec_params)) {
@@ -381,8 +382,8 @@ SCCRTN LGitManageConfig(LGitContext *ctx, HWND hwnd, git_config *config, const c
 	params.ctx = ctx;
 	params.config = config;
 	params.title = title;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_GITCONFIG),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_GITCONFIG),
 		hwnd,
 		ConfigManagerDialogProc,
 		(LPARAM)&params)) {

@@ -15,6 +15,7 @@ typedef struct _LGitDiffCallbackParams {
 	int index;
 	/* allocated to avoid stack churn/stupid line lengths */
 	char *msg;
+	wchar_t *msgw;
 } LGitDiffCallbackParams;
 
 #define CALLBACK_MSG_SIZE 0x8000
@@ -39,6 +40,7 @@ static void InitDiffView(HWND hwnd, LGitDiffDialogParams* params)
 	HICON icon;
 
 	lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
+	ListView_SetUnicodeFormat(lv, TRUE);
 
 	icons = ImageList_Create(GetSystemMetrics(SM_CXSMICON),
 		GetSystemMetrics(SM_CYSMICON),
@@ -77,15 +79,17 @@ static int LGitDiffFileCallback(const git_diff_delta *delta,
 								void *payload)
 {
 	LGitDiffCallbackParams *params = (LGitDiffCallbackParams*)payload;
-	LVITEM lvi;
-	ZeroMemory(&lvi, sizeof(LVITEM));
+	LVITEMW lvi;
+	wchar_t path[2048];
+	ZeroMemory(&lvi, sizeof(LVITEMW));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 	/* XXX: We should detect similarity and just skim the diff if so. */
-	_snprintf(params->msg, CALLBACK_MSG_SIZE, "(%o) %s",
+	LGitUtf8ToWide(delta->old_file.path, path, 2048);
+	_snwprintf(params->msgw, CALLBACK_MSG_SIZE, L"(%o) %s",
 		delta->old_file.mode,
-		delta->old_file.path);
-	lvi.pszText = params->msg;
+		path);
+	lvi.pszText = params->msgw;
 	lvi.iSubItem = 0;
 	lvi.iImage = 0;
 
@@ -95,17 +99,18 @@ static int LGitDiffFileCallback(const git_diff_delta *delta,
 		return 1;
 	}
 	/* Now item B */
-	ZeroMemory(&lvi, sizeof(LVITEM));
+	ZeroMemory(&lvi, sizeof(LVITEMW));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
-	_snprintf(params->msg, CALLBACK_MSG_SIZE, "(%o) %s",
+	LGitUtf8ToWide(delta->new_file.path, path, 2048);
+	_snwprintf(params->msgw, CALLBACK_MSG_SIZE, L"(%o) %s",
 		delta->new_file.mode,
-		delta->new_file.path);
-	lvi.pszText = params->msg;
+		path);
+	lvi.pszText = params->msgw;
 	lvi.iSubItem = 0;
 	lvi.iImage = 1;
 
-	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	lvi.iItem = SendMessage(params->lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 	if (lvi.iItem == -1) {
 		LGitLog(" ! ListView_InsertItem failed for file B\n");
 		return 1;
@@ -139,8 +144,8 @@ static int LGitDiffHunkCallback(const git_diff_delta *delta,
 								void *payload)
 {
 	LGitDiffCallbackParams *params = (LGitDiffCallbackParams*)payload;
-	LVITEM lvi;
-	ZeroMemory(&lvi, sizeof(LVITEM));
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(LVITEMW));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 
@@ -152,12 +157,13 @@ static int LGitDiffHunkCallback(const git_diff_delta *delta,
 	if (length > 2 && !isprint(params->msg[length - 2])) {
 		params->msg[length - 2] = '\0';
 	}
-	lvi.pszText = params->msg;
+	LGitUtf8ToWide(params->msg, params->msgw, CALLBACK_MSG_SIZE);
+	lvi.pszText = params->msgw;
 
 	lvi.iSubItem = 0;
 	lvi.iImage = 3;
 
-	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	lvi.iItem = SendMessage(params->lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 	if (lvi.iItem == -1) {
 		LGitLog(" ! ListView_InsertItem failed for hunk\n");
 		return 1;
@@ -171,9 +177,9 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 								void *payload)
 {
 	LGitDiffCallbackParams *params = (LGitDiffCallbackParams*)payload;
-	LVITEM lvi;
+	LVITEMW lvi;
 	size_t base_indent, i, length;
-	ZeroMemory(&lvi, sizeof(LVITEM));
+	ZeroMemory(&lvi, sizeof(LVITEMW));
 	lvi.iItem = params->index++;
 	lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 	if (//line->origin == GIT_DIFF_LINE_CONTEXT ||
@@ -209,10 +215,11 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 	if (!isprint(params->msg[length - 2])) {
 		params->msg[length - 2] = '\0';
 	}
-	lvi.pszText = params->msg;
+	LGitUtf8ToWide(params->msg, params->msgw, CALLBACK_MSG_SIZE);
+	lvi.pszText = params->msgw;
 	lvi.iSubItem = 0;
 
-	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	lvi.iItem = SendMessage(params->lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 	if (lvi.iItem == -1) {
 		LGitLog(" ! ListView_InsertItem failed for line\n");
 		return 1;
@@ -224,13 +231,22 @@ static BOOL FillDiffView(HWND hwnd, LGitDiffDialogParams* params)
 {
 	HWND lv;
 	lv = GetDlgItem(hwnd, IDC_DIFFTEXT);
-	LGitDiffCallbackParams cbp = { lv, 0, (char*)malloc(CALLBACK_MSG_SIZE) };
 	if (lv == NULL) {
 		LGitLog(" ! Couldn't get diff control\n");
 		return FALSE;
 	}
+	LGitDiffCallbackParams cbp;
+	cbp.lv = lv;
+	cbp.index = 0;
+	cbp.msg = (char*)malloc(CALLBACK_MSG_SIZE);
 	if (cbp.msg == NULL) {
 		LGitLog(" ! Couldn't alloc callback buffer\n");
+		return FALSE;
+	}
+	cbp.msgw = (wchar_t*)malloc(CALLBACK_MSG_SIZE);
+	if (cbp.msgw == NULL) {
+		free(cbp.msg);
+		LGitLog(" ! Couldn't alloc wide callback buffer\n");
 		return FALSE;
 	}
 	LGitLog(" ! Number of diff deltas: %u\n", git_diff_num_deltas(params->diff));
@@ -241,6 +257,7 @@ static BOOL FillDiffView(HWND hwnd, LGitDiffDialogParams* params)
 		LGitDiffLineCallback,
 		&cbp);
 	free(cbp.msg);
+	free(cbp.msgw);
 	LGitLog(" ! LV Index is now %d\n", cbp.index);
 
 	ListView_SetColumnWidth(lv, 0, LVSCW_AUTOSIZE_USEHEADER);
@@ -359,8 +376,8 @@ int LGitDiffWindow(HWND parent, LGitDiffDialogParams *params)
 		return 0;
 	}
 	params->menu = LoadMenu(params->ctx->dllInst, MAKEINTRESOURCE(IDR_DIFF_MENU));
-	int ret = DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_DIFF),
+	int ret = DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_DIFF),
 		parent,
 		DiffDialogProc,
 		(LPARAM)params);

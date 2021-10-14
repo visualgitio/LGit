@@ -15,28 +15,37 @@ typedef struct _LGitCloneDialogParams {
 
 static void InitCloneView(HWND hwnd, LGitCloneDialogParams* params)
 {
-	SetDlgItemText(hwnd, IDC_CLONE_PATH, params->path);
+	wchar_t path[_MAX_PATH];
+	LGitUtf8ToWide(params->path, path, _MAX_PATH);
+	SetDlgItemTextW(hwnd, IDC_CLONE_PATH, path);
 }
 
 static void BrowseForFolder(HWND hwnd, LGitCloneDialogParams* params)
 {
-	GetDlgItemText(hwnd, IDC_CLONE_PATH, params->path, _MAX_PATH);
-	if (LGitBrowseForFolder(hwnd, "Browse for Repository Folder", params->path, _MAX_PATH)) {
-		SetDlgItemText(hwnd, IDC_CLONE_PATH, params->path);
+	wchar_t path[_MAX_PATH];
+	GetDlgItemTextW(hwnd, IDC_CLONE_PATH, path, _MAX_PATH);
+	if (LGitBrowseForFolder(hwnd, L"Browse for Repository Folder", path, _MAX_PATH)) {
+		SetDlgItemTextW(hwnd, IDC_CLONE_PATH, path);
+		LGitWideToUtf8(path, params->path, _MAX_PATH);
 	}
 }
 
 static BOOL ValidateAndSetParams(HWND hwnd, LGitCloneDialogParams* params)
 {
 	int rc, valid;
-	GetDlgItemText(hwnd, IDC_CLONE_URL, params->url, 256);
+	wchar_t buf[1024];
+
+	GetDlgItemTextW(hwnd, IDC_CLONE_URL, buf, 1024);
+	LGitWideToUtf8(buf, params->url, 256);
 	if (strlen(params->url) == 0) {
 		MessageBox(hwnd,
 			"There was no URL given to clone.",
 			"Invalid URL", MB_ICONERROR);
 		return FALSE;
 	}
-	GetDlgItemText(hwnd, IDC_CLONE_PATH, params->path, _MAX_PATH);
+
+	GetDlgItemTextW(hwnd, IDC_CLONE_URL, buf, 1024);
+	LGitWideToUtf8(buf, params->path, _MAX_PATH);
 	if (strlen(params->path) == 0) {
 		MessageBox(hwnd,
 			"The path is empty.",
@@ -47,7 +56,8 @@ static BOOL ValidateAndSetParams(HWND hwnd, LGitCloneDialogParams* params)
 	 * XXX: Validate that either everything leading up to this directory
 	 * exists, or that the directory is empty.
 	 */
-	GetDlgItemText(hwnd, IDC_CLONE_BRANCH, params->branch, 128);
+	GetDlgItemTextW(hwnd, IDC_CLONE_BRANCH, buf, 1024);
+	LGitWideToUtf8(buf, params->branch, 128);
 	/* Empty branch name -> default */
 	if (strlen(params->branch) > 0) {
 		rc = git_branch_name_is_valid(&valid, params->branch);
@@ -99,6 +109,18 @@ static void BuildPath(HWND hwnd, LGitCloneDialogParams* params)
 }
 #endif
 
+static BOOL UseExisting(HWND hwnd, LGitCloneDialogParams* params)
+{
+	wchar_t path[_MAX_PATH];
+	LGitUtf8ToWide(params->path, path, _MAX_PATH);
+	if (LGitBrowseForFolder(hwnd, L"Browse for Existing Repository Folder", path, _MAX_PATH)) {
+		SetDlgItemTextW(hwnd, IDC_CLONE_PATH, path);
+		LGitWideToUtf8(path, params->path, _MAX_PATH);
+		return TRUE;
+	}
+	return FALSE;
+}
+
 static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 									 unsigned int iMsg,
 									 WPARAM wParam,
@@ -129,7 +151,7 @@ static BOOL CALLBACK CloneDialogProc(HWND hwnd,
 			return TRUE;
 		case IDC_CLONE_EXISTING:
 			/* This exists for "Add Existing Project from Source Control" */
-			if (LGitBrowseForFolder(hwnd, "Browse for Existing Repository Folder", param->path, _MAX_PATH)) {
+			if (UseExisting(hwnd, param)) {
 				EndDialog(hwnd, 3);
 			}
 			return TRUE;
@@ -170,8 +192,8 @@ LGIT_API SCCRTN LGitClone(LGitContext *ctx,
 	ZeroMemory(&params, sizeof(LGitCloneDialogParams));
 	params.ctx = ctx;
 	strlcpy(params.path, lpLocalPath, _MAX_PATH);
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_CLONE),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_CLONE),
 		hWnd,
 		CloneDialogProc,
 		(LPARAM)&params)) {

@@ -103,6 +103,7 @@ init_again:
 	 * after the prefix check in each function.
 	 */
 	LGitTranslateStringChars(ctx->workdir_path, '/', '\\');
+	LGitUtf8ToWide(ctx->workdir_path, ctx->workdir_path_utf16, 1024);
 	LGitLog("  The workdir is %s\n", ctx->workdir_path);
 
 	ctx->active = TRUE;
@@ -113,6 +114,8 @@ init_again:
 
 	/* XXX: should init/deinit at project level? */
 	ctx->checkouts = new CheckoutQueue();
+	
+	LGitInitializeFonts(ctx);
 
 	return SCC_OK;
 }
@@ -125,6 +128,7 @@ SCCRTN SccCloseProject (LPVOID context)
 	if (context) {
 		LGitContext *ctx = (LGitContext*)context;
 		/* additional debug logs because VS traps segfault */
+		LGitUninitializeFonts(ctx);
 		if (ctx->repo) {
 			LGitLog(" ! Free repo\n");
 			git_repository_free(ctx->repo);
@@ -138,8 +142,9 @@ SCCRTN SccCloseProject (LPVOID context)
 		ctx->renameCb = NULL;
 		ctx->renameData = NULL;
 		ctx->textoutCb = NULL;
-		ZeroMemory(ctx->path, MAX_PATH + 1);
-		ZeroMemory(ctx->workdir_path, MAX_PATH + 1);
+		ZeroMemory(ctx->path, 1024);
+		ZeroMemory(ctx->workdir_path, 1024);
+		ZeroMemory(ctx->workdir_path_utf16, 1024 * sizeof(wchar_t));
 		ctx->active = FALSE;
 		LGitLog(" ! Cleared, now inactive\n");
 	}

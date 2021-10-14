@@ -44,7 +44,7 @@ static void ChangeSignature(HWND hwnd, LGitCreateCommitDialogParams *params, UIN
 		ZeroMemory(name, 128);
 		ZeroMemory(mail, 128);
 	}
-	if (!LGitSignatureDialog(params->ctx, hwnd, name, 128, mail, 128, FALSE)) {
+	if (LGitSignatureDialog(params->ctx, hwnd, name, 128, mail, 128, FALSE) != SCC_OK) {
 		return;
 	}
 	git_signature_free(*signature);
@@ -96,24 +96,29 @@ static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 	}
 }
 
-static void InitFreshParams(HWND hwnd, LGitCreateCommitDialogParams *params)
+static BOOL InitFreshParams(HWND hwnd, LGitCreateCommitDialogParams *params)
 {
 	/* Since it can be called from partially initialized amend */
 	git_signature_free(params->author);
 	git_signature_free(params->committer);
-
+	BOOL ret = FALSE;
 	/* The commit message can be blank, but we do want the user's sig here */
 	git_signature *signature = NULL;
 	if (LGitGetDefaultSignature(hwnd, params->ctx, &signature) != SCC_OK) {
-		return;
+		goto fail;
 	}
 	if (git_signature_dup(&params->author, signature) != 0) {
 		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Author Signature)");
+		goto fail;
 	}
 	if (git_signature_dup(&params->committer, signature) != 0) {
 		LGitLibraryError(hwnd, "Create Commit Dialog (Duplicating Committer Signature)");
+		goto fail;
 	}
+	ret = TRUE;
+fail:
 	git_signature_free(signature);
+	return ret;
 }
 
 static void InitAmendParams(HWND hwnd, LGitCreateCommitDialogParams *params)
@@ -174,14 +179,16 @@ static void InitRepoMessage(HWND hwnd, LGitCreateCommitDialogParams *params)
 SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, const char *proposed_message, git_index *proposed_index)
 {
 	LGitLog("**LGitCreateCommitDialog** Context=%p\n", ctx);
+	SCCRTN ret = SCC_OK;
+	git_index *index = NULL;
 	LGitCreateCommitDialogParams cc_params;
 	ZeroMemory(&cc_params, sizeof(LGitCreateCommitDialogParams));
 	cc_params.ctx = ctx;
 	/* If we're amending, put as much of the previous commit we can in. */
 	if (amend_last) {
 		InitAmendParams(hwnd, &cc_params);
-	} else {
-		InitFreshParams(hwnd, &cc_params);
+	} else if(!InitFreshParams(hwnd, &cc_params)) {
+		goto err;
 	}
 	/* If we have a message (i.e. from revert), paste it in */
 	InitRepoMessage(hwnd, &cc_params);
@@ -205,12 +212,10 @@ SCCRTN LGitCreateCommitDialog(LGitContext *ctx, HWND hwnd, BOOL amend_last, cons
 	case 2:
 		break;
 	}
-	SCCRTN ret = SCC_OK;
 	/*
 	 * If we have an index proposed to us (i.e. revert), use that; otherwise,
 	 * use the stage since the user has been building changes there..
 	 */
-	git_index *index = NULL;
 	if (proposed_index != NULL) {
 		index = proposed_index;
 	} else if (git_repository_index(&index, ctx->repo) != 0) {

@@ -141,6 +141,9 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 		ZeroMemory(*context, sizeof(LGitContext));
 		strlcpy(ctx->appName, callerName, SCC_NAME_LEN);
 		ctx->dllInst = dllInstance;
+
+		/* gets reinitialized on project, but here, for empty proj */
+		LGitInitializeFonts(ctx);
 	} else {
 		return SCC_E_INITIALIZEFAILED;
 	}

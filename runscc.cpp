@@ -55,6 +55,12 @@ static LRESULT CALLBACK ExplorerListViewProc(HWND hwnd, UINT msg, WPARAM wParam,
 static void InitExplorerListView(HWND hwnd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+	ListView_SetUnicodeFormat(lv, TRUE);
+	/*
+	 * Try to have the same font as Windows Explorer's list views, which
+	 * usually can handle all chars. MS Sans Serif doesn't do a good job.
+	 */
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	/* HACK: It won't process WM_DROPFILES without it */
 	ListViewProc = (WNDPROC)GetWindowLong(lv, GWL_WNDPROC);
@@ -186,20 +192,20 @@ static void FillExplorerListView(HWND hwnd, LGitExplorerParams *params)
 	git_status_foreach_ext(params->ctx->repo, &sopts, FillStatusItem, &cbp);
 }
 
-static void GetHeadState(HWND hwnd, LGitExplorerParams *params, char *buf, size_t bufsz)
+static void GetHeadState(HWND hwnd, LGitExplorerParams *params, wchar_t *buf, size_t bufsz)
 {
 	git_reference *head = NULL;
 	const char *ref = NULL;
 	switch (git_repository_head(&head, params->ctx->repo)) {
 	case GIT_EUNBORNBRANCH:
-		strlcpy(buf, "Unborn HEAD", bufsz);
+		wcslcpy(buf, L"Unborn HEAD", bufsz);
 		return;
 	case GIT_ENOTFOUND:
-		strlcpy(buf, "No HEAD", bufsz);
+		wcslcpy(buf, L"No HEAD", bufsz);
 		return;
 	default:
 		LGitLibraryError(hwnd, "git_repository_head");
-		strlcpy(buf, "Error", bufsz);
+		wcslcpy(buf, L"Error", bufsz);
 		return;
 	case 0:
 		/* A detached HEAD will result in a resolved HEAD with name of HEAD */
@@ -208,69 +214,70 @@ static void GetHeadState(HWND hwnd, LGitExplorerParams *params, char *buf, size_
 			git_oid commit_oid;
 			if (git_reference_name_to_id(&commit_oid, params->ctx->repo, "HEAD") != 0) {
 				LGitLibraryError(hwnd, "git_reference_name_to_id");
-				strlcpy(buf, "Error getting HEAD commit", bufsz);
+				wcslcpy(buf, L"Error getting HEAD commit", bufsz);
 				goto err;
 			}
-			strlcpy(buf, "Detached, ", bufsz);
-			strlcat(buf, git_oid_tostr_s(&commit_oid), bufsz);
+			_snwprintf(buf, bufsz, L"Detached, %S", git_oid_tostr_s(&commit_oid));
 		} else {
 			ref = git_reference_shorthand(head);
-			strlcpy(buf, ref == NULL ? "HEAD without branch" : ref, bufsz);
+			if (ref != NULL) {
+				LGitUtf8ToWide(ref, buf, bufsz);
+			} else {
+				wcslcpy(buf, L"HEAD without branch", bufsz);
+			}
 		}
 		break;
 	}
 err:
-	if (head != NULL) {
-		git_reference_free(head);
-	}
+	git_reference_free(head);
 }
 
-static BOOL GetVisibleItemsText(HWND hwnd, LGitExplorerParams *params, char *buf, size_t bufsz)
+static BOOL GetVisibleItemsText(HWND hwnd, LGitExplorerParams *params, wchar_t *buf, size_t bufsz)
 {
 	if (bufsz < 1) {
 		return FALSE;
 	}
 	int index = 0;
-	strlcpy(buf, "Showing ", bufsz);
-#define AppendIfVisible(flag,str) if (flag) { if (index++) strlcat(buf, ", ", bufsz); strlcat(buf, str, bufsz); }
-	AppendIfVisible(params->include_ignored, "Ignored");
-	AppendIfVisible(params->include_unmodified, "Unchanged");
-	AppendIfVisible(params->include_untracked, "Untracked");
+	wcslcpy(buf, L"Showing ", bufsz);
+#define AppendIfVisible(flag,str) if (flag) { if (index++) wcslcat(buf, L", ", bufsz); wcslcat(buf, str, bufsz); }
+	AppendIfVisible(params->include_ignored, L"Ignored");
+	AppendIfVisible(params->include_unmodified, L"Unchanged");
+	AppendIfVisible(params->include_untracked, L"Untracked");
 	if (index == 0) {
-		strlcat(buf, "Only Changed", bufsz);
+		wcslcat(buf, L"Only Changed", bufsz);
 	}
 	return TRUE;
 }
 
 static void UpdateExplorerStatus(HWND hwnd, LGitExplorerParams *params)
 {
-	char newTitle[512], statusText[128], visibleText[128];
+	wchar_t newTitle[512], statusText[128], visibleText[128];
 	const char *stateText = "";
 	params->status_bar_parts[2] = -1;
 	if (params->ctx->active && params->ctx->repo != NULL) {
 		int state = git_repository_state(params->ctx->repo);
 		stateText = LGitRepoStateString(state);
 		GetHeadState(hwnd, params, statusText, 128);
-		strlcpy(newTitle, params->ctx->workdir_path, 512);
+		wcslcpy(newTitle, params->ctx->workdir_path_utf16, 512);
 		/* add some padding, plus account for border on sizes */
 		params->status_bar_parts[0] = LGitMeasureWidth(params->status_bar, stateText) +
 			(GetSystemMetrics(SM_CXBORDER) * 4) + 10;
 		GetVisibleItemsText(hwnd, params, visibleText, 128);
 		params->status_bar_parts[1] = params->status_bar_parts[0] +
-			LGitMeasureWidth(params->status_bar, visibleText) +
+			LGitMeasureWidthW(params->status_bar, visibleText) +
 			(GetSystemMetrics(SM_CXBORDER) * 4) + 10;
 		LGitLog(" ! %d %d\n", params->status_bar_parts[0], params->status_bar_parts[1]);
 	} else {
-		strlcpy(newTitle, "(no repo)", 512);
-		strlcpy(statusText, "", 128);
+		wcslcpy(newTitle, L"(no repo)", 512);
+		wcslcpy(statusText, L"", 128);
 		params->status_bar_parts[0] = 0;
 		params->status_bar_parts[1] = 0;
 	}
-	SetWindowText(hwnd, newTitle);
+	SetWindowTextW(hwnd, newTitle);
 	SendMessage(params->status_bar, SB_SETPARTS, STATUS_BAR_PART_COUNT, (LPARAM)params->status_bar_parts);
-	SendMessage(params->status_bar, SB_SETTEXT, 0, (LPARAM)stateText);
-	SendMessage(params->status_bar, SB_SETTEXT, 1, (LPARAM)visibleText);
-	SendMessage(params->status_bar, SB_SETTEXT, 2, (LPARAM)statusText);
+	SendMessage(params->status_bar, SB_SETTEXTA, 0, (LPARAM)stateText);
+	SendMessage(params->status_bar, SB_SETTEXTW, 1, (LPARAM)visibleText);
+	SendMessage(params->status_bar, SB_SETTEXTW, 2, (LPARAM)statusText);
 }
 
 /* doesn't handle more than one */
@@ -428,6 +435,8 @@ static BOOL OpenRepository(HWND hwnd, LGitExplorerParams *params)
 		LGitLibraryError(hwnd, "Opening Different Project");
 		retbool = FALSE;
 	}
+	/* HACK: our font can get pulled out from under us */
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 	UpdateExplorerStatus(hwnd, params);
 	if (params->ctx->repo == NULL) {
 		/* We're gonna do stuff we can only do with i.e. a stage */
@@ -727,7 +736,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 static void InitExplorerView(HWND hwnd, LGitExplorerParams *params)
 {
 	/* XXX: do not hardcode the dialog ID */
-	params->status_bar = CreateStatusWindow(WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, "Visual Git", hwnd, 999);
+	params->status_bar = CreateStatusWindowW(WS_CHILD | WS_VISIBLE | SBARS_SIZEGRIP, L"Visual Git", hwnd, 999);
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
 	LGitSetWindowIcon(hwnd, params->ctx->dllInst, MAKEINTRESOURCE(IDI_LGIT));
 	SetMenu(hwnd, params->menu);

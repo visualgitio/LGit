@@ -111,26 +111,26 @@ fin:
 SCCRTN LGitStageAddDialog(LGitContext *ctx, HWND hwnd)
 {
 	LGitLog("**LGitStageAddDialog** Context=%p\n", ctx);
-	char *path, *stripped, common_path[2048], new_path[2048];
+	wchar_t *path, *stripped, common_path[2048], new_path[2048];
 	BOOL relative = FALSE;
 	SCCRTN ret;
-	OPENFILENAME ofn;
-	TCHAR fileNames[STAGE_ADD_DIALOG_MAX_PATH];
+	OPENFILENAMEW ofn;
+	wchar_t fileNames[STAGE_ADD_DIALOG_MAX_PATH];
 	ZeroMemory(fileNames, STAGE_ADD_DIALOG_MAX_PATH);
 	ZeroMemory(&ofn, sizeof(OPENFILENAME));
-	ofn.lpstrFile = ctx->workdir_path;
+	ofn.lpstrFile = ctx->workdir_path_utf16;
 	ofn.lStructSize = sizeof(ofn);
-	ofn.lpstrTitle = "Stage Files";
+	ofn.lpstrTitle = L"Stage Files";
 	ofn.lpstrFile = fileNames;
 	ofn.nMaxFile = STAGE_ADD_DIALOG_MAX_PATH;
 	ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY | OFN_ALLOWMULTISELECT;
-	if (!GetOpenFileName(&ofn)) {
+	if (!GetOpenFileNameW(&ofn)) {
 		return SCC_I_OPERATIONCANCELED;
 	}
 	/* sadly we need to alloc because  */
 	git_strarray strings;
 	strings.count = 0;
-	char **paths = (char**)calloc(256, sizeof(char*));
+	char **paths = (char**)calloc(256, sizeof(char*)), *allocated = NULL;
 	strings.strings = paths;
 	if (paths == NULL) {
 		ret = SCC_E_NONSPECIFICERROR;
@@ -140,21 +140,21 @@ SCCRTN LGitStageAddDialog(LGitContext *ctx, HWND hwnd)
 	while (*path != '\0') {
 		LGitLog(" ! Staging %s\n", path);
 		if (strings.count == 0 &&
-			GetFileAttributes(path) & FILE_ATTRIBUTE_DIRECTORY) {
+			GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) {
 			LGitLog(" ! First path was a directory\n");
 			/* it's a directory, skip including, but get the common path */
-			const char *common = LGitStripBasePath(ctx, path);
+			const wchar_t *common = LGitStripBasePathW(ctx, path);
 			/* if there's nothing in common then... */
 			if (common == NULL) {
 				LGitLog("!! No common path\n");
 				ret = SCC_E_NONSPECIFICERROR;
 				goto fin;
 			}
-			LGitLog(" ! Common path is %s\n", common);
-			strlcpy(common_path, common, 2048);
-			if (strlen(common) != 0) {
+			LGitLog(" ! Common path is %S\n", common);
+			wcslcpy(common_path, common, 2048);
+			if (wcslen(common) != 0) {
 				/* append slash as we don't have one */
-				strlcat(common_path, "/", 2048);
+				wcslcat(common_path, L"/", 2048);
 			}
 			relative = TRUE;
 			goto skip;
@@ -164,24 +164,25 @@ SCCRTN LGitStageAddDialog(LGitContext *ctx, HWND hwnd)
 		}
 		if (relative) {
 			/* combine into a new array */
-			strlcpy(new_path, common_path, 2048);
-			strlcat(new_path, path, 2048);
-			LGitLog(" ! New path is %s\n", new_path);
-			paths[strings.count++] = strdup(new_path);
+			wcslcpy(new_path, common_path, 2048);
+			wcslcat(new_path, path, 2048);
+			LGitLog(" ! New path is %S\n", new_path);
+			allocated = LGitWideToUtf8Alloc(new_path);
 		} else {
 			/* for an absolute path: we need to strip the workdir */
-			stripped = (char*)LGitStripBasePath(ctx, path);
+			stripped = (wchar_t*)LGitStripBasePathW(ctx, path);
 			if (stripped == NULL) {
 				LGitLog("!! Couldn't get base path for %s\n", path);
 				goto skip;
 			}
 			/* it's safe to mutate now, we own the buf */
-			LGitTranslateStringChars(stripped, '\\', '/');
-			LGitLog(" ! Stripped path is %s\n", stripped);
-			paths[strings.count++] = strdup(stripped);
+			LGitTranslateStringCharsW(stripped, L'\\', L'/');
+			LGitLog(" ! Stripped path is %S\n", stripped);
+			allocated = LGitWideToUtf8Alloc(stripped);
 		}
+		paths[strings.count++] = allocated;
 skip:
-		path += strlen(path) + 1;
+		path += wcslen(path) + 1;
 	}
 	LGitLog(" ! Total of %d file(s)\n", strings.count);
 	if (strings.count == 0) {
@@ -228,13 +229,7 @@ SCCRTN LGitStageDragTarget(LGitContext *ctx, HWND hwnd, HDROP drop)
 		LGitTranslateStringCharsW(stripped, L'\\', L'/');
 		LGitLog(" ! Stripped path is %s\n", stripped);
 		/* allocate what's needed */
-		size_t required_size = LGitWideToUtf8(stripped, NULL, 0);
-		char *allocated = (char*)malloc(required_size);
-		if (allocated == NULL) {
-			LGitLog("!! Couldn't allocate UTF-8 for %S\n", stripped);
-			continue;
-		}
-		LGitWideToUtf8(stripped, allocated, required_size);
+		char *allocated = LGitWideToUtf8Alloc(stripped);
 		paths[strings.count++] = allocated;
 	}
 fin:

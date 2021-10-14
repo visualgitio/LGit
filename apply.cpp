@@ -28,14 +28,14 @@ fin:
 	return ret;
 }
 
-SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const char *file, git_diff **out)
+SCCRTN LGitFileToDiff(LGitContext *ctx, HWND hwnd, const wchar_t *file, git_diff **out)
 {
 	SCCRTN ret = SCC_OK;
 	size_t buf_sz;
 	HANDLE fh = INVALID_HANDLE_VALUE, mh = INVALID_HANDLE_VALUE;
 	char *buf;
 	/* we're boned if we need to allocate more than (uint32)-1 on x86 */
-	fh = CreateFile(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
+	fh = CreateFileW(file, GENERIC_READ, FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
 	if (fh == INVALID_HANDLE_VALUE) {
 		/* not an lg2 error */
 		ret = SCC_E_UNKNOWNERROR;
@@ -75,19 +75,19 @@ fin:
 SCCRTN LGitApplyPatchDialog(LGitContext *ctx, HWND hwnd)
 {
 	LGitLog("**LGitApplyPatchDialog** Context=%p\n", ctx);
-	OPENFILENAME ofn;
-	TCHAR fileName[MAX_PATH];
+	OPENFILENAMEW ofn;
+	wchar_t fileName[MAX_PATH];
 	ZeroMemory(fileName, MAX_PATH);
-	ZeroMemory(&ofn, sizeof(OPENFILENAME));
+	ZeroMemory(&ofn, sizeof(OPENFILENAMEW));
 	ofn.lStructSize = sizeof(ofn);
-	ofn.lpstrTitle = "Apply Patch";
-	ofn.lpstrDefExt = "diff";
-	ofn.lpstrFilter = "Diff\0*.diff;*.patch\0";
+	ofn.lpstrTitle = L"Apply Patch";
+	ofn.lpstrDefExt = L"diff";
+	ofn.lpstrFilter = L"Diff\0*.diff;*.patch\0";
 	ofn.lpstrFile = fileName;
 	ofn.nMaxFile = MAX_PATH;
 	ofn.Flags = OFN_EXPLORER | OFN_HIDEREADONLY;
 	/* XXX: Add some stuff to the dialog for i.e. A&M, apply to, etc. */
-	if (GetOpenFileName(&ofn)) {
+	if (GetOpenFileNameW(&ofn)) {
 		/* XXX: turn into loop, break into sep func */
 		git_diff *diff = NULL;
 		SCCRTN ret = SCC_OK;

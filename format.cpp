@@ -4,6 +4,17 @@
 
 #include "stdafx.h"
 
+char *LGitWideToUtf8Alloc(wchar_t *buf)
+{	
+	size_t required_size = LGitWideToUtf8(buf, NULL, 0);
+	char *allocated = (char*)malloc(required_size);
+	if (allocated == NULL) {
+		return NULL;
+	}
+	LGitWideToUtf8(buf, allocated, required_size);
+	return allocated;
+}
+
 static void TimetToFileTime(_int64 t, LPFILETIME pft)
 {
     LONGLONG ll = (t * 10000000) + 116444736000000000;

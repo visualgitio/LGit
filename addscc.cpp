@@ -31,6 +31,7 @@ static void InitAddFromView(HWND hwnd, LGitAddFromDialogParams* params)
 	}
 
 	lv = GetDlgItem(hwnd, IDC_ADDSCC_LIST);
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	/* We can't use checkboxes because of the icons */
 	ListView_SetExtendedListViewStyle(lv, LVS_EX_LABELTIP);

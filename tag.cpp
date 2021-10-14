@@ -197,8 +197,8 @@ SCCRTN LGitAddTagDialog(LGitContext *ctx, HWND hwnd)
 	LGitAddTagDialogParams at_params;
 	ZeroMemory(&at_params, sizeof(LGitAddTagDialogParams));
 	at_params.ctx = ctx;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_TAG_ADD),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_TAG_ADD),
 		hwnd,
 		AddTagDialogProc,
 		(LPARAM)&at_params)) {

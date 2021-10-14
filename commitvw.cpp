@@ -122,6 +122,7 @@ static BOOL CALLBACK TagInfoDialogProc(HWND hwnd,
 static void FillRefsView(HWND hwnd, LGitCommitInfoDialogParams *params)
 {
 	HWND lb = GetDlgItem(hwnd, IDC_COMMITINFO_REFERENCES);
+	SendMessage(lb, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 	/* We need to get a list of refs, then see if the ref has the commit */
 	git_strarray refs = {0,0};
 	size_t i;
@@ -160,7 +161,9 @@ static void FillRefsView(HWND hwnd, LGitCommitInfoDialogParams *params)
 			&& (git_oid_equal(ref_oid, this_oid) == 1
 			|| git_graph_descendant_of(params->ctx->repo, ref_oid, this_oid) == 1)) {
 			/* XXX: this could be a listview like refs dialog instead */
-			SendMessage(lb, LB_ADDSTRING, 0, (LPARAM)name);
+			wchar_t name_utf16[128];
+			LGitUtf8ToWide(name, name_utf16, 128);
+			SendMessageW(lb, LB_ADDSTRING, 0, (LPARAM)name_utf16);
 		}
 		if (ref != NULL) {
 			git_reference_free(ref);

@@ -57,7 +57,7 @@ static void InitializeHistoryWindow(HWND hwnd, LGitHistoryDialogParams *params)
 	SetWindowTextW(hwnd, title);
 }
 
-static void InitializeHistoryListView(HWND hwnd)
+static void InitializeHistoryListView(HWND hwnd, LGitHistoryDialogParams *param)
 {
 	HWND lv;
 
@@ -67,6 +67,7 @@ static void InitializeHistoryListView(HWND hwnd)
 	}
 	/* Unicode even works on 9x with IE5! */
 	ListView_SetUnicodeFormat(lv, TRUE);
+	SendMessage(lv, WM_SETFONT, (WPARAM)param->ctx->listviewFont, TRUE);
 
 	ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT
 		| LVS_EX_HEADERDRAGDROP
@@ -414,7 +415,7 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		LGitSetWindowIcon(hwnd, param->ctx->dllInst, MAKEINTRESOURCE(IDI_HISTORY));
 		InitializeHistoryWindow(hwnd, param);
-		InitializeHistoryListView(hwnd);
+		InitializeHistoryListView(hwnd, param);
 		if (!FillHistoryListView(hwnd, param, param->path_count == 0)) {
 			EndDialog(hwnd, 0);
 		}

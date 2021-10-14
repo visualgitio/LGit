@@ -63,7 +63,7 @@ const wchar_t *LGitStripBasePathW(LGitContext *ctx, const wchar_t *abs)
 	}
 	wchar_t path[_MAX_PATH];
 	/* strip trailing backslash, then accomodate if we need to bump later */
-	LGitUtf8ToWide(ctx->workdir_path, path, _MAX_PATH);
+	wcslcpy(path, ctx->workdir_path_utf16, _MAX_PATH);
 	wchar_t *last_backslash = wcsrchr(path, L'\\');
 	if (last_backslash != NULL && last_backslash[1] == L'\0') {
 		last_backslash[0] = '\0';

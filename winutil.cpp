@@ -43,11 +43,76 @@ LONG LGitMeasureWidth(HWND measure_with, const char *text)
 	return size.cx;
 }
 
+LONG LGitMeasureWidthW(HWND measure_with, const wchar_t *text)
+{
+	/* make sure we're using the correct font when measuring */
+	HDC dc = GetDC(measure_with);
+	HFONT current_font = (HFONT)SendMessage(measure_with, WM_GETFONT, 0, 0);
+	HGDIOBJ old_font;
+	if (current_font != NULL) {
+		old_font = SelectObject(dc, current_font);
+	}
+	if (dc == NULL) {
+		return 0;
+	}
+	SIZE size = {0, 0};
+	if (GetTextExtentPoint32W(dc, text, wcslen(text), &size) == 0) {
+		return 0;
+	}
+	if (current_font != NULL) {
+		/* restore */
+		SelectObject(dc, old_font);
+		/* XXX: Do we free current_font? */
+	}
+	ReleaseDC(measure_with, dc);
+	return size.cx;
+}
+
+void LGitUninitializeFonts(LGitContext *ctx)
+{
+	if (ctx->listviewFont != NULL) {
+		DeleteObject((HGDIOBJ)ctx->listviewFont);
+		ctx->listviewFont = NULL;
+	}
+	if (ctx->fixedFont != NULL) {
+		DeleteObject((HGDIOBJ)ctx->fixedFont);
+		ctx->fixedFont = NULL;
+	}
+}
+
+void LGitInitializeFonts(LGitContext *ctx)
+{
+	LOGFONTW logfont;
+	/* Clean */
+	LGitUninitializeFonts(ctx);
+	/*
+	 * The reason behind this is because the font we may get in a ListView
+	 * could be incapable of representing many Unicode characters.
+	 */
+	ZeroMemory(&logfont, sizeof(logfont));
+	/* i'm guessing this is what's used for list view icons */
+	SystemParametersInfoW(SPI_GETICONTITLELOGFONT, sizeof(logfont), &logfont, 0);
+	ctx->listviewFont = CreateFontIndirectW(&logfont);
+	/* monospace */
+	ZeroMemory(&logfont, sizeof(logfont));
+	/* XXX: This isn't great on multimon */
+	HDC dc = GetDC(NULL);
+	logfont.lfHeight = -MulDiv(10, GetDeviceCaps(dc, LOGPIXELSY), 72);
+	ReleaseDC(NULL, dc);
+	logfont.lfCharSet = DEFAULT_CHARSET;
+	logfont.lfPitchAndFamily = FIXED_PITCH;
+	/* XXX: Make configurable. Could be called again if project has config */
+	wcslcpy(logfont.lfFaceName, L"Courier New", 32);
+	ctx->fixedFont = CreateFontIndirectW(&logfont);
+	if (ctx->fixedFont == NULL) {
+		ctx->fixedFont = (HFONT)GetStockObject(ANSI_FIXED_FONT);
+	}
+}
+
+/* For compat. */
 void LGitSetMonospaceFont(LGitContext *ctx, HWND ctrl)
 {
-	/* GetStockObject doesn't need to be freed. */
-	HFONT font = (HFONT)GetStockObject(ANSI_FIXED_FONT);
-	SendMessage(ctrl, WM_SETFONT, (WPARAM)font, TRUE);
+	SendMessage(ctrl, WM_SETFONT, (WPARAM)ctx->fixedFont, TRUE);
 }
 
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item)
@@ -117,11 +182,11 @@ static int CALLBACK BrowseCallbackProc(HWND hwnd,
 	return 0;
 }
 
-BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz)
+BOOL LGitBrowseForFolder(HWND hwnd, const wchar_t *title, wchar_t *buf, size_t bufsz)
 {
-	char path[_MAX_PATH];
-	strlcpy(path, buf, _MAX_PATH);
-	BROWSEINFO bi;
+	wchar_t path[_MAX_PATH];
+	wcslcpy(path, buf, _MAX_PATH);
+	BROWSEINFOW bi;
 	ZeroMemory(&bi, sizeof(BROWSEINFO));
 	bi.lpszTitle = title;
 	bi.ulFlags = BIF_RETURNONLYFSDIRS
@@ -131,20 +196,19 @@ BOOL LGitBrowseForFolder(HWND hwnd, const char *title, char *buf, size_t bufsz)
 	/* callback to handle at least initializing the dialog */
     bi.lpfn = BrowseCallbackProc;
     bi.lParam = (LPARAM) path;
-	LPITEMIDLIST pidl = SHBrowseForFolder(&bi);
+	LPITEMIDLIST pidl = SHBrowseForFolderW(&bi);
 	if (pidl == NULL) {
 		return FALSE;
 	}
-	SHGetPathFromIDList(pidl, path);
+	SHGetPathFromIDListW(pidl, path);
 	/* for the sake of updating */
-	strlcpy(buf, path, bufsz);
+	wcslcpy(buf, path, bufsz);
 	CoTaskMemFree(pidl);
 	return TRUE;
 }
 
 void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 {
-	const char *name;
 	size_t i;
 	LGitLog(" ! Getting remotes for push (ctx %p)\n", ctx);
 	git_strarray remotes;
@@ -157,9 +221,10 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 	/* clean out in case of stale entries */
 	SendMessage(cb, CB_RESETCONTENT, 0, 0);
 	for (i = 0; i < remotes.count; i++) {
-		name = remotes.strings[i];
-		LGitLog(" ! Adding remote %s\n", name);
-		SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)name);
+		wchar_t name[1024];
+		LGitUtf8ToWide(remotes.strings[i], name, 1024);
+		LGitLog(" ! Adding remote %S\n", name);
+		SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)name);
 	}
 	git_strarray_dispose(&remotes);
 	/* select the first item */
@@ -168,7 +233,6 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 
 void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
 {
-	const char *name;
 	size_t i;
 	LGitLog(" ! Getting references (ctx %p)\n", ctx);
 	git_strarray refs;
@@ -183,9 +247,10 @@ void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
 	/* add HEAD */
 	SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)"HEAD");
 	for (i = 0; i < refs.count; i++) {
-		name = refs.strings[i];
-		LGitLog(" ! Adding ref %s\n", name);
-		SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)name);
+		wchar_t name[1024];
+		LGitUtf8ToWide(refs.strings[i], name, 1024);
+		LGitLog(" ! Adding ref %S\n", name);
+		SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)name);
 	}
 	git_strarray_dispose(&refs);
 	/* Unlike remotes, don't necessarily select first, could use HEAD */
@@ -200,17 +265,17 @@ HIMAGELIST LGitGetSystemImageList()
 	if (sil_init) {
 		return sil;
 	}
-	SHFILEINFO sfi;
-	TCHAR windir[MAX_PATH];
+	SHFILEINFOW sfi;
+	wchar_t windir[MAX_PATH];
 	ZeroMemory(&sfi, sizeof(sfi));
 	/* this is so we get a dir that we know exists */
-	GetWindowsDirectory(windir, MAX_PATH);
+	GetWindowsDirectoryW(windir, MAX_PATH);
 	/* does the path matter? */
-	sil = (HIMAGELIST)SHGetFileInfo(
+	sil = (HIMAGELIST)SHGetFileInfoW(
 		windir,
 		0,
 		&sfi,
-		sizeof(SHFILEINFO),
+		sizeof(SHFILEINFOW),
 		SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
 	sil_init = TRUE;
 	return sil;

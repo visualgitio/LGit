@@ -78,13 +78,13 @@ BOOL LGitSetSignature(LGitContext *ctx, HWND hwnd, const char *name, const char 
 	return rc1 == 0 && rc2 == 0;
 }
 
-BOOL LGitSignatureDialog(LGitContext *ctx,
-						 HWND parent,
-						 char *name,
-						 size_t name_sz,
-						 char *mail,
-						 size_t mail_sz,
-						 BOOL enable_set_default)
+SCCRTN LGitSignatureDialog(LGitContext *ctx,
+						   HWND parent,
+						   char *name,
+						   size_t name_sz,
+						   char *mail,
+						   size_t mail_sz,
+						   BOOL enable_set_default)
 {
 	LGitLog("**LGitSignatureDialog** Context=%p\n", ctx);
 	LGitLog("    name (%d)\n", name_sz);
@@ -98,7 +98,7 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	 * For now, just use the buffer provided to us.
 	 */
 	if (name == NULL || name_sz < 1 || mail == NULL || mail_sz < 1) {
-		return FALSE;
+		return SCC_E_NONSPECIFICERROR;
 	}
 	LGitUtf8ToWide(name, params.name, 128);
 	LGitUtf8ToWide(mail, params.mail, 128);
@@ -110,9 +110,9 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 	case 0:
 	case -1:
 		LGitLog(" ! Uh-oh, dialog error\n");
-		return FALSE;
+		return SCC_E_NONSPECIFICERROR;
 	case 1:
-		return FALSE;
+		return SCC_I_OPERATIONCANCELED;
 	case 2:
 		break;
 	}
@@ -129,7 +129,7 @@ BOOL LGitSignatureDialog(LGitContext *ctx,
 		/* use what we already converted */
 		LGitSetSignature(ctx, parent, name, mail);
 	}
-	return TRUE;
+	return SCC_OK;
 }
 
 SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **signature)
@@ -141,19 +141,14 @@ SCCRTN LGitGetDefaultSignature(HWND hWnd, LGitContext *ctx, git_signature **sign
 		char name[128], mail[128];
 		ZeroMemory(name, 128);
 		ZeroMemory(mail, 128);
-		if (LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128, TRUE)) {
+		ret = LGitSignatureDialog(ctx, hWnd, name, 128, mail, 128, TRUE);
+		if (ret == SCC_OK) {
 			if (git_signature_now(signature, name, mail) != 0) {
 				/* You tried */
 				LGitLibraryError(hWnd, "Creating Signature");
 				ret = SCC_E_NONSPECIFICERROR;
 			}
-		} else {
-			/* You tried */
-			LGitLibraryError(hWnd, "Acquiring Signature");
-			ret = SCC_E_NONSPECIFICERROR;
-			goto fin;
 		}
 	}
-fin:
 	return ret;
 }

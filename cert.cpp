@@ -156,10 +156,11 @@ static void InitCertView(HWND hwnd, LGitCertDialogParams *params)
 		HWND view_cert = GetDlgItem(hwnd, IDC_VIEW_CERT);
 		EnableWindow(view_cert, FALSE);
 	}
-	char msg[512], fmt[256];
-	GetDlgItemText(hwnd, IDC_CERT_MESSAGE, fmt, 256);
-	_snprintf(msg, 512, fmt, params->host);
-	SetDlgItemText(hwnd, IDC_CERT_MESSAGE, msg);
+	wchar_t msg[512], fmt[256], host[256];
+	LGitUtf8ToWide(params->host, host, 256);
+	GetDlgItemTextW(hwnd, IDC_CERT_MESSAGE, fmt, 256);
+	_snwprintf(msg, 512, fmt, host);
+	SetDlgItemTextW(hwnd, IDC_CERT_MESSAGE, msg);
 }
 
 static BOOL CALLBACK CertDialogProc(HWND hwnd,
@@ -202,8 +203,8 @@ BOOL LGitCertificatePrompt(LGitContext *ctx,
 	params.ctx = ctx;
 	params.host = host;
 	params.cert = cert;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_CERT_PROMPT),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_CERT_PROMPT),
 		parent,
 		CertDialogProc,
 		(LPARAM)&params)) {

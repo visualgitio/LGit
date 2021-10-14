@@ -13,7 +13,9 @@ typedef struct _LGitAddBranchDialogParams {
 
 static void InitBranchAddView(HWND hwnd, LGitAddBranchDialogParams* params)
 {
-	SetDlgItemText(hwnd, IDC_BRANCH_ADD_NAME, params->new_name);
+	wchar_t new_name[128];
+	LGitUtf8ToWide(params->new_name, new_name, 128);
+	SetDlgItemTextW(hwnd, IDC_BRANCH_ADD_NAME, new_name);
 	/* yeah, we should load it from the struct... */
 	HWND ref_cb = GetDlgItem(hwnd, IDC_BRANCH_ADD_BASED_ON);
 	LGitPopulateReferenceComboBox(hwnd, ref_cb, params->ctx);
@@ -24,8 +26,11 @@ static void InitBranchAddView(HWND hwnd, LGitAddBranchDialogParams* params)
 
 static BOOL SetBranchAddParams(HWND hwnd, LGitAddBranchDialogParams* params)
 {
-	GetDlgItemText(hwnd, IDC_BRANCH_ADD_NAME, params->new_name, 128);
-	GetDlgItemText(hwnd, IDC_BRANCH_ADD_BASED_ON, params->based_on, 128);
+	wchar_t new_name[128], based_on[128];
+	GetDlgItemTextW(hwnd, IDC_BRANCH_ADD_NAME, new_name, 128);
+	LGitWideToUtf8(new_name, params->new_name, 128);
+	GetDlgItemTextW(hwnd, IDC_BRANCH_ADD_BASED_ON, based_on, 128);
+	LGitWideToUtf8(based_on, params->based_on, 128);
 	int valid = 0;
 	/* if there's an error, then if it's valid */
 	if (git_branch_name_is_valid(&valid, params->new_name) != 0) {
@@ -106,7 +111,7 @@ typedef struct _LGitBranchDialogParams {
 	LGitContext *ctx;
 	HMENU menu;
 	/* for label editor */
-	char old_name[128];
+	wchar_t old_name[128];
 	BOOL editing;
 } LGitBranchDialogParams ;
 
@@ -127,6 +132,9 @@ static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 {
 	SetMenu(hwnd, params->menu);
 	HWND lv = GetDlgItem(hwnd, IDC_BRANCH_LIST);
+
+	ListView_SetUnicodeFormat(lv, TRUE);
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	ListView_InsertColumn(lv, 0, &name_column);
 	ListView_InsertColumn(lv, 1, &full_name_column);
@@ -167,16 +175,18 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		LGitLibraryError(hwnd, "git_reference_iterator_new");
 		return;
 	}
-	LVITEM lvi;
+	LVITEMW lvi;
 	while ((rc = git_reference_next(&ref, iter)) == 0) {
+		wchar_t name_utf16[128];
 		const char *name = git_reference_shorthand(ref);
 		if (name == NULL) {
 			LGitLog("!! Ope\n");
 			continue;
 		}
-		LGitLog(" ! %s\n", name);
+		/*LGitLog(" ! %s\n", name);*/
+		LGitUtf8ToWide(name, name_utf16, 128);
 		
-		ZeroMemory(&lvi, sizeof(LVITEM));
+		ZeroMemory(&lvi, sizeof(LVITEMW));
 		lvi.mask = LVIF_TEXT | LVIF_IMAGE;
 		/* XXX: Image for checked out branch? */
 		if (git_reference_is_remote(ref)) {
@@ -200,11 +210,11 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		} else {
 			lvi.iImage = 5;
 		}
-		lvi.pszText = (char*)name;
+		lvi.pszText = name_utf16;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
 
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		lvi.iItem = SendMessage(lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 		if (lvi.iItem == -1) {
 			LGitLog(" ! ListView_InsertItem failed\n");
 			continue;
@@ -212,19 +222,20 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		/* now for the subitems... */
 		lvi.mask = LVIF_TEXT;
 		lvi.iSubItem = 1;
-		lvi.pszText = (char*)git_reference_name(ref);
-		ListView_SetItem(lv, &lvi);
-		char type_str[32];
+		LGitUtf8ToWide(git_reference_name(ref), name_utf16, 128);
+		lvi.pszText = name_utf16;
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
+		wchar_t type_str[32];
 		ZeroMemory(type_str, 32);
 		if (git_branch_is_checked_out(ref)) {
-			strlcat(type_str, ", Checked Out", 128);
+			wcslcat(type_str, L", Checked Out", 32);
 		}
 		if (git_branch_is_head(ref)) {
-			strlcat(type_str, ", HEAD", 128);
+			wcslcat(type_str, L", HEAD", 32);
 		}
 		lvi.iSubItem = 2;
-		lvi.pszText = (char*)(type_str[0] == ',' ? type_str + 2 : type_str);
-		ListView_SetItem(lv, &lvi);
+		lvi.pszText = (wchar_t*)(type_str[0] == L',' ? type_str + 2 : type_str);
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	}
 	if (rc != GIT_ITEROVER) {
 		LGitLibraryError(hwnd, "git_reference_next");
@@ -245,8 +256,19 @@ static BOOL GetSelectedBranch(HWND hwnd, char *buf, size_t bufsz)
 	if (selected == -1) {
 		return FALSE;
 	}
+	wchar_t temp_buf[1024];
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = selected;
 	/* We want the full reference name here */
-	ListView_GetItemText(lv, selected, 1, buf, bufsz);
+	lvi.iSubItem = 1;
+	lvi.pszText = temp_buf;
+	lvi.cchTextMax = 1024;
+	if (SendMessage(lv, LVM_GETITEMTEXTW, selected, (LPARAM)&lvi) < 1) {
+		return FALSE;
+	}
+	LGitWideToUtf8(temp_buf, buf, bufsz);
 	return TRUE;
 }
 
@@ -447,8 +469,8 @@ static void BranchAdd(HWND hwnd, LGitBranchDialogParams* params)
 	LGitAddBranchDialogParams ab_params;
 	ZeroMemory(&ab_params, sizeof(LGitAddBranchDialogParams));
 	ab_params.ctx = params->ctx;
-	switch (DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_BRANCH_ADD),
+	switch (DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_BRANCH_ADD),
 		hwnd,
 		AddBranchDialogProc,
 		(LPARAM)&ab_params)) {
@@ -529,25 +551,42 @@ static BOOL BeginBranchRename(HWND hwnd, LGitBranchDialogParams* params, UINT in
 	if (lv == NULL) {
 		return FALSE;
 	}
-	ListView_GetItemText(lv, index, 1, params->old_name, 128);
+	LGitLog(" ! Begin rename for %u\n", index);
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = index;
+	lvi.iSubItem = 1;
+	lvi.pszText = params->old_name;
+	lvi.cchTextMax = 128;
+	if (SendMessage(lv, LVM_GETITEMTEXTW, index, (LPARAM)&lvi) < 1) {
+		LGitLog("!! Failed to get rename text for %u\n", index);
+		return FALSE;
+	}
 	params->editing = TRUE;
+	LGitLog(" ! Beginning rename for %S\n", params->old_name);
 	return TRUE;
 }
 
-static BOOL BranchRename(HWND hwnd, LGitBranchDialogParams* params, const char *new_name)
+static BOOL BranchRename(HWND hwnd, LGitBranchDialogParams* params, const wchar_t *new_name_utf16)
 {
-	LGitLog(" ! Renaming %s to %s\n", params->old_name, new_name);
+	LGitLog(" ! Renaming %S to %S\n", params->old_name, new_name_utf16);
 	params->editing = FALSE;
 	/* Check if it's the same name or null; lg2 will throw an error if so. */
-	if (new_name == NULL || strcmp(params->old_name, new_name) == 0) {
+	if (new_name_utf16 == NULL || wcscmp(params->old_name, new_name_utf16) == 0) {
+		LGitLog("!! New name is empty\n");
 		return FALSE;
 	}
+	/* preserve existing semantics w/ utf8 strings */
+	char new_name[128], old_name[128];
+	LGitWideToUtf8(params->old_name, old_name, 128);
+	LGitWideToUtf8(new_name_utf16, new_name, 128);
 	/* We need the handle of the branch. */
 	BOOL ret = FALSE;
 	git_reference *branch = NULL, *new_branch = NULL;
 	int rc = -1;
 	/* it would be weird if we got not found here */
-	if (git_reference_lookup(&branch, params->ctx->repo, params->old_name) != 0) {
+	if (git_reference_lookup(&branch, params->ctx->repo, old_name) != 0) {
 		LGitLibraryError(hwnd, "git_reference_lookup");
 		goto fin;
 	}
@@ -704,15 +743,15 @@ static BOOL CALLBACK BranchManagerDialogProc(HWND hwnd,
 		case IDC_BRANCH_LIST:
 			LPNMHDR child_msg = (LPNMHDR)lParam;
 			LPNMITEMACTIVATE child_activate = (LPNMITEMACTIVATE)lParam;
-			NMLVDISPINFO *child_edit = (NMLVDISPINFO*)lParam;
+			NMLVDISPINFOW *child_edit = (NMLVDISPINFOW*)lParam;
 			HWND lv = (HWND)wParam;
 			switch (child_msg->code) {
 			case LVN_ITEMACTIVATE:
 				ReferenceView(hwnd, param);
 				return TRUE;
-			case LVN_BEGINLABELEDIT:
+			case LVN_BEGINLABELEDITW:
 				return BeginBranchRename(hwnd, param, child_edit->item.iItem);
-			case LVN_ENDLABELEDIT:
+			case LVN_ENDLABELEDITW:
 				return BranchRename(hwnd, param, child_edit->item.pszText);
 			case LVN_ITEMCHANGED:
 				UpdateRefMenu(hwnd, param);
@@ -732,8 +771,8 @@ SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd)
 	ZeroMemory(&params, sizeof(LGitBranchDialogParams));
 	params.ctx = ctx;
 	params.menu = LoadMenu(ctx->dllInst, MAKEINTRESOURCE(IDR_REFERENCE_MENU));
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_BRANCHES),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_BRANCHES),
 		hwnd,
 		BranchManagerDialogProc,
 		(LPARAM)&params)) {
