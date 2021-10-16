@@ -60,8 +60,8 @@ static SCCRTN SetCommitOptions(LGitContext *ctx, HWND hWnd, LPCMDOPTS *opts)
 		*opts = &ctx->commitOpts;
 		ZeroMemory(&ctx->commitOpts, sizeof(LGitCommitOpts));
 	}
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_OPTIONS_COMMIT),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_OPTIONS_COMMIT),
 		hWnd,
 		CommitOptsDialogProc,
 		(LPARAM)ctx)) {
@@ -115,8 +115,8 @@ static SCCRTN SetGetOptions(LGitContext *ctx, HWND hWnd, LPCMDOPTS *opts)
 		*opts = &ctx->getOpts;
 		ZeroMemory(&ctx->commitOpts, sizeof(LGitGetOpts));
 	}
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_OPTIONS_GET),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_OPTIONS_GET),
 		hWnd,
 		GetOptsDialogProc,
 		(LPARAM)ctx)) {

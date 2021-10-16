@@ -14,6 +14,28 @@ typedef struct _LGitRemoteParams {
 	char password[128];
 } LGitRemoteParams;
 
+static void InitUserPassDialog(HWND hwnd, LGitRemoteParams *param)
+{
+	SetDlgItemText(hwnd, IDC_AUTH_USERPASS_DESC, param->url);
+	wchar_t username[128];
+	if (param->user_from_url != NULL) {
+		LGitUtf8ToWide(param->user_from_url, username, 128);
+	} else {
+		LGitUtf8ToWide(param->ctx->username, username, 128);
+	}
+	SetDlgItemTextW(hwnd, IDC_AUTH_USERNAME, username);
+}
+
+static void EndUserPassDialog(HWND hwnd, LGitRemoteParams *param)
+{
+	wchar_t buf[128];
+	GetDlgItemTextW(hwnd, IDC_AUTH_USERNAME, buf, 128);
+	LGitWideToUtf8(buf, param->username, 128);
+	GetDlgItemTextW(hwnd, IDC_AUTH_PASSWORD, buf, 128);
+	LGitWideToUtf8(buf, param->password, 128);
+	ZeroMemory(buf, 128 * sizeof(wchar_t));
+}
+
 static BOOL CALLBACK UserPassDialogProc(HWND hwnd,
 										unsigned int iMsg,
 										WPARAM wParam,
@@ -24,19 +46,13 @@ static BOOL CALLBACK UserPassDialogProc(HWND hwnd,
 	case WM_INITDIALOG:
 		param = (LGitRemoteParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
-		SetDlgItemText(hwnd, IDC_AUTH_USERPASS_DESC, param->url);
-		if (param->user_from_url != NULL) {
-			SetDlgItemText(hwnd, IDC_AUTH_USERNAME, param->user_from_url);
-		} else {
-			SetDlgItemText(hwnd, IDC_AUTH_USERNAME, param->ctx->username);
-		}
+		InitUserPassDialog(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitRemoteParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
-			GetDlgItemText(hwnd, IDC_AUTH_USERNAME, param->username, 128);
-			GetDlgItemText(hwnd, IDC_AUTH_PASSWORD, param->password, 128);
+			EndUserPassDialog(hwnd, param);
 			EndDialog(hwnd, 2);
 			return TRUE;
 		case IDCANCEL:
@@ -51,8 +67,8 @@ static BOOL CALLBACK UserPassDialogProc(HWND hwnd,
 
 static int UserPassDialog(LGitRemoteParams *params)
 {
-	switch (DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_AUTH_USERPASS),
+	switch (DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_AUTH_USERPASS),
 		params->parent,
 		UserPassDialogProc,
 		(LPARAM)params)) {

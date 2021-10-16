@@ -243,6 +243,8 @@ static void InitConflictView(HWND hwnd, LGitMergeConflictDialogParams* params)
 	ListView_SetExtendedListViewStyle(lv, LVS_EX_FULLROWSELECT
 		| LVS_EX_HEADERDRAGDROP
 		| LVS_EX_LABELTIP);
+	ListView_SetUnicodeFormat(lv, TRUE);
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	ListView_InsertColumn(lv, 0, &ancestor_column);
 	ListView_InsertColumn(lv, 1, &ours_column);
@@ -270,27 +272,31 @@ static void FillConflictView(HWND hwnd, LGitMergeConflictDialogParams* params)
 			ancestor ? ancestor->path : "NULL",
 			our->path ? our->path : "NULL",
 			their->path ? their->path : "NULL");
-		LVITEM lvi;
+		LVITEMW lvi;
+		wchar_t buf[1024];
 		
-		ZeroMemory(&lvi, sizeof(LVITEM));
+		ZeroMemory(&lvi, sizeof(LVITEMW));
 		lvi.mask = LVIF_TEXT;
-		lvi.pszText = (char*)(ancestor ? ancestor->path : "");
+		LGitUtf8ToWide(ancestor ? ancestor->path : "", buf, 1024);
+		lvi.pszText = buf;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
 
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		SendMessage(lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 		if (lvi.iItem == -1) {
 			LGitLog(" ! ListView_InsertItem failed\n");
 			continue;
 		}
 		/* now for the subitems... */
 		lvi.iSubItem = 1;
-		lvi.pszText = (char*)(our->path ? our->path : "");
-		ListView_SetItem(lv, &lvi);
+		LGitUtf8ToWide(our->path ? our->path : "", buf, 1024);
+		lvi.pszText = buf;
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 		
 		lvi.iSubItem = 2;
-		lvi.pszText = (char*)(their->path ? their->path : "");
-		ListView_SetItem(lv, &lvi);
+		LGitUtf8ToWide(their->path ? their->path : "", buf, 1024);
+		lvi.pszText = buf;
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 	}
 	LGitLog(" ! Finished enumeration, %d file(s), rc %d\n", index, err);
 
@@ -333,8 +339,8 @@ SCCRTN LGitShowMergeConflicts(LGitContext *ctx, HWND hwnd, git_index *index)
 	LGitMergeConflictDialogParams params;
 	params.ctx = ctx;
 	params.index = index;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_MERGE_CONFLICTS),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_MERGE_CONFLICTS),
 		hwnd,
 		MergeConflictDialogProc,
 		(LPARAM)&params)) {

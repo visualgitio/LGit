@@ -15,6 +15,17 @@ char *LGitWideToUtf8Alloc(wchar_t *buf)
 	return allocated;
 }
 
+wchar_t *LGitUtf8ToWideAlloc(char *buf)
+{	
+	size_t required_size = LGitUtf8ToWide(buf, NULL, 0);
+	wchar_t *allocated = (wchar_t*)calloc(required_size, 2);
+	if (allocated == NULL) {
+		return NULL;
+	}
+	LGitUtf8ToWide(buf, allocated, required_size);
+	return allocated;
+}
+
 static void TimetToFileTime(_int64 t, LPFILETIME pft)
 {
     LONGLONG ll = (t * 10000000) + 116444736000000000;

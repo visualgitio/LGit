@@ -146,8 +146,8 @@ SCCRTN LGitRevparseDialog(LGitContext *ctx, HWND hwnd, const char *title, const 
 	strlcpy(rp_params.title, title, 128);
 	strlcpy(rp_params.spec, suggested_spec, 128);
 	SCCRTN ret = SCC_OK;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_REVPARSE),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_REVPARSE),
 		hwnd,
 		RevparseDialogProc,
 		(LPARAM)&rp_params)) {

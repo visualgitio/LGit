@@ -93,7 +93,7 @@ static int LGitDiffFileCallback(const git_diff_delta *delta,
 	lvi.iSubItem = 0;
 	lvi.iImage = 0;
 
-	lvi.iItem = ListView_InsertItem(params->lv, &lvi);
+	lvi.iItem = SendMessage(params->lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 	if (lvi.iItem == -1) {
 		LGitLog(" ! ListView_InsertItem failed for file A\n");
 		return 1;
@@ -276,19 +276,25 @@ static void CopyDiff(HWND hwnd, LGitDiffDialogParams* params)
 		return;
 	}
 	EmptyClipboard();
-	if (SetClipboardData(CF_TEXT, blob.ptr) == NULL) {
+	/*
+	 * convert to UTF-16 because CF_TEXT is ANSI
+	 * XXX: It's implied 
+	 */
+	wchar_t *buf = LGitUtf8ToWideAlloc(blob.ptr);
+	if (SetClipboardData(CF_UNICODETEXT, buf) == NULL) {
 		LGitLog("!! Couldn't set clipboard\n");
 	}
 	CloseClipboard();
+	free(buf);
 	git_buf_dispose(&blob);
 }
 
 static BOOL SaveDiff(HWND hwnd,
 					 LGitDiffDialogParams *params,
-					 const char *fileName)
+					 const wchar_t *fileName)
 {
 	/* Binary because the diff is LF, not CRLF */
-	FILE *f = fopen(fileName, "wb");
+	FILE *f = _wfopen(fileName, L"wb");
 	if (f == NULL) {
 		return FALSE;
 	}
@@ -310,19 +316,19 @@ static BOOL SaveDiff(HWND hwnd,
 
 static void SaveDiffDialog(HWND hwnd, LGitDiffDialogParams *params)
 {
-	OPENFILENAME ofn;
-	TCHAR fileName[MAX_PATH];
+	OPENFILENAMEW ofn;
+	wchar_t fileName[MAX_PATH];
 	ZeroMemory(&ofn, sizeof(ofn));
 	ZeroMemory(fileName, MAX_PATH);
 	ofn.lStructSize = sizeof(ofn);
-	ofn.lpstrFilter = "Diff\0*.diff;*.patch\0";
-	ofn.lpstrTitle = "Save Diff";
-	ofn.lpstrDefExt = "diff";
+	ofn.lpstrFilter = L"Diff\0*.diff;*.patch\0";
+	ofn.lpstrTitle = L"Save Diff";
+	ofn.lpstrDefExt = L"diff";
 	ofn.lpstrFile = fileName;
 	ofn.nMaxFile = MAX_PATH;
 	/* For help, |= OFN_SHOWHELP | OFN_ENABLEHOOK (and hook) */
 	ofn.Flags = OFN_EXPLORER | OFN_OVERWRITEPROMPT | OFN_HIDEREADONLY;
-	if (GetSaveFileName(&ofn)) {
+	if (GetSaveFileNameW(&ofn)) {
 		SaveDiff(hwnd, params, fileName);
 	}
 }

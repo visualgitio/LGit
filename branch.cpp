@@ -556,7 +556,7 @@ static BOOL BeginBranchRename(HWND hwnd, LGitBranchDialogParams* params, UINT in
 	ZeroMemory(&lvi, sizeof(lvi));
 	lvi.mask = LVIF_TEXT;
 	lvi.iItem = index;
-	lvi.iSubItem = 1;
+	lvi.iSubItem = 0;
 	lvi.pszText = params->old_name;
 	lvi.cchTextMax = 128;
 	if (SendMessage(lv, LVM_GETITEMTEXTW, index, (LPARAM)&lvi) < 1) {

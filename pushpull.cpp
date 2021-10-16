@@ -116,7 +116,9 @@ static void InitPullView(HWND hwnd, LGitPullDialogParams* params)
 
 static BOOL LGitPullDialogValidateAndSetParams(HWND hwnd, LGitPullDialogParams* params)
 {
-	GetDlgItemText(hwnd, IDC_PULL_REMOTE, params->remote_name, 256);
+	wchar_t buf[128];
+	GetDlgItemTextW(hwnd, IDC_PULL_REMOTE, buf, 128);
+	LGitWideToUtf8(buf, params->remote_name, 128);
 	if (strlen(params->remote_name) == 0) {
 		MessageBox(hwnd,
 			"There was no remote given.",
@@ -174,8 +176,8 @@ SCCRTN LGitPullDialog(LGitContext *ctx, HWND hwnd)
 	LGitPullDialogParams params;
 	ZeroMemory(&params, sizeof(LGitPullDialogParams));
 	params.ctx = ctx;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_PULL),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_PULL),
 		hwnd,
 		PullDialogProc,
 		(LPARAM)&params)) {
@@ -249,7 +251,7 @@ typedef struct _LGitPushDialogParams {
 static void InitPushView(HWND hwnd, LGitPushDialogParams* params, BOOL do_refspecs)
 {
 	const char *name;
-	size_t i;
+	wchar_t name_utf16[128];
 	/* First initialize remotes */
 	HWND remote_box = GetDlgItem(hwnd, IDC_PUSH_REMOTE);
 	if (remote_box == NULL) {
@@ -262,20 +264,7 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params, BOOL do_refspe
 	}
 	/* Then populate refspecs */
 	HWND ref_box = GetDlgItem(hwnd, IDC_PUSH_REF);
-	LGitLog(" ! Getting remotes for push (ctx %p)\n", params->ctx);
-	git_strarray refs;
-	ZeroMemory(&refs, sizeof(git_strarray));
-	if (git_reference_list(&refs, params->ctx->repo) != 0) {
-		LGitLibraryError(hwnd, "git_reference_list");
-		return;
-	}
-	LGitLog(" ! Got back %d reference(s)\n", refs.count);
-	for (i = 0; i < refs.count; i++) {
-		name = refs.strings[i];
-		LGitLog(" ! Adding reference %s\n", name);
-		SendMessage(ref_box, CB_ADDSTRING, 0, (LPARAM)name);
-	}
-	git_strarray_dispose(&refs);
+	LGitPopulateReferenceComboBox(hwnd, ref_box, params->ctx);
 	/* get the current branch, out of convenience */
 	git_reference *head_ref;
 	if (git_reference_lookup(&head_ref, params->ctx->repo, "HEAD") != 0) {
@@ -287,7 +276,8 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params, BOOL do_refspe
 		name = git_reference_name(head_ref);
 	}
 	LGitLog(" ! Current refspec is %s\n", name);
-	SetWindowText(ref_box, name);
+	LGitUtf8ToWide(name, name_utf16, 128);
+	SetWindowTextW(ref_box, name_utf16);
 	if (head_ref != NULL) {
 		git_reference_free(head_ref);
 	}
@@ -295,7 +285,9 @@ static void InitPushView(HWND hwnd, LGitPushDialogParams* params, BOOL do_refspe
 
 static BOOL LGitPushDialogValidateAndSetParams(HWND hwnd, LGitPushDialogParams* params)
 {
-	GetDlgItemText(hwnd, IDC_PUSH_REMOTE, params->remote_name, 256);
+	wchar_t buf[128];
+	GetDlgItemTextW(hwnd, IDC_PUSH_REMOTE, buf, 128);
+	LGitWideToUtf8(buf, params->remote_name, 128);
 	if (strlen(params->remote_name) == 0) {
 		MessageBox(hwnd,
 			"There was no remote given.",
@@ -307,7 +299,8 @@ static BOOL LGitPushDialogValidateAndSetParams(HWND hwnd, LGitPushDialogParams* 
 		return FALSE;
 	}
 	/* try more elaborate lookups for references */
-	GetDlgItemText(hwnd, IDC_PUSH_REF, params->refspec_name, 256);
+	GetDlgItemTextW(hwnd, IDC_PUSH_REF, buf, 128);
+	LGitWideToUtf8(buf, params->refspec_name, 128);
 	if (strlen(params->refspec_name) == 0) {
 		MessageBox(hwnd,
 			"There was no reference given.",
@@ -365,8 +358,8 @@ SCCRTN LGitPushDialog(LGitContext *ctx, HWND hwnd)
 	LGitPushDialogParams params;
 	ZeroMemory(&params, sizeof(LGitPushDialogParams));
 	params.ctx = ctx;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_PUSH_UPSTAIRS),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_PUSH_UPSTAIRS),
 		hwnd,
 		PushDialogProc,
 		(LPARAM)&params)) {

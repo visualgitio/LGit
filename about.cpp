@@ -99,8 +99,8 @@ void LGitAbout(HWND hwnd, LGitContext *ctx)
 {
 	LGitAboutParams params;
 	params.ctx = ctx;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_ABOUT),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_ABOUT),
 		hwnd,
 		AboutDialogProc,
 		(LPARAM)&params)) {

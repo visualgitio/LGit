@@ -14,21 +14,29 @@ typedef struct _LGitEditRemoteDialogParams {
 
 static void InitRemoteEditView(HWND hwnd, LGitEditRemoteDialogParams* params)
 {
-	SetDlgItemText(hwnd, IDC_REMOTE_EDIT_NAME, params->new_name);
+	wchar_t buf[128];
+	LGitUtf8ToWide(params->new_name, buf, 128);
+	SetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_NAME, buf);
 	if (!params->is_new) {
 		SendDlgItemMessage(hwnd, IDC_REMOTE_EDIT_NAME, EM_SETREADONLY, TRUE, 0);
 	}
-	SetDlgItemText(hwnd, IDC_REMOTE_EDIT_URL, params->new_url);
-	SetDlgItemText(hwnd, IDC_REMOTE_EDIT_PUSHURL, params->new_push_url);
+	LGitUtf8ToWide(params->new_url, buf, 128);
+	SetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_URL, buf);
+	LGitUtf8ToWide(params->new_push_url, buf, 128);
+	SetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_PUSHURL, buf);
 }
 
 static SetRemoteEditParams(HWND hwnd, LGitEditRemoteDialogParams* params)
 {
+	wchar_t buf[128];
 	if (params->is_new) {
-		GetDlgItemText(hwnd, IDC_REMOTE_EDIT_NAME, params->new_name, 128);
+		GetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_NAME, buf, 128);
+		LGitWideToUtf8(buf, params->new_name, 128);
 	}
-	GetDlgItemText(hwnd, IDC_REMOTE_EDIT_URL, params->new_url, 128);
-	GetDlgItemText(hwnd, IDC_REMOTE_EDIT_PUSHURL, params->new_push_url, 128);
+	GetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_URL, buf, 128);
+	LGitWideToUtf8(buf, params->new_url, 128);
+	GetDlgItemTextW(hwnd, IDC_REMOTE_EDIT_PUSHURL, buf, 128);
+	LGitWideToUtf8(buf, params->new_push_url, 128);
 }
 
 static BOOL CALLBACK RemoteEditorDialogProc(HWND hwnd,
@@ -63,7 +71,7 @@ static BOOL CALLBACK RemoteEditorDialogProc(HWND hwnd,
 typedef struct _LGitRemoteDialogParams {
 	LGitContext *ctx;
 	/* for label editor */
-	char old_name[128];
+	wchar_t old_name[128];
 	BOOL editing;
 } LGitRemoteDialogParams;
 
@@ -82,6 +90,8 @@ static LVCOLUMN pushurl_column = {
 static void InitRemoteView(HWND hwnd, LGitRemoteDialogParams* params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_REMOTE_LIST);
+	ListView_SetUnicodeFormat(lv, TRUE);
+	SendMessage(lv, WM_SETFONT, (WPARAM)params->ctx->listviewFont, TRUE);
 
 	ListView_InsertColumn(lv, 0, &name_column);
 	ListView_InsertColumn(lv, 1, &url_column);
@@ -121,27 +131,31 @@ static void FillRemoteView(HWND hwnd, LGitRemoteDialogParams* params)
 		if (push_url == NULL) {
 			push_url = "";
 		}
-		LVITEM lvi;
+		wchar_t buf[128];
+		LVITEMW lvi;
 		
-		ZeroMemory(&lvi, sizeof(LVITEM));
+		ZeroMemory(&lvi, sizeof(LVITEMW));
 		lvi.mask = LVIF_TEXT;
-		lvi.pszText = (char*)name;
+		LGitUtf8ToWide(name, buf, 128);
+		lvi.pszText = buf;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;
 
-		lvi.iItem = ListView_InsertItem(lv, &lvi);
+		lvi.iItem = SendMessage(lv, LVM_INSERTITEMW, 0, (LPARAM)&lvi);
 		if (lvi.iItem == -1) {
 			LGitLog(" ! ListView_InsertItem failed\n");
 			goto inner_fail;
 		}
 		/* now for the subitems... */
 		lvi.iSubItem = 1;
-		lvi.pszText = (char*)url;
-		ListView_SetItem(lv, &lvi);
+		LGitUtf8ToWide(url, buf, 128);
+		lvi.pszText = buf;
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 		
 		lvi.iSubItem = 2;
-		lvi.pszText = (char*)push_url;
-		ListView_SetItem(lv, &lvi);
+		LGitUtf8ToWide(push_url, buf, 128);
+		lvi.pszText = buf;
+		SendMessage(lv, LVM_SETITEMW, 0, (LPARAM)&lvi);
 inner_fail:
 		git_remote_free(remote);
 	}
@@ -158,7 +172,18 @@ static BOOL GetSelectedRemote(HWND hwnd, char *buf, size_t bufsz)
 	if (selected == -1) {
 		return FALSE;
 	}
-	ListView_GetItemText(lv, selected, 0, buf, bufsz);
+	wchar_t temp_buf[1024];
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = selected;
+	lvi.iSubItem = 0;
+	lvi.pszText = temp_buf;
+	lvi.cchTextMax = 1024;
+	if (SendMessage(lv, LVM_GETITEMTEXTW, selected, (LPARAM)&lvi) < 1) {
+		return FALSE;
+	}
+	LGitWideToUtf8(temp_buf, buf, bufsz);
 	return TRUE;
 }
 
@@ -168,8 +193,8 @@ static void RemoteAdd(HWND hwnd, LGitRemoteDialogParams* params)
 	ZeroMemory(&er_params, sizeof(LGitEditRemoteDialogParams));
 	er_params.ctx = params->ctx;
 	er_params.is_new = TRUE;
-	switch (DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_REMOTE_EDIT),
+	switch (DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_REMOTE_EDIT),
 		hwnd,
 		RemoteEditorDialogProc,
 		(LPARAM)&er_params)) {
@@ -237,8 +262,8 @@ static void RemoteEdit(HWND hwnd, LGitRemoteDialogParams* params)
 	strlcpy(er_params.new_url, old_url == NULL ? "" : old_url, 128);
 	const char *old_push_url = git_remote_pushurl(remote);
 	strlcpy(er_params.new_push_url, old_push_url == NULL ? "" : old_push_url, 128);
-	switch (DialogBoxParam(params->ctx->dllInst,
-		MAKEINTRESOURCE(IDD_REMOTE_EDIT),
+	switch (DialogBoxParamW(params->ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_REMOTE_EDIT),
 		hwnd,
 		RemoteEditorDialogProc,
 		(LPARAM)&er_params)) {
@@ -299,25 +324,40 @@ static BOOL BeginRemoteRename(HWND hwnd, LGitRemoteDialogParams* params, UINT in
 	if (lv == NULL) {
 		return FALSE;
 	}
-	ListView_GetItemText(lv, index, 0, params->old_name, 128);
+	LGitLog(" ! Begin rename for %u\n", index);
+	LVITEMW lvi;
+	ZeroMemory(&lvi, sizeof(lvi));
+	lvi.mask = LVIF_TEXT;
+	lvi.iItem = index;
+	lvi.iSubItem = 0;
+	lvi.pszText = params->old_name;
+	lvi.cchTextMax = 128;
+	if (SendMessage(lv, LVM_GETITEMTEXTW, index, (LPARAM)&lvi) < 1) {
+		LGitLog("!! Failed to get rename text for %u\n", index);
+		return FALSE;
+	}
 	params->editing = TRUE;
 	return TRUE;
 }
 
-static BOOL RemoteRename(HWND hwnd, LGitRemoteDialogParams* params, const char *new_name)
+static BOOL RemoteRename(HWND hwnd, LGitRemoteDialogParams* params, const wchar_t *new_name_utf16)
 {
-	LGitLog(" ! Renaming %s to %s\n", params->old_name, new_name);
+	LGitLog(" ! Renaming %S to %S\n", params->old_name, new_name_utf16);
 	params->editing = FALSE;
 	/* Check if it's the same name or null; lg2 will throw an error if so. */
-	if (new_name == NULL || strcmp(params->old_name, new_name) == 0) {
+	if (new_name_utf16 == NULL || wcscmp(params->old_name, new_name_utf16) == 0) {
 		return FALSE;
 	}
+	/* keep semantics */
+	char new_name[128], old_name[128];
+	LGitWideToUtf8(new_name_utf16, new_name, 128);
+	LGitWideToUtf8(params->old_name, old_name, 128);
 	/*
 	 * This is slightly awkward because we have the old name in params because
 	 * of how the ListView label edit messages are structured.
 	 */
 	git_strarray problems = {0,0};
-	switch (git_remote_rename(&problems, params->ctx->repo, params->old_name, new_name)) {
+	switch (git_remote_rename(&problems, params->ctx->repo, old_name, new_name)) {
 	case 0:
 		/* XXX: Report problems in their own view. For now, log */
 		if (problems.count > 0) {
@@ -393,15 +433,15 @@ static BOOL CALLBACK RemoteManagerDialogProc(HWND hwnd,
 		case IDC_REMOTE_LIST:
 			LPNMHDR child_msg = (LPNMHDR)lParam;
 			LPNMITEMACTIVATE child_activate = (LPNMITEMACTIVATE)lParam;
-			NMLVDISPINFO *child_edit = (NMLVDISPINFO*)lParam;
+			NMLVDISPINFOW *child_edit = (NMLVDISPINFOW*)lParam;
 			HWND lv = (HWND)wParam;
 			switch (child_msg->code) {
 			case LVN_ITEMACTIVATE:
 				ListView_EditLabel(lv, child_activate->iItem);
 				return TRUE;
-			case LVN_BEGINLABELEDIT:
+			case LVN_BEGINLABELEDITW:
 				return BeginRemoteRename(hwnd, param, child_edit->item.iItem);
-			case LVN_ENDLABELEDIT:
+			case LVN_ENDLABELEDITW:
 				return RemoteRename(hwnd, param, child_edit->item.pszText);
 			case LVN_ITEMCHANGED:
 				return TRUE;
@@ -419,8 +459,8 @@ SCCRTN LGitShowRemoteManager(LGitContext *ctx, HWND hwnd)
 	LGitRemoteDialogParams params;
 	ZeroMemory(&params, sizeof(LGitRemoteDialogParams));
 	params.ctx = ctx;
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_REMOTES),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_REMOTES),
 		hwnd,
 		RemoteManagerDialogProc,
 		(LPARAM)&params)) {

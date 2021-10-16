@@ -102,8 +102,8 @@ SCCRTN LGitSignatureDialog(LGitContext *ctx,
 	}
 	LGitUtf8ToWide(name, params.name, 128);
 	LGitUtf8ToWide(mail, params.mail, 128);
-	switch (DialogBoxParam(ctx->dllInst,
-		MAKEINTRESOURCE(IDD_NEW_SIGNATURE),
+	switch (DialogBoxParamW(ctx->dllInst,
+		MAKEINTRESOURCEW(IDD_NEW_SIGNATURE),
 		parent,
 		SignatureDialogProc,
 		(LPARAM)&params)) {

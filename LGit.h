@@ -85,6 +85,7 @@ void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 
 /* format.cpp */
 char *LGitWideToUtf8Alloc(wchar_t *buf);
+wchar_t *LGitUtf8ToWideAlloc(char *buf);
 BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
 BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);
