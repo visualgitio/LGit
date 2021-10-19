@@ -373,6 +373,7 @@ static void UpdateExplorerMenu(HWND hwnd, LGitExplorerParams *params)
 #define EnableMenuItemIfSelectedAndBorn(id) EnableMenuItem(params->menu,id,newStateSelectedBorn)
 #define EnableMenuItemIfSelectedSingle(id) EnableMenuItem(params->menu,id,newStateSelectedSingle)
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_OPENINWINDOWS);
+	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_CREATESHORTCUTONDESKTOP);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_REFRESH);
 	EnableMenuItemIfInRepo(ID_EXPLORER_REPOSITORY_DIFFFROMSTAGE);
 	EnableMenuItemIfInRepo(ID_EXPLORER_DIFF_DIFFFROMREVISION);
@@ -492,6 +493,9 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 
 			ShellExecuteExW(&info);
 		}
+		return TRUE;
+	case ID_EXPLORER_REPOSITORY_CREATESHORTCUTONDESKTOP:
+		LGitCreateShortcut(params->ctx, hwnd);
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_REFRESH:
 		UpdateExplorerStatus(hwnd, params);

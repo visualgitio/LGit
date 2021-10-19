@@ -325,7 +325,19 @@ static void ConfigRemove(HWND hwnd, LGitConfigDialogParams *params)
 
 static void ConfigAdd(HWND hwnd, LGitConfigDialogParams *params)
 {
-	ConfigEditDialog(hwnd, params, NULL, NULL, TRUE);
+	ConfigEditDialog(hwnd, params, L"", L"", TRUE);
+}
+
+static void UpdateConfigButtons(HWND hwnd, LGitConfigDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_CONFIG_LIST);
+	UINT selected = ListView_GetSelectedCount(lv);
+	/* there's no dlgitem ver. XXX: don't enable set if > 1, bc rm possible */
+	HWND remove_btn, set_btn;
+	remove_btn = GetDlgItem(hwnd, IDC_CONFIG_DELETE);
+	set_btn = GetDlgItem(hwnd, IDC_CONFIG_SET);
+	EnableWindow(remove_btn, selected > 0);
+	EnableWindow(set_btn, selected > 0);
 }
 
 static BOOL CALLBACK ConfigManagerDialogProc(HWND hwnd,
@@ -340,6 +352,7 @@ static BOOL CALLBACK ConfigManagerDialogProc(HWND hwnd,
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitConfigView(hwnd, param);
 		FillConfigView(hwnd, param);
+		UpdateConfigButtons(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
 		switch (LOWORD(wParam)) {
@@ -360,11 +373,14 @@ static BOOL CALLBACK ConfigManagerDialogProc(HWND hwnd,
 		return FALSE;
 	case WM_NOTIFY:
 		switch (wParam) {
-		case IDC_REMOTE_LIST:
+		case IDC_CONFIG_LIST:
 			LPNMHDR child_msg = (LPNMHDR)lParam;
 			switch (child_msg->code) {
 			case LVN_ITEMACTIVATE:
 				ConfigEdit(hwnd, param);
+				return TRUE;
+			case LVN_ITEMCHANGED:
+				UpdateConfigButtons(hwnd, param);
 				return TRUE;
 			}
 		}

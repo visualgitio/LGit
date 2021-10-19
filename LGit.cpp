@@ -120,7 +120,7 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 
 	/* XXX: What are the /real/ limits? */
 	*checkoutCommentLen = 0; /* checkout comments are nonsensical */
-	*commentLen = 1024;
+	*commentLen = 2048;
 
 	// XXX
 	strlcpy (auxPathLabel, "LGitProject:", SCC_AUXLABEL_LEN);

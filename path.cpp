@@ -132,3 +132,77 @@ void LGitOpenFiles(LGitContext *ctx, git_strarray *paths)
 		ShellExecuteExW(&info);
 	}
 }
+
+/**
+ * Creates a shortcut on the desktop to the repository, including the path to
+ * the standalone Visual Git executable.
+ */
+BOOL LGitCreateShortcut(LGitContext *ctx, HWND hwnd)
+{
+	wchar_t shortcut_path[_MAX_PATH];
+	wchar_t self_exe[_MAX_PATH], *last_slash;
+	LPITEMIDLIST desktop_pidl = NULL;
+	wchar_t desktop[_MAX_PATH], repo_name[128];
+	char repo_nameA[128];
+	HRESULT hres;
+	IShellLinkW* psl = NULL;
+	IPersistFile* ppf = NULL;
+	LPMALLOC shell_malloc = NULL;
+
+	if (SHGetMalloc(&shell_malloc) != NOERROR) {
+		LGitLog("!! Failed to get shell malloc\n");
+		goto fin;
+	}
+
+	/* get our own stuff */
+	if (GetModuleFileNameW(ctx->dllInst, self_exe, _MAX_PATH) == 0) {
+		LGitLog("!! Failed to get library name\n");
+		goto fin;
+	}
+	/* this is for the DLL so replace */
+	last_slash = wcsrchr(self_exe, L'\\');
+	*last_slash = '\0';
+	wcslcat(self_exe, L"\\VGit.exe", _MAX_PATH);
+
+	/* get the location for this */
+	if (!LGitGetProjectNameFromPath(repo_nameA, ctx->workdir_path, 128)) {
+		LGitLog("!! Failed to get project name\n");
+		goto fin;
+	}
+	LGitUtf8ToWide(repo_nameA, repo_name, 128);
+	if (SHGetSpecialFolderLocation(hwnd, CSIDL_DESKTOP, &desktop_pidl) != NOERROR) {
+		LGitLog("!! Failed to create desktop PIDL\n");
+		goto fin;
+	}
+	SHGetPathFromIDListW(desktop_pidl, desktop);
+	_snwprintf(shortcut_path, _MAX_PATH, L"%s\\Shortcut to %s.lnk", desktop, repo_name);
+
+	/* shell sludge */
+	hres = CoCreateInstance(CLSID_ShellLink, NULL, CLSCTX_INPROC_SERVER, IID_IShellLinkW, (LPVOID*)&psl);
+	if (FAILED(hres)) {
+		LGitLog("!! Failed to create IShellLink object (%x)\n", hres);
+		goto fin;
+	}
+	/* XXX: Do we need to escape? */
+	psl->SetPath(self_exe);
+	psl->SetArguments(ctx->workdir_path_utf16);
+	psl->SetDescription(repo_name);
+	hres = psl->QueryInterface(IID_IPersistFile, (LPVOID*)&ppf); 
+	if (FAILED(hres)) {
+		LGitLog("!! Failed to create IPersistFile object (%x)\n", hres);
+		goto fin;
+	}
+	hres = ppf->Save(shortcut_path, TRUE);
+fin:
+	if (shell_malloc != NULL) {
+		shell_malloc->Free(desktop_pidl);
+		shell_malloc->Release();
+	}
+	if (ppf != NULL) {
+		ppf->Release();
+	}
+	if (psl != NULL) {
+		psl->Release();
+	}
+	return TRUE;
+}

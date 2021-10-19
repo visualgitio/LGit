@@ -323,6 +323,7 @@ static void BranchHistory(HWND hwnd, LGitBranchDialogParams* params)
 	LGitHistoryForRefByName(params->ctx, hwnd, name);
 }
 
+/* XXX: Offer a stage version. */
 static void BranchDiff(HWND hwnd, LGitBranchDialogParams* params)
 {
 	char name[128];
@@ -330,46 +331,42 @@ static void BranchDiff(HWND hwnd, LGitBranchDialogParams* params)
 		LGitLog(" ! No branch?\n");
 		return;
 	}
-	LGitLog(" ! Diff for HEAD->%s?\n", name);
+	LGitLog(" ! Diff for Chosen->%s?\n", name);
 	git_diff_options diffopts;
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 	LGitInitDiffProgressCallback(params->ctx, &diffopts);
-	git_commit *head = NULL, *selected = NULL;
-	git_object *selected_object;
-	git_oid head_oid, selected_oid;
-	if (git_reference_name_to_id(&head_oid, params->ctx->repo, "HEAD") != 0) {
-		LGitLibraryError(hwnd, "HEAD git_reference_name_to_id");
-		goto fin;
-	}
+	/* selected -> from the listview, chosen -> from the prompt */
+	git_commit *chosen_commit = NULL, *selected_commit = NULL;
+	git_object *chosen_object = NULL, *selected_object = NULL;
+	git_reference *chosen_ref = NULL;
+	git_oid selected_oid;
 	if (git_reference_name_to_id(&selected_oid, params->ctx->repo, name) != 0) {
 		LGitLibraryError(hwnd, "Selected git_reference_name_to_id");
 		goto fin;
 	}
-	if (git_commit_lookup(&head, params->ctx->repo, &head_oid) != 0) {
-		LGitLibraryError(hwnd, "HEAD git_commit_lookup");
-		goto fin;
+	if (LGitRevparseDialog(params->ctx, hwnd, "Diff from Revision", "HEAD", &chosen_object, &chosen_ref) == SCC_OK) {
+		/* XXX: We should be peeling a tree */
+		if (git_object_peel((git_object**)&chosen_commit, chosen_object, GIT_OBJECT_COMMIT) != 0) {
+			LGitLibraryError(hwnd, "Couldn't Peel Chosen Commit");
+		}
 	}
 	/* This could be a hard tag object instead, try to get it peeled */
 	if (git_object_lookup(&selected_object, params->ctx->repo, &selected_oid, GIT_OBJECT_ANY) != 0) {
 		LGitLibraryError(hwnd, "Selected git_object_lookup");
 		goto fin;
 	}
-	if (git_object_peel((git_object**)&selected, selected_object, GIT_OBJECT_COMMIT) != 0) {
+	if (git_object_peel((git_object**)&selected_commit, selected_object, GIT_OBJECT_COMMIT) != 0) {
 		LGitLibraryError(hwnd, "Selected git_object_peel");
 		goto fin;
 	}
 	/* We'll compare this commit against HEAD... */
-	LGitCommitToCommitDiff(params->ctx, hwnd, selected, head, &diffopts);
+	LGitCommitToCommitDiff(params->ctx, hwnd, selected_commit, chosen_commit, &diffopts);
 fin:
-	if (head != NULL) {
-		git_commit_free(head);
-	}
-	if (selected != NULL) {
-		git_commit_free(selected);
-	}
-	if (selected_object != NULL) {
-		git_object_free(selected_object);
-	}
+	git_reference_free(chosen_ref);
+	git_commit_free(chosen_commit);
+	git_object_free(chosen_object);
+	git_commit_free(selected_commit);
+	git_object_free(selected_object);
 }
 
 /**

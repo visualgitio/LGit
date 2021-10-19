@@ -24,6 +24,7 @@
 #include <shellapi.h>
 #include <shlobj.h>
 #include <wincrypt.h>
+#include <shobjidl.h>
 
 #include <stdio.h>
 #include <stdlib.h>

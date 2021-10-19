@@ -392,6 +392,18 @@ static BOOL RemoteRename(HWND hwnd, LGitRemoteDialogParams* params, const wchar_
 	}
 }
 
+static void UpdateRemoteButtons(HWND hwnd, LGitRemoteDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_REMOTE_LIST);
+	UINT selected = ListView_GetSelectedCount(lv);
+	/* there's no dlgitem ver. XXX: don't enable set if > 1, bc rm possible */
+	HWND remove_btn, set_btn;
+	remove_btn = GetDlgItem(hwnd, IDC_REMOTE_DELETE);
+	set_btn = GetDlgItem(hwnd, IDC_REMOTE_SETURL);
+	EnableWindow(remove_btn, selected > 0);
+	EnableWindow(set_btn, selected > 0);
+}
+
 static BOOL CALLBACK RemoteManagerDialogProc(HWND hwnd,
 											 unsigned int iMsg,
 											 WPARAM wParam,
@@ -404,6 +416,7 @@ static BOOL CALLBACK RemoteManagerDialogProc(HWND hwnd,
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitRemoteView(hwnd, param);
 		FillRemoteView(hwnd, param);
+		UpdateRemoteButtons(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
 		param = (LGitRemoteDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
@@ -444,6 +457,7 @@ static BOOL CALLBACK RemoteManagerDialogProc(HWND hwnd,
 			case LVN_ENDLABELEDITW:
 				return RemoteRename(hwnd, param, child_edit->item.pszText);
 			case LVN_ITEMCHANGED:
+				UpdateRemoteButtons(hwnd, param);
 				return TRUE;
 			}
 		}

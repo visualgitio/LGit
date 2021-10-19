@@ -5,7 +5,7 @@
 
 #include <stdafx.h>
 
-#define COMMIT_DIALOG_MESSAGE_SIZE 0x1000
+#define COMMIT_DIALOG_MESSAGE_SIZE 8192
 
 typedef struct _LGitCreateCommitDialogParams {
 	LGitContext *ctx;
@@ -56,6 +56,26 @@ static void ChangeSignature(HWND hwnd, LGitCreateCommitDialogParams *params, UIN
 	SetSignatureWindowText(hwnd, params, control, *signature);
 }
 
+static BOOL FormatCommitMessage(HWND hwnd, LGitCreateCommitDialogParams *params)
+{
+	wchar_t message[COMMIT_DIALOG_MESSAGE_SIZE];
+	GetDlgItemTextW(hwnd, IDC_COMMIT_CREATE_MESSAGE, message, COMMIT_DIALOG_MESSAGE_SIZE);
+	/* similar to PrettifySccMessage */
+	char to_clean[COMMIT_DIALOG_MESSAGE_SIZE];
+	LGitWideToUtf8(message, to_clean, COMMIT_DIALOG_MESSAGE_SIZE);
+	git_buf prettified_message = {0};
+	char *comment;
+	if (git_message_prettify(&prettified_message, to_clean, 1, '#') != 0) {
+		LGitLog(" ! Failed to prettify commit, using original text\n");
+		comment = to_clean;
+	} else {
+		comment = prettified_message.ptr;
+	}
+	strlcpy(params->message, comment, COMMIT_DIALOG_MESSAGE_SIZE);
+	git_buf_dispose(&prettified_message);
+	return TRUE;
+}
+
 static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 											unsigned int iMsg,
 											WPARAM wParam,
@@ -83,8 +103,9 @@ static BOOL CALLBACK CreateCommitDialogProc(HWND hwnd,
 			ChangeSignature(hwnd, param, IDC_COMMIT_CREATE_COMMITTER, &param->committer);
 			return TRUE;
 		case IDOK:
-			GetDlgItemText(hwnd, IDC_COMMIT_CREATE_MESSAGE, param->message, 0x1000);
-			EndDialog(hwnd, 2);
+			if (FormatCommitMessage(hwnd, param)) {
+				EndDialog(hwnd, 2);
+			}
 			return TRUE;
 		case IDCANCEL:
 			EndDialog(hwnd, 1);

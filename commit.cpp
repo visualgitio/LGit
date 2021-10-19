@@ -4,34 +4,67 @@
 
 #include "stdafx.h"
 
+static void AppendVerbTrailer(char *buf, const char *verb, size_t bufsz)
+{
+	if (verb == NULL) {
+		return;
+	}
+	char verb_trailer[128];
+	if (strlen(buf) > 0 && buf[strlen(buf) - 1] != '\n') {
+		strlcat(buf, "\n", bufsz);
+	}
+	_snprintf(verb_trailer, 128, "\nX-SccAction: %s\n", verb);
+	strlcat(buf, verb_trailer, bufsz);
+}
+
+static char *PrettifySccMessage(HWND hwnd, LGitContext *ctx, const char *message, const char *verb)
+{
+	/* NULL messages can't be reasoned with */
+	if (message == NULL) {
+		char null_msg[1024];
+		strlcat(null_msg, "(No commit message specified.)\n", 1024);
+		return strdup(null_msg);
+	}
+	/*
+	 * The comment length (see SccInitialize) should be more than what SCC
+	 * declares because of conversions.
+	 * XXX: Heap allocate?
+	 */
+#define COMMITMSGSZ 8192
+	char to_clean[COMMITMSGSZ];
+	wchar_t to_clean_utf16[COMMITMSGSZ];
+	MultiByteToWideChar(CP_ACP, 0, message, -1, to_clean_utf16, COMMITMSGSZ);
+	LGitWideToUtf8(to_clean_utf16, to_clean, COMMITMSGSZ);
+	/* Append the action that we're taking */
+	LGitLog(" ! Verb is %s\n", verb);
+	AppendVerbTrailer(to_clean, verb, COMMITMSGSZ);
+	/*
+	 * If we can use the prettified commit, do so, otherwise use the original.
+	 * git prefers prettified because it'll make sure there's all the fixings
+	 * like a trailing newline and no comments. It'll also remove CRs.
+	 */
+	git_buf prettified_message = {0};
+	char *comment, *ret;
+	if (git_message_prettify(&prettified_message, to_clean, 1, '#') != 0) {
+		LGitLog(" ! Failed to prettify commit, using original text\n");
+		comment = to_clean;
+	} else {
+		comment = prettified_message.ptr;
+	}
+
+	ret = strdup(comment);
+	git_buf_dispose(&prettified_message);
+	return ret;
+}
+
 static SCCRTN LGitCommitIndexCommon(HWND hWnd,
 									LGitContext *ctx,
 									git_index *index,
-									LPCSTR lpComment,
 									/* locals for other funcs */
-									const char **comment,
-									git_buf *prettified_message,
 									git_oid *tree_oid,
 									git_tree **tree)
 {
 	SCCRTN ret = SCC_OK;
-	/*
-	 * If we can use the prettified commit, do so, otherwise use the original.
-	 * git prefers prettified because it'll make sure there's all the fixings
-	 * like a trailing newline and no comments.
-	 *
-	 * XXX: SCC API will likely return this to us in terms of system locale.
-	 * Convert to UTF-8 or declare the encoding type.
-	 */
-	if (lpComment == NULL) {
-		/* Null commit messages will crash libgit2 */
-		*comment = "(No commit message specified.)\n";
-	} else if (git_message_prettify(prettified_message, lpComment, 1, '#') != 0) {
-		LGitLog(" ! Failed to prettify commit, using original text\n");
-		*comment = lpComment;
-	} else {
-		*comment = prettified_message->ptr;
-	}
 
 	if (git_index_write_tree(tree_oid, index) != 0) {
 		LGitLibraryError(hWnd, "Commit (writing tree from index)");
@@ -48,14 +81,14 @@ static SCCRTN LGitCommitIndexCommon(HWND hWnd,
 		ret = SCC_E_NONSPECIFICERROR;
 		goto fin;
 	}
-fin:
+fin:;
 	return ret;
 }
 
 SCCRTN LGitCommitIndex(HWND hWnd,
 					   LGitContext *ctx,
 					   git_index *index,
-					   LPCSTR lpComment,
+					   LPCSTR comment,
 					   git_signature *author,
 					   git_signature *committer)
 {
@@ -65,17 +98,12 @@ SCCRTN LGitCommitIndex(HWND hWnd,
 	git_reference *ref = NULL;
 
 	SCCRTN ret = SCC_OK;
-
-	const char *comment;
-	git_buf prettified_message = {0};
-
 	/* Harmless if it fails, it means first commit. Need to free after. */
 	if (git_revparse_ext(&parent, &ref, ctx->repo, "HEAD") != 0) {
 		LGitLog(" ! Failed to get HEAD, likely the first commit\n");
 	}
 
-	ret = LGitCommitIndexCommon(hWnd, ctx, index, lpComment,
-		&comment, &prettified_message, &tree_oid, &tree);
+	ret = LGitCommitIndexCommon(hWnd, ctx, index, &tree_oid, &tree);
 	if (ret != SCC_OK) {
 		LGitLog("!! Failure from shared code\n");
 		goto fin;
@@ -100,7 +128,6 @@ SCCRTN LGitCommitIndex(HWND hWnd,
 	git_repository_message_remove(ctx->repo);
 	LGitLog(" ! Made commit\n");
 fin:
-	git_buf_dispose(&prettified_message);
 	if (parent != NULL) {
 		git_object_free(parent);
 	}
@@ -116,7 +143,7 @@ fin:
 SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 								LGitContext *ctx,
 								git_index *index,
-								LPCSTR lpComment,
+								LPCSTR comment,
 								git_signature *author,
 								git_signature *committer)
 {
@@ -128,9 +155,6 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 	git_reference *ref = NULL;
 
 	SCCRTN ret = SCC_OK;
-
-	const char *comment;
-	git_buf prettified_message = {0};
 
 	/* Unlike the other function, we MUST need this to be a commit. */
 	if (git_revparse_ext(&parent, &ref, ctx->repo, "HEAD")) {
@@ -144,8 +168,7 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 		goto fin;
 	}
 
-	ret = LGitCommitIndexCommon(hWnd, ctx, index, lpComment,
-		&comment, &prettified_message, &tree_oid, &tree);
+	ret = LGitCommitIndexCommon(hWnd, ctx, index, &tree_oid, &tree);
 	if (ret != SCC_OK) {
 		LGitLog("!! Failure from shared code\n");
 		goto fin;
@@ -169,7 +192,6 @@ SCCRTN LGitCommitIndexAmendHead(HWND hWnd,
 	git_repository_message_remove(ctx->repo);
 	LGitLog(" ! Made commit\n");
 fin:
-	git_buf_dispose(&prettified_message);
 	if (parent_commit != NULL) {
 		git_commit_free(parent_commit);
 	}
@@ -200,6 +222,7 @@ SCCRTN SccCheckin (LPVOID context,
 {
 	git_index *index;
 	git_signature *signature = NULL;
+	char *commit_message = NULL;
 	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
@@ -236,12 +259,14 @@ SCCRTN SccCheckin (LPVOID context,
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commit_message = PrettifySccMessage(hWnd, ctx, lpComment, "Checkin");
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, commit_message, signature, signature);
 	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 fin:
+	free(commit_message);
 	git_index_free(index);
 	git_signature_free(signature);
 	return inner_ret;
@@ -260,6 +285,7 @@ SCCRTN SccAdd (LPVOID context,
 {
 	git_index *index;
 	git_signature *signature = NULL;
+	char *commit_message = NULL;
 	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
@@ -305,12 +331,14 @@ SCCRTN SccAdd (LPVOID context,
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commit_message = PrettifySccMessage(hWnd, ctx, lpComment, "Add");
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, commit_message, signature, signature);
 	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 fin:
+	free(commit_message);
 	git_index_free(index);
 	git_signature_free(signature);
 	return inner_ret;
@@ -330,6 +358,7 @@ SCCRTN SccRemove (LPVOID context,
 {
 	git_index *index;
 	git_signature *signature = NULL;
+	char *commit_message = NULL;
 	LGitCommitOpts *commitOpts;
 	SCCRTN inner_ret;
 	int i;
@@ -366,12 +395,14 @@ SCCRTN SccRemove (LPVOID context,
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
 	}
-	inner_ret = LGitCommitIndex(hWnd, ctx, index, lpComment, signature, signature);
+	commit_message = PrettifySccMessage(hWnd, ctx, lpComment, "Remove");
+	inner_ret = LGitCommitIndex(hWnd, ctx, index, commit_message, signature, signature);
 	commitOpts = (LGitCommitOpts*)pvOptions;
 	if (pvOptions != NULL && commitOpts->push && inner_ret == SCC_OK) {
 		inner_ret = LGitPushDialog(ctx, hWnd);
 	}
 fin:
+	free(commit_message);
 	git_index_free(index);
 	git_signature_free(signature);
 	return inner_ret;
@@ -387,7 +418,7 @@ SCCRTN SccRename (LPVOID context,
 	git_signature *signature = NULL;
 	SCCRTN inner_ret;
 	const char *o_raw_path, *n_raw_path;
-	char o_path[1024], n_path[1024], comment[1024];
+	char o_path[1024], n_path[1024], comment[COMMITMSGSZ];
 
 	LGitLog("**SccRename** Context=%p\n", context);
 	o_raw_path = LGitStripBasePath(ctx, lpFileName);
@@ -426,8 +457,7 @@ SCCRTN SccRename (LPVOID context,
 		inner_ret = SCC_E_NONSPECIFICERROR;
 		goto fail;
 	}
-	/* XXX: Add a trailer? */
-	_snprintf(comment, 1024, "Rename %s to %s\n", o_path, n_path);
+	_snprintf(comment, COMMITMSGSZ, "Rename %s to %s\n\nX-SccAction: Rename\n", o_path, n_path);
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fail;
 	}

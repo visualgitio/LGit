@@ -34,6 +34,7 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 	ZeroMemory(provName, SCC_NAME_LEN);
 	ZeroMemory(auxPath, SCC_AUXLABEL_LEN);
 
+	CoInitialize(NULL);
 	InitCommonControls();
 
 	ret = SccInitialize(&ctx, NULL, "Visual Git Standalone", provName, &caps, auxPath, &coLen, &commentLen);
