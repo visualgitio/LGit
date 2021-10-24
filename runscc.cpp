@@ -431,7 +431,8 @@ static BOOL OpenRepository(HWND hwnd, LGitExplorerParams *params)
 	}
 	/* we got it, let's go */
 	ret = SccCloseProject(params->ctx); /* always succeeds */
-	ret = SccOpenProject(params->ctx, hwnd, user, proj_name, path, aux_path, "", params->ctx->textoutCb, SCC_OP_CREATEIFNEW);
+	/* this assumes UTF-8 values, which we got */
+	ret = LGitOpenProject(params->ctx, hwnd, user, proj_name, path, aux_path, "", params->ctx->textoutCb, SCC_OP_CREATEIFNEW);
 	if (ret != SCC_OK && ret != SCC_I_OPERATIONCANCELED) {
 		LGitLibraryError(hwnd, "Opening Different Project");
 		retbool = FALSE;
@@ -845,24 +846,30 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 						   HWND hWnd,
 						   LONG nFiles,
 						   LPCSTR* lpFileNames,
-						   BOOL standalone)
+						   BOOL standalone,
+						   BOOL unicode)
 {
 	int i, path_count = 0;
 	LGitLog("  files %d\n", nFiles);
 	LGitLog("  standalone %d\n", standalone);
 	std::set<std::string> initial_select;
 	for (i = 0; i < nFiles; i++) {
-		char *path;
-		const char *raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char path[2048];
+		if (unicode) {
+			strlcpy(path, lpFileNames[i], 2048);
+		} else {
+			LGitAnsiToUtf8(lpFileNames[i], path, 2048);
+		}
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    %s\n", path);
-		initial_select.insert(path);
+		LGitLog("    %s\n", raw_path);
+		/* makes a copy */
+		initial_select.insert(raw_path);
 	}
 	LGitExplorerParams params;
 	params.ctx = ctx;
@@ -897,12 +904,12 @@ SCCRTN SccRunScc(LPVOID context,
 {
 	LGitContext *ctx = (LGitContext*)context;
 	LGitLog("**SccRunScc** Context=%p\n", context);
-	return LGitExplorer(ctx, hWnd, nFiles, lpFileNames, FALSE);
+	return LGitExplorer(ctx, hWnd, nFiles, lpFileNames, FALSE, FALSE);
 }
 
 LGIT_API SCCRTN LGitStandaloneExplorer(LGitContext *ctx, 
 									   LONG nFiles, 
 									   LPCSTR* lpFileNames) {
 	LGitLog("**LGitStandaloneExplorer** Context=%p\n", ctx);
-	return LGitExplorer(ctx, NULL, nFiles, lpFileNames, TRUE);
+	return LGitExplorer(ctx, NULL, nFiles, lpFileNames, TRUE, FALSE);
 }

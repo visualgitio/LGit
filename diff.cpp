@@ -17,7 +17,7 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	LGitDiffDialogParams params;
 
 	const char *raw_path;
-	char path[1024], *path_ptr;
+	char path[1024], path_utf8[1024], *path_ptr;
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("  Flags %x, %s\n", dwFlags, lpFileName);
@@ -25,7 +25,8 @@ SCCRTN LGitDiffInternal (LPVOID context,
 	git_diff_options_init(&diffopts, GIT_DIFF_OPTIONS_VERSION);
 	LGitInitDiffProgressCallback(ctx, &diffopts);
 
-	raw_path = LGitStripBasePath(ctx, lpFileName);
+	LGitAnsiToUtf8(lpFileName, path_utf8, 1024);
+	raw_path = LGitStripBasePath(ctx, path_utf8);
 	if (raw_path == NULL) {
 		LGitLog("     Couldn't get base path for %s\n", lpFileName);
 		return SCC_E_NONSPECIFICERROR;

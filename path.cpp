@@ -35,7 +35,7 @@ LGIT_API void LGitTranslateStringCharsW(wchar_t *buf, int char1, int char2)
 
 const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 {
-	if (ctx == NULL || strlen(ctx->workdir_path) < 1) {
+	if (abs == NULL || ctx == NULL || strlen(ctx->workdir_path) < 1) {
 		return NULL;
 	}
 	char path[_MAX_PATH];
@@ -58,7 +58,7 @@ const char *LGitStripBasePath(LGitContext *ctx, const char *abs)
 
 const wchar_t *LGitStripBasePathW(LGitContext *ctx, const wchar_t *abs)
 {
-	if (ctx == NULL || strlen(ctx->workdir_path) < 1) {
+	if (abs == NULL || ctx == NULL || strlen(ctx->workdir_path) < 1) {
 		return NULL;
 	}
 	wchar_t path[_MAX_PATH];

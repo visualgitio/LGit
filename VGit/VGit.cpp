@@ -16,19 +16,21 @@
 	return 1; \
 	}
 
-int APIENTRY WinMain(HINSTANCE hInstance,
-                     HINSTANCE hPrevInstance,
-                     LPSTR     lpCmdLine,
-                     int       nCmdShow)
+int APIENTRY wWinMain(HINSTANCE hInstance,
+                      HINSTANCE hPrevInstance,
+                      LPWSTR     lpCmdLine,
+                      int       nCmdShow)
 {
 	SCCRTN ret;
 	LPVOID ctx;
 	LONG coLen, commentLen, caps; // ignored
 	char provName[SCC_NAME_LEN], auxPath[SCC_AUXLABEL_LEN]; // ignored
 	char user[SCC_USER_LEN]; // ignored
-	char buf[2048], path[2048];
+	char buf[2048];
+	wchar_t path[2048];
+	char path_utf8[2048];
 	char shortName[SCC_PRJPATH_LEN]; // XXX: Make the project name used
-	ZeroMemory(path, 2048);
+	ZeroMemory(path, 2048 * 2);
 	ZeroMemory(shortName, SCC_PRJPATH_LEN);
 	ZeroMemory(user, SCC_USER_LEN);
 	ZeroMemory(provName, SCC_NAME_LEN);
@@ -42,19 +44,20 @@ int APIENTRY WinMain(HINSTANCE hInstance,
 
 	// decide to clone or open a project (clone dialog offers to open existing)
 	// if no path provided, then go for it
-	if (strlen(lpCmdLine) > 0) {
-		if (GetFileAttributes(lpCmdLine) & FILE_ATTRIBUTE_DIRECTORY) {
-			strcpy(path, lpCmdLine);
-			LGitTranslateStringChars(path, '/', '\\');
-			LGitGetProjectNameFromPath(shortName, path, SCC_PRJPATH_LEN);
+	LGitWideToUtf8(path, path_utf8, 2048);
+	if (wcslen(lpCmdLine) > 0) {
+		if (GetFileAttributesW(lpCmdLine) & FILE_ATTRIBUTE_DIRECTORY) {
+			wcscpy(path, lpCmdLine);
+			LGitTranslateStringChars(path_utf8, '/', '\\');
+			LGitGetProjectNameFromPath(shortName, path_utf8, SCC_PRJPATH_LEN);
 		} else {
-			MessageBoxA(NULL,
-				"The specified path doesn't exist.",
+			MessageBoxW(NULL,
+				L"The specified path doesn't exist.",
 				lpCmdLine,
 				MB_ICONERROR);
 			return 1;
 		}
-		ret = SccOpenProject(ctx, NULL, "", shortName, path, "", "", NULL, SCC_OP_CREATEIFNEW);
+		ret = LGitOpenProject(ctx, NULL, "", shortName, path_utf8, "", "", NULL, SCC_OP_CREATEIFNEW);
 		HandleSccError(buf, 2048, ret, "SccOpenProject");
 	}/* else {
 		BOOL isNew = TRUE;

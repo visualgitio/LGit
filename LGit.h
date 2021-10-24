@@ -70,6 +70,10 @@ const char* LGitCommandName(enum SCCCOMMAND command);
 /* caps.cpp */
 LONG LGitGetCaps(void);
 
+/* project.cpp */
+LGIT_API SCCRTN LGitOpenProject(LPVOID context, HWND hWnd,  LPSTR lpUser, LPSTR lpProjName, LPCSTR lpLocalProjPath, LPSTR lpAuxProjPath, LPCSTR lpComment, LPTEXTOUTPROC lpTextOutProc, LONG dwFlags);
+LGIT_API SCCRTN LGitGetProjPath(LPVOID context, HWND hWnd, LPSTR lpUser, LPSTR lpProjName, LPSTR lpLocalPath, LPSTR lpAuxProjPath, BOOL bAllowChangePath, LPBOOL pbNew);
+
 /* logging.cpp */
 void LGitLog(const char *format_str, ...);
 void LGitLibraryError(HWND hWnd, LPCSTR title);
@@ -84,9 +88,14 @@ LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t
 void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 BOOL LGitCreateShortcut(LGitContext *ctx, HWND hwnd);
 
+/* unicode.cpp */
+char *LGitWideToUtf8Alloc(const wchar_t *buf);
+wchar_t *LGitUtf8ToWideAlloc(const char *buf);
+char *LGitAnsiToUtf8Alloc(const char *buf);
+int LGitAnsiToUtf8(const char *buf, char *utf8_buf, size_t utf8_bufsz);
+int LGitUtf8ToAnsi(const char *buf, char *ansi_buf, size_t ansi_bufsz);
+
 /* format.cpp */
-char *LGitWideToUtf8Alloc(wchar_t *buf);
-wchar_t *LGitUtf8ToWideAlloc(char *buf);
 BOOL LGitTimeToString(const git_time *time, char *buf, size_t bufsz);
 int LGitFormatSignature(const git_signature *sig, char *buf, size_t bufsz);
 BOOL LGitTimeToStringW(const git_time *time, wchar_t *buf, size_t bufsz);

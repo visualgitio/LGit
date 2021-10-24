@@ -13,6 +13,7 @@
 #define WIN32_LEAN_AND_MEAN		// Exclude rarely-used stuff from Windows headers
 
 #include <windows.h>
+#include <objbase.h>
 #pragma comment(lib, "comctl32.lib")
 #include <commctrl.h>
 
@@ -35,10 +36,16 @@
 #define _Deref_opt_out_opt_
 #include "../scc_1_3.h"
 
+#define LGitWideToUtf8(wide, utf8, utf8size) WideCharToMultiByte(CP_UTF8, 0, wide, -1, utf8, utf8size, NULL, NULL)
+#define LGitUtf8ToWide(utf8, wide, widesize) MultiByteToWideChar(CP_UTF8, 0, utf8, -1, wide, widesize)
+
 #define LGIT_API extern "C" __declspec(dllimport)
+LGIT_API SCCRTN LGitOpenProject(LPVOID context, HWND hWnd,  LPSTR lpUser, LPSTR lpProjName, LPCSTR lpLocalProjPath, LPSTR lpAuxProjPath, LPCSTR lpComment, LPTEXTOUTPROC lpTextOutProc, LONG dwFlags);
+LGIT_API SCCRTN LGitGetProjPath(LPVOID context, HWND hWnd, LPSTR lpUser, LPSTR lpProjName, LPSTR lpLocalPath, LPSTR lpAuxProjPath, BOOL bAllowChangePath, LPBOOL pbNew);
 LGIT_API SCCRTN LGitClone(void *ctx, HWND hWnd, LPSTR lpProjName, LPSTR lpLocalPath, LPBOOL pbNew);
 LGIT_API SCCRTN LGitStandaloneExplorer(void *ctx, LONG nFiles, LPCSTR* lpFileNames);
 LGIT_API void LGitTranslateStringChars(char *buf, int char1, int char2);
+LGIT_API void LGitTranslateStringCharsW(wchar_t *buf, int char1, int char2);
 LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 
 //{{AFX_INSERT_LOCATION}}

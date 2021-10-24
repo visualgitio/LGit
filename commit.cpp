@@ -240,21 +240,20 @@ SCCRTN SccCheckin (LPVOID context,
 	}
 
 	for (i = 0; i < nFiles; i++) {
-		const char *raw_path;
-		char path[1024];
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char path[2048];
+		LGitAnsiToUtf8(lpFileNames[i], path, 2048);
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Adding %s\n", path);
-		if (git_index_add_bypath(index, path) != 0) {
-			LGitLibraryError(hWnd, path);
+		LGitLog("    %s\n", raw_path);
+		if (git_index_add_bypath(index, raw_path) != 0) {
+			LGitLibraryError(hWnd, raw_path);
 		}
-		LGitPopCheckout(ctx, path);
+		LGitPopCheckout(ctx, raw_path);
 	}
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
@@ -312,21 +311,20 @@ SCCRTN SccAdd (LPVOID context,
 		 * (Maybe we could use it to convert behind the IDE's back...)
 		 */
 		LGitLog("    Flags: %x\n", pdwFlags[i]);
-		const char *raw_path;
-		char path[1024];
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char path[2048];
+		LGitAnsiToUtf8(lpFileNames[i], path, 2048);
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Adding %s\n", path);
-		if (git_index_add_bypath(index, path) != 0) {
-			LGitLibraryError(hWnd, path);
+		LGitLog("    %s\n", raw_path);
+		if (git_index_add_bypath(index, raw_path) != 0) {
+			LGitLibraryError(hWnd, raw_path);
 		}
-		LGitPopCheckout(ctx, path);
+		LGitPopCheckout(ctx, raw_path);
 	}
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
@@ -376,21 +374,20 @@ SCCRTN SccRemove (LPVOID context,
 	}
 
 	for (i = 0; i < nFiles; i++) {
-		const char *raw_path;
-		char path[1024];
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char path[2048];
+		LGitAnsiToUtf8(lpFileNames[i], path, 2048);
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Removing %s\n", path);
-		if (git_index_remove_bypath(index, path) != 0) {
-			LGitLibraryError(hWnd, path);
+		LGitLog("    Removing %s\n", raw_path);
+		if (git_index_remove_bypath(index, raw_path) != 0) {
+			LGitLibraryError(hWnd, raw_path);
 		}
-		LGitPopCheckout(ctx, path);
+		LGitPopCheckout(ctx, raw_path);
 	}
 	if (LGitGetDefaultSignature(hWnd, ctx, &signature) != SCC_OK) {
 		goto fin;
@@ -417,42 +414,47 @@ SCCRTN SccRename (LPVOID context,
 	git_index *index;
 	git_signature *signature = NULL;
 	SCCRTN inner_ret;
-	const char *o_raw_path, *n_raw_path;
+	const char *o_stripped_path, *n_stripped_path;
 	char o_path[1024], n_path[1024], comment[COMMITMSGSZ];
 
+	/* OLD */
 	LGitLog("**SccRename** Context=%p\n", context);
-	o_raw_path = LGitStripBasePath(ctx, lpFileName);
-	if (o_raw_path == NULL) {
+	LGitAnsiToUtf8(lpFileName, o_path, 1024);
+	o_stripped_path = LGitStripBasePath(ctx, o_path);
+	if (o_stripped_path == NULL) {
 		LGitLog("    Couldn't get base path for %s\n", lpFileName);
-		return SCC_E_OPNOTPERFORMED;
+		inner_ret = SCC_E_OPNOTPERFORMED;
+		goto fail;
 	}
-	strlcpy(o_path, o_raw_path, 1024);
 	LGitTranslateStringChars(o_path, '\\', '/');
-	LGitLog("  Old %s\n", o_path);
-	n_raw_path = LGitStripBasePath(ctx, lpNewName);
-	if (n_raw_path == NULL) {
+	LGitLog("  Old %s\n", o_stripped_path);
+	/* NEW */
+	LGitAnsiToUtf8(lpNewName, n_path, 1024);
+	n_stripped_path = LGitStripBasePath(ctx, n_path);
+	if (n_stripped_path == NULL) {
 		LGitLog("    Couldn't get base path for %s\n", lpNewName);
-		return SCC_E_OPNOTPERFORMED;
+		inner_ret = SCC_E_OPNOTPERFORMED;
+		goto fail;
 	}
-	strlcpy(n_path, n_raw_path, 1024);
 	LGitTranslateStringChars(n_path, '\\', '/');
-	LGitLog("  New %s\n", n_path);
+	LGitLog("  New %s\n", n_stripped_path);
 	/* Take a slightly roundabout method */
 	if (git_repository_index(&index, ctx->repo) != 0) {
 		LGitLibraryError(hWnd, "Remove (getting index)");
-		return SCC_E_NONSPECIFICERROR;
+		inner_ret = SCC_E_NONSPECIFICERROR;
+		goto fail;
 	}
 	const git_index_entry *old_entry;
 	git_index_entry new_entry;
-	old_entry = git_index_get_bypath(index, o_path, 0);
+	old_entry = git_index_get_bypath(index, o_stripped_path, 0);
 	memcpy(&new_entry, old_entry, sizeof(git_index_entry));
-	new_entry.path = n_path;
+	new_entry.path = n_stripped_path;
 	if (git_index_add(index, &new_entry) != 0) {
 		LGitLibraryError(hWnd, "SccRename git_index_add");
 		inner_ret = SCC_E_NONSPECIFICERROR;
 		goto fail;
 	}
-	if (git_index_remove_bypath(index, o_path) != 0) {
+	if (git_index_remove_bypath(index, o_stripped_path) != 0) {
 		LGitLibraryError(hWnd, "SccRename git_index_remove_bypath");
 		inner_ret = SCC_E_NONSPECIFICERROR;
 		goto fail;
@@ -462,7 +464,7 @@ SCCRTN SccRename (LPVOID context,
 		goto fail;
 	}
 	inner_ret = LGitCommitIndex(hWnd, ctx, index, comment, signature, signature);
-	LGitPopCheckout(ctx, o_path);
+	LGitPopCheckout(ctx, o_stripped_path);
 fail:
 	git_index_free(index);
 	git_signature_free(signature);

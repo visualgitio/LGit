@@ -266,6 +266,10 @@ SOURCE=.\tag.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\unicode.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\winutil.cpp
 # End Source File
 # End Group

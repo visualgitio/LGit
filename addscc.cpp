@@ -15,7 +15,7 @@ static LVCOLUMN path_column = {
 typedef struct _LGitAddFromDialogParams {
 	LGitContext *ctx;
 	git_index *index;
-	char *restraint_path;
+	const char *restraint_path;
 	const char ***output;
 	long *output_size;
 } LGitAddFromDialogParams;
@@ -110,30 +110,32 @@ static void BuildAddList(HWND hwnd, LGitAddFromDialogParams* params)
 
 	to_set = 0;
 	for (i = 0; i < entry_count; i++) {
-		LVITEM lvi;
-		char *path, relative_path[1024];
+		LVITEMW lvi;
+		wchar_t path[1024], relative_path[1024];
 		/* Maybe change criteria; LVM_GETNEXTITEM looks neat */
 		if (!ListView_GetItemState(lv, i, LVIS_SELECTED)) {
 			continue;
 		}
-		path = (char*)malloc(2048);
-		if (path == NULL) {
-			LGitLog(" ! Uh-oh, no alloc\n");
-			continue;
-		}
-		/* We may need to provide an absolute path. */
-		strlcpy(path, params->ctx->workdir_path, 2048);
+		/* We need to provide an absolute path. This will be UTF-8 */
+		wcslcpy(path, params->ctx->workdir_path_utf16, 2048);
 
-		ZeroMemory(&lvi, sizeof(LVITEM));
+		ZeroMemory(&lvi, sizeof(LVITEMW));
 		lvi.iItem = i;
 		lvi.pszText = relative_path;
 		lvi.cchTextMax = 1024;
-		SendMessage(lv, LVM_GETITEMTEXT, i, (LPARAM)&lvi);
+		SendMessage(lv, LVM_GETITEMTEXTW, i, (LPARAM)&lvi);
 		/* Combine and ranslate yet again */
-		strlcat(path, relative_path, 2048);
-		LGitTranslateStringChars(path, '/', '\\');
-		LGitLog(" ! Using %s\n", path);
-		output[to_set++] = path;
+		wcslcat(path, relative_path, 2048);
+		LGitTranslateStringCharsW(path, '/', '\\');
+		LGitLog(" ! Using %S\n", path);
+		/* Now convert */
+		char *path_ansi = (char*)malloc(2048);
+		if (path_ansi == NULL) {
+			LGitLog(" ! Uh-oh, no alloc\n");
+			continue;
+		}
+		WideCharToMultiByte(CP_ACP, 0, path, -1, path_ansi, 2048, NULL, NULL);
+		output[to_set++] = path_ansi;
 	}
 	output[to_set] = NULL;
 	LGitLog(" ! Returning %ld files\n", to_set);
@@ -217,15 +219,15 @@ SCCRTN SccAddFromScc (LPVOID context,
 	path[0] = '\0';
 	const char *raw_path;
 	if (*pnFiles == 1 && lplpFileNames != NULL) {
-		raw_path = LGitStripBasePath(ctx, **lplpFileNames);
+		LGitAnsiToUtf8(**lplpFileNames, path, _MAX_PATH);
+		raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
 			LGitLog("    Couldn't get base path for %s\n", **lplpFileNames);
 			return SCC_E_NONSPECIFICERROR;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strlcpy(path, raw_path, _MAX_PATH);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog(" ! Destination is '%s'\n", path);
+		LGitLog(" ! Destination is '%s'\n", raw_path);
 		/* If it's just the root workdir directory, don't bother */
 		if (strlen(path) == 0) {
 			LGitLog(" ! Empty path, not using\n");
@@ -234,6 +236,9 @@ SCCRTN SccAddFromScc (LPVOID context,
 			strlcat(path, "/", _MAX_PATH);
 			LGitLog(" ! Appended slash\n");
 		}
+	} else {
+		path[0] = '\0';
+		raw_path = path;
 	}
 
 	LGitLog (" ! Getting index for share\n");
@@ -245,7 +250,7 @@ SCCRTN SccAddFromScc (LPVOID context,
 	params.index = index;
 	params.output_size = pnFiles;
 	params.output = lplpFileNames;
-	params.restraint_path = path;
+	params.restraint_path = raw_path;
 	switch (DialogBoxParam(ctx->dllInst,
 		MAKEINTRESOURCE(IDD_ADDFROM),
 		hWnd,

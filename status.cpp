@@ -8,7 +8,7 @@ typedef struct _LGitPropsDialogParams {
 	LGitContext *ctx;
 	unsigned int flags;
 	const char *path, *full_path;
-	wchar_t *path_utf16, *full_path_utf16;
+	const wchar_t *path_utf16, *full_path_utf16;
 	const git_index_entry *entry;
 } LGitPropsDialogParams;
 
@@ -62,7 +62,7 @@ static BOOL CALLBACK StatusDialogProc(HWND hwnd,
 	}
 }
 
-static void ShowSysFileProperties(wchar_t *fullpath)
+static void ShowSysFileProperties(const wchar_t *fullpath)
 {
 	SHELLEXECUTEINFOW info;
 	ZeroMemory(&info, sizeof(SHELLEXECUTEINFO));
@@ -209,33 +209,41 @@ static SCCRTN ShowPropertiesDialog(LGitContext *ctx,
  */
 SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path)
 {
-	char path[1024];
-	strlcpy(path, ctx->workdir_path, 1024);
-	strlcat(path, relative_path, 1024);
-	LGitTranslateStringChars(path, '/', '\\');
-	return ShowPropertiesDialog(ctx, hWnd, path, relative_path);
+	char full_path[1024];
+	strlcpy(full_path, ctx->workdir_path, 1024);
+	strlcat(full_path, relative_path, 1024);
+	LGitTranslateStringChars(full_path, '/', '\\');
+
+	return ShowPropertiesDialog(ctx, hWnd, full_path, relative_path);
 }
 
 SCCRTN SccProperties (LPVOID context, 
 					  HWND hWnd, 
 					  LPCSTR lpFileName)
 {
-	const char *raw_path;
-	char path[1024];
+	const char *relative_path;
+	char full_path[2048];
 
 	LGitContext *ctx = (LGitContext*)context;
 
 	LGitLog("**SccProperties** Context=%p\n", context);
 	LGitLog("  %s\n", lpFileName);
 
-	raw_path = LGitStripBasePath(ctx, lpFileName);
-	if (raw_path == NULL) {
+	LGitAnsiToUtf8(lpFileName, full_path, 2048);
+	if (full_path == NULL) {
+		LGitLog("!! Couldn't alloc utf8 path str\n");
+		return SCC_E_NONSPECIFICERROR;
+	}
+
+	relative_path = LGitStripBasePath(ctx, full_path);
+	if (relative_path == NULL) {
 		LGitLog("     Couldn't get base path for %s\n", lpFileName);
 		return SCC_E_NONSPECIFICERROR;
 	}
 	/* Translate because libgit2 operates with forward slashes */
-	strlcpy(path, raw_path, 1024);
-	LGitTranslateStringChars(path, '\\', '/');
+	LGitTranslateStringChars(full_path, '\\', '/');
 
-	return ShowPropertiesDialog(ctx, hWnd, lpFileName, path);
+	/* declaring here in case can use the wide conv from AnsiToUtf8Alloc */
+	SCCRTN ret = ShowPropertiesDialog(ctx, hWnd, full_path, relative_path);
+	return ret;
 }

@@ -234,7 +234,6 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 									LPCMDOPTS pvOptions)
 {
 	int i, path_count;
-	const char *raw_path;
 	char **paths;
 	LGitContext *ctx = (LGitContext*)context;
 
@@ -252,18 +251,18 @@ static SCCRTN LGitCheckoutInternal (LPVOID context,
 	}
 	path_count = 0;
 	for (i = 0; i < nFiles; i++) {
-		char *path;
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char *path = LGitAnsiToUtf8Alloc(lpFileNames[i]);
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
+			free(path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		path = strdup(raw_path);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    %s\n", path);
-		paths[path_count++] = path;
-		LGitPopCheckout(ctx, path);
+		LGitLog("    %s\n", raw_path);
+		paths[path_count++] = (char*)raw_path;
+		LGitPopCheckout(ctx, raw_path);
 	}
 	/*
 	for (i = 0; i < path_count; i++) {
@@ -317,15 +316,16 @@ SCCRTN SccGet (LPVOID context,
 	}
 }
 
+/* param is ANSI, because it's what SCC provides */
 static void LGitUnmarkReadOnly(LPCSTR fileName)
 {
 	DWORD attr;
-	attr = GetFileAttributes(fileName);
+	attr = GetFileAttributesA(fileName);
 	if (attr == INVALID_FILE_ATTRIBUTES) {
 		return;
 	}
 	attr &= ~FILE_ATTRIBUTE_READONLY;
-	SetFileAttributes(fileName, attr);
+	SetFileAttributesA(fileName, attr);
 }
 
 void LGitPushCheckout(LGitContext *ctx, const char *fileName)
@@ -366,19 +366,19 @@ SCCRTN SccCheckout (LPVOID context,
 	 * uncheckout. VS.NET will *also* try to check the read-only status of
 	 * files, so what we'll do is just temporarily add them to a list.
 	 */
-	const char *raw_path;
 	for (i = 0; i < nFiles; i++) {
-		char path[1024];
-		raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+		char path[2048];
+		LGitAnsiToUtf8(lpFileNames[i], path, 2048);
+		const char *raw_path = LGitStripBasePath(ctx, path);
 		if (raw_path == NULL) {
-			LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+			LGitLog("    Couldn't get base path for %s\n", path);
 			continue;
 		}
 		/* Translate because libgit2 operates with forward slashes */
-		strlcpy(path, raw_path, 1024);
 		LGitTranslateStringChars(path, '\\', '/');
-		LGitLog("    Checking out %s\n", path);
-		LGitPushCheckout(ctx, path);
+		LGitLog("    Checking out %s\n", raw_path);
+		LGitPushCheckout(ctx, raw_path);
+		/* there's no point in converting */
 		LGitUnmarkReadOnly(lpFileNames[i]);
 	}
 	return SCC_OK;

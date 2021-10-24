@@ -565,23 +565,22 @@ SCCRTN SccHistory (LPVOID context,
 	if (nFiles > 0) {
 		char **paths = NULL;
 		int i, path_count = 0;
-		const char *raw_path;
 		paths = (char**)calloc(sizeof(char*), nFiles);
 		if (paths == NULL) {
 			return SCC_E_NONSPECIFICERROR;
 		}
 		for (i = 0; i < nFiles; i++) {
-			char *path;
-			raw_path = LGitStripBasePath(ctx, lpFileNames[i]);
+			char *path = LGitAnsiToUtf8Alloc(lpFileNames[i]);
+			const char *raw_path = LGitStripBasePath(ctx, path);
 			if (raw_path == NULL) {
-				LGitLog("    Couldn't get base path for %s\n", lpFileNames[i]);
+				LGitLog("    Couldn't get base path for %s\n", path);
+				free(path);
 				continue;
 			}
 			/* Translate because libgit2 operates with forward slashes */
-			path = strdup(raw_path);
 			LGitTranslateStringChars(path, '\\', '/');
-				LGitLog("    %s\n", path);
-			paths[path_count++] = path;
+			LGitLog("    %s\n", raw_path);
+			paths[path_count++] = (char*)raw_path;
 		}
 		strings.strings = paths;
 		strings.count = path_count;

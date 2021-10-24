@@ -36,21 +36,21 @@ static SCCRTN LGitInitRepo(HWND hWnd, LPSTR lpProjName, LPCSTR lpLocalPath)
 	}
 }
 
-SCCRTN SccOpenProject (LPVOID context,
-					   HWND hWnd, 
-					   LPSTR lpUser,
-					   LPSTR lpProjName,
-					   LPCSTR lpLocalProjPath,
-					   LPSTR lpAuxProjPath,
-					   LPCSTR lpComment,
-					   LPTEXTOUTPROC lpTextOutProc,
-					   LONG dwFlags)
+LGIT_API SCCRTN LGitOpenProject(LPVOID context,
+								HWND hWnd, 
+								LPSTR lpUser,
+								LPSTR lpProjName, /* writeable, contrary to MSDN */
+								LPCSTR lpLocalProjPath,
+								LPSTR lpAuxProjPath,
+								LPCSTR lpComment,
+								LPTEXTOUTPROC lpTextOutProc,
+								LONG dwFlags)
 {
 	int rc;
 	const char *workdir;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccOpenProject** Context=%p\n", ctx);
+	LGitLog("**LGitOpenProject** Context=%p\n", ctx);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj name %s\n", lpProjName);
 	LGitLog("  local proj path %s\n", lpLocalProjPath);
@@ -120,6 +120,37 @@ init_again:
 	return SCC_OK;
 }
 
+/*
+ * Wrapper that converts to ANSI, because it would be unmanageable in the
+ * normal function due to how project name stuff is handled.
+ */
+SCCRTN SccOpenProject (LPVOID context,
+					   HWND hWnd, 
+					   LPSTR lpUser,
+					   LPSTR lpProjName, /* writeable, contrary to MSDN */
+					   LPCSTR lpLocalProjPath,
+					   LPSTR lpAuxProjPath,
+					   LPCSTR lpComment,
+					   LPTEXTOUTPROC lpTextOutProc,
+					   LONG dwFlags)
+{
+	char user[SCC_USER_SIZE];
+	char projName[SCC_NAME_SIZE];
+	char auxProjPath[SCC_PRJPATH_SIZE]; /* not auxlabel, according to hdr */
+	char localProjPath[SCC_PRJPATH_SIZE];
+	/* XXX: comment? not used yet */
+	LGitAnsiToUtf8(lpUser, user, SCC_USER_SIZE);
+	LGitAnsiToUtf8(lpProjName, projName, SCC_NAME_SIZE);
+	LGitAnsiToUtf8(lpAuxProjPath, auxProjPath, SCC_PRJPATH_SIZE);
+	/* r/o and not set after */
+	LGitAnsiToUtf8(lpLocalProjPath, localProjPath, SCC_PRJPATH_SIZE);
+	SCCRTN ret = LGitOpenProject(context, hWnd, user, projName, localProjPath, auxProjPath, lpComment, lpTextOutProc, dwFlags);
+	LGitUtf8ToAnsi(user, lpUser, SCC_USER_SIZE);
+	LGitUtf8ToAnsi(projName, lpProjName, SCC_NAME_SIZE);
+	LGitUtf8ToAnsi(auxProjPath, lpAuxProjPath, SCC_PRJPATH_SIZE);
+	return ret;
+}
+
 SCCRTN SccCloseProject (LPVOID context)
 {
 	LGitContext *ctx = (LGitContext*)context;
@@ -151,20 +182,20 @@ SCCRTN SccCloseProject (LPVOID context)
 	return SCC_OK;
 }
 
-SCCRTN SccGetProjPath (LPVOID context, 
-					   HWND hWnd, 
-					   LPSTR lpUser,
-					   LPSTR lpProjName, 
-					   LPSTR lpLocalPath,
-					   LPSTR lpAuxProjPath,
-					   BOOL bAllowChangePath,
-					   LPBOOL pbNew)
+LGIT_API SCCRTN LGitGetProjPath(LPVOID context, 
+								HWND hWnd, 
+								LPSTR lpUser,
+								LPSTR lpProjName, 
+								LPSTR lpLocalPath,
+								LPSTR lpAuxProjPath,
+								BOOL bAllowChangePath,
+								LPBOOL pbNew)
 {
 	int rc;
 	git_repository *temp_repo;
 	LGitContext *ctx = (LGitContext*)context;
 
-	LGitLog("**SccGetProjPath** Context=%p\n", context);
+	LGitLog("**LGitGetProjPath** Context=%p\n", context);
 	LGitLog("  user %s\n", lpUser);
 	LGitLog("  proj name %s\n", lpProjName);
 	LGitLog("  local path %s\n", lpLocalPath);
@@ -199,6 +230,34 @@ SCCRTN SccGetProjPath (LPVOID context,
 	}
 
 	return SCC_OK;
+}
+
+SCCRTN SccGetProjPath (LPVOID context, 
+					   HWND hWnd, 
+					   LPSTR lpUser,
+					   LPSTR lpProjName, 
+					   LPSTR lpLocalPath,
+					   LPSTR lpAuxProjPath,
+					   BOOL bAllowChangePath,
+					   LPBOOL pbNew)
+{
+	char user[SCC_USER_SIZE]; /* not used but in case */
+	char projName[SCC_NAME_SIZE];
+	char auxProjPath[SCC_PRJPATH_SIZE]; /* not auxlabel, according to hdr */
+	char localProjPath[SCC_PRJPATH_SIZE];
+	LGitAnsiToUtf8(lpUser, user, SCC_USER_SIZE);
+	LGitAnsiToUtf8(lpProjName, projName, SCC_NAME_SIZE);
+	LGitAnsiToUtf8(lpAuxProjPath, auxProjPath, SCC_PRJPATH_SIZE);
+	LGitAnsiToUtf8(lpLocalPath, localProjPath, SCC_PRJPATH_SIZE);
+	SCCRTN ret = LGitGetProjPath(context, hWnd, user, projName, localProjPath, auxProjPath, bAllowChangePath, pbNew);
+	LGitUtf8ToAnsi(user, lpUser, SCC_USER_SIZE);
+	LGitUtf8ToAnsi(projName, lpProjName, SCC_NAME_SIZE);
+	LGitUtf8ToAnsi(auxProjPath, lpAuxProjPath, SCC_PRJPATH_SIZE);
+	/* can be modified */
+	if (bAllowChangePath) {
+		LGitUtf8ToAnsi(localProjPath, lpLocalPath, SCC_PRJPATH_SIZE);
+	}
+	return ret;
 }
 
 /* Here be dragons (subprojects) */
