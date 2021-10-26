@@ -44,10 +44,10 @@ int APIENTRY wWinMain(HINSTANCE hInstance,
 
 	// decide to clone or open a project (clone dialog offers to open existing)
 	// if no path provided, then go for it
+	wcscpy(path, lpCmdLine);
 	LGitWideToUtf8(path, path_utf8, 2048);
 	if (wcslen(lpCmdLine) > 0) {
 		if (GetFileAttributesW(lpCmdLine) & FILE_ATTRIBUTE_DIRECTORY) {
-			wcscpy(path, lpCmdLine);
 			LGitTranslateStringChars(path_utf8, '/', '\\');
 			LGitGetProjectNameFromPath(shortName, path_utf8, SCC_PRJPATH_LEN);
 		} else {
