@@ -44,7 +44,7 @@ static BOOL ValidateAndSetParams(HWND hwnd, LGitCloneDialogParams* params)
 		return FALSE;
 	}
 
-	GetDlgItemTextW(hwnd, IDC_CLONE_URL, buf, 1024);
+	GetDlgItemTextW(hwnd, IDC_CLONE_PATH, buf, 1024);
 	LGitWideToUtf8(buf, params->path, _MAX_PATH);
 	if (strlen(params->path) == 0) {
 		MessageBox(hwnd,

@@ -43,7 +43,7 @@ static void LGitInitOpts(void)
 		"VisualGit");
 	/* Load options that are config-time from the registry. */
 	HKEY key;
-	DWORD valueLen, type = REG_SZ;
+	DWORD valueLen = 255, type = REG_SZ;
 	BYTE value[255];
 	int ret;
 
