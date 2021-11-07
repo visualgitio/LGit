@@ -62,6 +62,9 @@ typedef struct _LGitContext {
 	LGitGetOpts getOpts;
 	/* Fonts */
 	HFONT listviewFont, fixedFont;
+	/* Image lists (make sure that dialogs are shared IL) and helper vars */
+	HIMAGELIST refTypeIl;
+	int bitmapHeight; /* y-adjustment when text is taller than bitmap */
 } LGitContext;
 
 /* LGit.cpp */
@@ -249,6 +252,9 @@ BOOL LGitContextMenuFromSubmenu(HWND hwnd, HMENU menu, int position, int x, int 
 void LGitControlFillsParentDialog(HWND hwnd, UINT dlg_item);
 void LGitControlFillsParentDialogCarveout(HWND hwnd, UINT dlg_item, RECT *bounds);
 HIMAGELIST LGitGetSystemImageList();
+BOOL LGitMeasureIconComboBoxItem(HWND hwnd, UINT uCtrlId, MEASUREITEMSTRUCT *mis);
+BOOL LGitDrawIconComboBox(LGitContext *ctx, HIMAGELIST il, HWND hwnd, UINT uCtrlId, DRAWITEMSTRUCT *dis);
+int LGitGetIconForRef(LGitContext *ctx, git_reference *ref);
 
 /* about.cpp */
 void LGitAbout(HWND hwnd, LGitContext *ctx);

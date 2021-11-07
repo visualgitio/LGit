@@ -93,6 +93,36 @@ static void LGitInitOpts(void)
 	RegCloseKey(key);
 }
 
+/* XXX: Call on DPI/theme changes */
+static void InitImageLists(LGitContext *ctx)
+{
+	ctx->bitmapHeight = GetSystemMetrics(SM_CXSMICON);
+	HIMAGELIST icons;
+	HICON icon;
+	if (ctx->refTypeIl != NULL) {
+		ImageList_Destroy(ctx->refTypeIl);
+	}
+	icons = ImageList_Create(GetSystemMetrics(SM_CXSMICON),
+		GetSystemMetrics(SM_CYSMICON),
+		ILC_MASK, 6, 6);
+	icon = LoadIcon(ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH_REMOTE));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(ctx->dllInst, MAKEINTRESOURCE(IDI_TAG));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(ctx->dllInst, MAKEINTRESOURCE(IDI_TAG_LIGHT));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	icon = LoadIcon(ctx->dllInst, MAKEINTRESOURCE(IDI_HEAD));
+	ImageList_AddIcon(icons, icon);
+	DestroyIcon(icon);
+	ctx->refTypeIl = icons;
+}
+
 SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex 
 					  HWND hWnd,					// IDE window
 					  LPCSTR callerName,			// IDE name
@@ -144,6 +174,9 @@ SCCRTN SccInitialize (LPVOID * context,				// SCC provider contex
 
 		/* gets reinitialized on project, but here, for empty proj */
 		LGitInitializeFonts(ctx);
+
+		/* initialize some stuff like image lists that can persist */
+		InitImageLists(ctx);
 	} else {
 		return SCC_E_INITIALIZEFAILED;
 	}
@@ -163,7 +196,14 @@ SCCRTN SccUninitialize (LPVOID context)
 		LGitLibraryError(NULL, "Error ending LGit");
 	}
 
-	LGitLog("  Freed context\n");
-	free(context);
+	/* remember free shared resources */
+	if (context == NULL) {
+		LGitLog("!! Asked to free a null context\n");
+	} else {
+		ImageList_Destroy(ctx->refTypeIl);
+
+		free(context);
+		LGitLog("  Freed context\n");
+	}
 	return SCC_OK;
 }

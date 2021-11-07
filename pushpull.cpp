@@ -322,6 +322,7 @@ static BOOL CALLBACK PushDialogProc(HWND hwnd,
 									LPARAM lParam)
 {
 	LGitPushDialogParams *param;
+	param = (LGitPushDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 	/* TODO: We should try to derive a path from the URL until overriden */
 	switch (iMsg) {
 	case WM_INITDIALOG:
@@ -330,7 +331,6 @@ static BOOL CALLBACK PushDialogProc(HWND hwnd,
 		InitPushView(hwnd, param, TRUE);
 		return TRUE;
 	case WM_COMMAND:
-		param = (LGitPushDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDC_PUSH_MANAGE_REMOTES:
 			LGitShowRemoteManager(param->ctx, hwnd);
@@ -344,6 +344,16 @@ static BOOL CALLBACK PushDialogProc(HWND hwnd,
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		}
+		return FALSE;
+	case WM_MEASUREITEM:
+		if (wParam == IDC_PUSH_REF) {
+			return LGitMeasureIconComboBoxItem(hwnd, wParam, (MEASUREITEMSTRUCT *)lParam);
+		}
+		return FALSE;
+	case WM_DRAWITEM:
+		if (wParam == IDC_PUSH_REF) {
+			return LGitDrawIconComboBox(param->ctx, param->ctx->refTypeIl, hwnd, wParam, (DRAWITEMSTRUCT *)lParam);
 		}
 		return FALSE;
 	default:

@@ -83,6 +83,7 @@ static BOOL CALLBACK AddBranchDialogProc(HWND hwnd,
 										 LPARAM lParam)
 {
 	LGitAddBranchDialogParams *param;
+	param = (LGitAddBranchDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitAddBranchDialogParams*)lParam;
@@ -90,7 +91,6 @@ static BOOL CALLBACK AddBranchDialogProc(HWND hwnd,
 		InitBranchAddView(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
-		param = (LGitAddBranchDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
 			if (SetBranchAddParams(hwnd, param)) {
@@ -100,6 +100,16 @@ static BOOL CALLBACK AddBranchDialogProc(HWND hwnd,
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		}
+		return FALSE;
+	case WM_MEASUREITEM:
+		if (wParam == IDC_BRANCH_ADD_BASED_ON) {
+			return LGitMeasureIconComboBoxItem(hwnd, wParam, (MEASUREITEMSTRUCT *)lParam);
+		}
+		return FALSE;
+	case WM_DRAWITEM:
+		if (wParam == IDC_BRANCH_ADD_BASED_ON) {
+			return LGitDrawIconComboBox(param->ctx, param->ctx->refTypeIl, hwnd, wParam, (DRAWITEMSTRUCT *)lParam);
 		}
 		return FALSE;
 	default:
@@ -140,26 +150,7 @@ static void InitBranchView(HWND hwnd, LGitBranchDialogParams* params)
 	ListView_InsertColumn(lv, 1, &full_name_column);
 	ListView_InsertColumn(lv, 2, &type_column);
 
-	/* XXX: It's unclear if we need to free this. */
-	HIMAGELIST icons;
-	HICON icon;
-	icons = ImageList_Create(GetSystemMetrics(SM_CXSMICON),
-		GetSystemMetrics(SM_CYSMICON),
-		ILC_MASK, 1, 1);
-	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH));
-	ImageList_AddIcon(icons, icon);
-	DestroyIcon(icon);
-	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_BRANCH_REMOTE));
-	ImageList_AddIcon(icons, icon);
-	DestroyIcon(icon);
-	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_TAG));
-	ImageList_AddIcon(icons, icon);
-	DestroyIcon(icon);
-	icon = LoadIcon(params->ctx->dllInst, MAKEINTRESOURCE(IDI_TAG_LIGHT));
-	ImageList_AddIcon(icons, icon);
-	DestroyIcon(icon);
-
-	ListView_SetImageList(lv, icons, LVSIL_SMALL);
+	ListView_SetImageList(lv, params->ctx->refTypeIl, LVSIL_SMALL);
 }
 
 static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
@@ -188,28 +179,7 @@ static void FillBranchView(HWND hwnd, LGitBranchDialogParams *params)
 		
 		ZeroMemory(&lvi, sizeof(LVITEMW));
 		lvi.mask = LVIF_TEXT | LVIF_IMAGE;
-		/* XXX: Image for checked out branch? */
-		if (git_reference_is_remote(ref)) {
-			lvi.iImage = 1;
-		} else if (git_reference_is_branch(ref)) {
-			lvi.iImage = 0;
-		} else if (git_reference_is_tag(ref)) {
-			/* peeled target unavail from iter, reopen to see if annotated */
-			git_object *ptr = NULL;
-			/* XXX: is this expensive? */
-			if (git_object_lookup(&ptr, params->ctx->repo, git_reference_target(ref), GIT_OBJECT_TAG) != 0) {
-				lvi.iImage = 3; /* annotated */
-			} else {
-				lvi.iImage = 2; /* lightweight */
-			}
-			if (ptr != NULL) {
-				git_object_free(ptr);
-			}
-		} else if (git_reference_is_note(ref)) {
-			lvi.iImage = 4;
-		} else {
-			lvi.iImage = 5;
-		}
+		lvi.iImage = LGitGetIconForRef(params->ctx, ref);
 		lvi.pszText = name_utf16;
 		lvi.iItem = index++;
 		lvi.iSubItem = 0;

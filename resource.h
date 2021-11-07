@@ -47,6 +47,7 @@
 #define IDI_TAG_LIGHT                   143
 #define IDD_COMMIT_CREATE               144
 #define IDD_REVPARSE                    145
+#define IDI_HEAD                        146
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -187,7 +188,7 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        146
+#define _APS_NEXT_RESOURCE_VALUE        147
 #define _APS_NEXT_COMMAND_VALUE         40063
 #define _APS_NEXT_CONTROL_VALUE         1079
 #define _APS_NEXT_SYMED_VALUE           101

@@ -79,6 +79,7 @@ static BOOL CALLBACK AddTagDialogProc(HWND hwnd,
 										 LPARAM lParam)
 {
 	LGitAddTagDialogParams *param;
+	param = (LGitAddTagDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 	switch (iMsg) {
 	case WM_INITDIALOG:
 		param = (LGitAddTagDialogParams*)lParam;
@@ -86,7 +87,6 @@ static BOOL CALLBACK AddTagDialogProc(HWND hwnd,
 		InitTagAddView(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
-		param = (LGitAddTagDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
 			if (SetTagAddParams(hwnd, param)) {
@@ -96,6 +96,16 @@ static BOOL CALLBACK AddTagDialogProc(HWND hwnd,
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		}
+		return FALSE;
+	case WM_MEASUREITEM:
+		if (wParam == IDC_TAG_ADD_BASED_ON) {
+			return LGitMeasureIconComboBoxItem(hwnd, wParam, (MEASUREITEMSTRUCT *)lParam);
+		}
+		return FALSE;
+	case WM_DRAWITEM:
+		if (wParam == IDC_TAG_ADD_BASED_ON) {
+			return LGitDrawIconComboBox(param->ctx, param->ctx->refTypeIl, hwnd, wParam, (DRAWITEMSTRUCT *)lParam);
 		}
 		return FALSE;
 	default:

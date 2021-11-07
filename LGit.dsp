@@ -338,6 +338,10 @@ SOURCE=.\diffhunk.ico
 # End Source File
 # Begin Source File
 
+SOURCE=.\head.ico
+# End Source File
+# Begin Source File
+
 SOURCE=.\history.ico
 # End Source File
 # Begin Source File

@@ -67,14 +67,15 @@ static BOOL CALLBACK RevparseDialogProc(HWND hwnd,
 										LPARAM lParam)
 {
 	LGitRevparseDialogParams *param;
+	param = (LGitRevparseDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 	switch (iMsg) {
 	case WM_INITDIALOG:
+		LGitLog(" ! Init\n");
 		param = (LGitRevparseDialogParams*)lParam;
 		SetWindowLong(hwnd, GWL_USERDATA, (long)param); /* XXX: 64-bit... */
 		InitRevparseView(hwnd, param);
 		return TRUE;
 	case WM_COMMAND:
-		param = (LGitRevparseDialogParams*)GetWindowLong(hwnd, GWL_USERDATA);
 		switch (LOWORD(wParam)) {
 		case IDOK:
 			if (SetRevparseParams(hwnd, param)) {
@@ -84,6 +85,16 @@ static BOOL CALLBACK RevparseDialogProc(HWND hwnd,
 		case IDCANCEL:
 			EndDialog(hwnd, 1);
 			return TRUE;
+		}
+		return FALSE;
+	case WM_MEASUREITEM:
+		if (wParam == IDC_REVPARSE_SPEC) {
+			return LGitMeasureIconComboBoxItem(hwnd, wParam, (MEASUREITEMSTRUCT *)lParam);
+		}
+		return FALSE;
+	case WM_DRAWITEM:
+		if (wParam == IDC_REVPARSE_SPEC) {
+			return LGitDrawIconComboBox(param->ctx, param->ctx->refTypeIl, hwnd, wParam, (DRAWITEMSTRUCT *)lParam);
 		}
 		return FALSE;
 	default:

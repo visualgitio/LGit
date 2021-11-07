@@ -233,26 +233,33 @@ void LGitPopulateRemoteComboBox(HWND parent, HWND cb, LGitContext *ctx)
 
 void LGitPopulateReferenceComboBox(HWND parent, HWND cb, LGitContext *ctx)
 {
-	size_t i;
 	LGitLog(" ! Getting references (ctx %p)\n", ctx);
-	git_strarray refs;
-	ZeroMemory(&refs, sizeof(git_strarray));
-	if (git_reference_list(&refs, ctx->repo) != 0) {
-		LGitLibraryError(parent, "git_reference_list");
+	git_reference_iterator *iter = NULL;
+	git_reference *ref = NULL;
+	if (git_reference_iterator_new(&iter, ctx->repo) != 0) {
+		LGitLibraryError(parent, "Creating Reference Iterator");
 		return;
 	}
-	LGitLog(" ! Got back %d ref(s)\n", refs.count);
 	/* clean out in case of stale entries */
 	SendMessage(cb, CB_RESETCONTENT, 0, 0);
 	/* add HEAD */
-	SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)"HEAD");
-	for (i = 0; i < refs.count; i++) {
+	int icon, index, rc;
+	index = SendMessage(cb, CB_ADDSTRING, 0, (LPARAM)"HEAD");
+	icon = 4; /* checked out */
+	SendMessage(cb, CB_SETITEMDATA, index, icon);
+	while ((rc = git_reference_next(&ref, iter)) == 0) {
 		wchar_t name[1024];
-		LGitUtf8ToWide(refs.strings[i], name, 1024);
+		LGitUtf8ToWide(git_reference_name(ref), name, 1024);
 		LGitLog(" ! Adding ref %S\n", name);
-		SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)name);
+		index = SendMessageW(cb, CB_ADDSTRING, 0, (LPARAM)name);
+		icon = LGitGetIconForRef(ctx, ref);
+		SendMessage(cb, CB_SETITEMDATA, index, icon);
 	}
-	git_strarray_dispose(&refs);
+	if (rc != GIT_ITEROVER) {
+		LGitLibraryError(parent, "git_reference_next");
+		return;
+	}
+	git_reference_iterator_free(iter);
 	/* Unlike remotes, don't necessarily select first, could use HEAD */
 }
 
@@ -279,4 +286,129 @@ HIMAGELIST LGitGetSystemImageList()
 		SHGFI_SYSICONINDEX | SHGFI_SMALLICON);
 	sil_init = TRUE;
 	return sil;
+}
+
+/* culled from http://www.catch22.net/tuts/win32/drive-list-control */
+
+#ifndef ODS_NOFOCUSRECT
+#define ODS_NOFOCUSRECT 0x200
+#endif
+
+static int GetLineHeight(HWND hwndCombo, HFONT hFont, int nBitmapHeight)
+{
+	TEXTMETRICW     tm;
+	HANDLE          hOldFont = NULL;
+	HDC             hdc;
+
+	int nTextHeight;
+	int nLineHeight;
+
+	hdc = GetDC(hwndCombo);
+
+	hOldFont = SelectObject(hdc, hFont);
+	GetTextMetricsW(hdc, &tm);
+	SelectObject(hdc, hOldFont);
+	ReleaseDC(hwndCombo, hdc);
+
+	nTextHeight = tm.tmHeight + tm.tmInternalLeading;
+
+	nLineHeight = max(nBitmapHeight, nTextHeight);
+
+	return nLineHeight;
+}
+
+BOOL LGitMeasureIconComboBoxItem(HWND hwnd, UINT uCtrlId, MEASUREITEMSTRUCT *mis)
+{
+	/* this function is called BEFORE InitDialog sets the param */
+    HFONT font = (HFONT)SendMessage(hwnd, WM_GETFONT, 0, 0);
+	/* therefore, we must hope this hasn't changed, bc can't get it */
+	int bitmapHeight = GetSystemMetrics(SM_CXSMICON);
+    mis->itemHeight = GetLineHeight(hwnd, font, bitmapHeight);
+    return TRUE;
+}
+
+BOOL LGitDrawIconComboBox(LGitContext *ctx, HIMAGELIST il, HWND hwnd, UINT uCtrlId, DRAWITEMSTRUCT *dis)
+{
+    HWND hwndCombo = GetDlgItem(hwnd, uCtrlId);
+    wchar_t szText[MAX_PATH+1];
+    int idx;
+	/* XXX: If we can make sure Measure can use ctx, we can cache it there */
+	int bitmapYOffset = (dis->rcItem.bottom - dis->rcItem.top - (ctx->bitmapHeight-1)) / 2;
+
+    switch(dis->itemAction)
+    {
+    case ODA_FOCUS:
+        if (!(dis->itemState & ODS_NOFOCUSRECT))
+            DrawFocusRect(dis->hDC, &dis->rcItem);
+        break;
+
+    case ODA_SELECT:
+    case ODA_DRAWENTIRE:
+
+		ZeroMemory(szText, 8);
+        SendMessageW(hwndCombo, CB_GETLBTEXT, dis->itemID, (LONG)szText);
+
+        if (dis->itemState & ODS_SELECTED)
+        {
+            SetTextColor(dis->hDC, GetSysColor(COLOR_HIGHLIGHTTEXT));
+            SetBkColor(dis->hDC, GetSysColor(COLOR_HIGHLIGHT));
+        }
+        else
+        {
+            SetTextColor(dis->hDC, GetSysColor(COLOR_WINDOWTEXT));
+            SetBkColor(dis->hDC, GetSysColor(COLOR_WINDOW));
+        }
+
+        /* the user data is set with the right index */
+        idx = dis->itemData;
+
+		/* icon size + padding */
+		int displacement = ctx->bitmapHeight + 4;
+        ExtTextOutW(dis->hDC, dis->rcItem.left + displacement, dis->rcItem.top+1, 
+                   ETO_OPAQUE, &dis->rcItem, szText, wcslen(szText), 0);
+
+        if (dis->itemState & ODS_FOCUS) 
+        {
+            if(!(dis->itemState & ODS_NOFOCUSRECT))
+                DrawFocusRect(dis->hDC, &dis->rcItem);
+        }
+
+        ImageList_Draw(il, idx, dis->hDC, 
+            dis->rcItem.left + 2, 
+            dis->rcItem.top + bitmapYOffset, 
+            ILD_TRANSPARENT);
+
+        break;
+    }
+
+    return TRUE;
+}
+
+int LGitGetIconForRef(LGitContext *ctx, git_reference *ref)
+{
+	int icon;
+	if (git_branch_is_head(ref)) {
+		/* XXX: git_branch_is_checked_out? */
+		icon = 4;
+	} else if (git_reference_is_remote(ref)) {
+		icon = 1;
+	} else if (git_reference_is_branch(ref)) {
+		icon = 0;
+	} else if (git_reference_is_tag(ref)) {
+		/* peeled target unavail from iter, reopen to see if annotated */
+		git_object *ptr = NULL;
+		/* XXX: is this expensive? */
+		const git_oid *target = git_reference_target(ref);
+		if (git_object_lookup(&ptr, ctx->repo, target, GIT_OBJECT_TAG) != 0) {
+			icon = 3; /* annotated */
+		} else {
+			icon = 2; /* lightweight */
+		}
+		git_object_free(ptr);
+	} else if (git_reference_is_note(ref)) {
+		icon = 5;
+	} else {
+		icon = 6;
+	}
+	return icon;
 }
