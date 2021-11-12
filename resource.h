@@ -48,6 +48,7 @@
 #define IDD_COMMIT_CREATE               144
 #define IDD_REVPARSE                    145
 #define IDI_HEAD                        146
+#define IDD_CHECKOUT_NOTIFY             147
 #define IDC_COMMITHISTORY               1000
 #define IDC_STATUS_INDEX_NEW            1003
 #define IDC_FILESYSPROPS                1004
@@ -127,6 +128,7 @@
 #define IDC_COMMIT_CREATE_AUTHOR        1077
 #define IDC_COMMIT_CREATE_CHANGEAUTHOR  1078
 #define IDC_COMMIT_CREATE_COMMITTER     1079
+#define IDC_CHECKOUT_NOTIFY_LIST        1079
 #define IDC_COMMIT_CREATE_CHANGECOMMITTER 1080
 #define ID_HISTORY_CLOSE                40001
 #define ID_DIFF_COPY                    40002
@@ -188,9 +190,9 @@
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
-#define _APS_NEXT_RESOURCE_VALUE        147
+#define _APS_NEXT_RESOURCE_VALUE        148
 #define _APS_NEXT_COMMAND_VALUE         40063
-#define _APS_NEXT_CONTROL_VALUE         1079
+#define _APS_NEXT_CONTROL_VALUE         1080
 #define _APS_NEXT_SYMED_VALUE           101
 #endif
 #endif

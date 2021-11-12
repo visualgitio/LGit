@@ -169,6 +169,10 @@ SOURCE=.\commitvw.cpp
 # End Source File
 # Begin Source File
 
+SOURCE=.\coutcflt.cpp
+# End Source File
+# Begin Source File
+
 SOURCE=.\diff.cpp
 # End Source File
 # Begin Source File

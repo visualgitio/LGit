@@ -120,6 +120,10 @@ void LGitPushCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitPopCheckout(LGitContext *ctx, const char *fileName);
 BOOL LGitIsCheckout(LGitContext *ctx, const char *fileName);
 
+/* coutcflt.cpp */
+SCCRTN LGitInitCheckoutNotifyCallbacks(LGitContext *ctx, HWND hwnd, git_checkout_options *co_opts);
+SCCRTN LGitFinishCheckoutNotify(LGitContext *ctx, HWND hwnd, git_checkout_options *co_opts);
+
 /* commit.cpp */
 SCCRTN LGitCommitIndex(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment, git_signature *author, git_signature *committer);
 SCCRTN LGitCommitIndexAmendHead(HWND hWnd, LGitContext *ctx, git_index *index, LPCSTR lpComment, git_signature *author, git_signature *committer);

@@ -541,6 +541,19 @@ BEGIN
                     7,38,240,10
 END
 
+IDD_CHECKOUT_NOTIFY DIALOG DISCARDABLE  0, 0, 402, 244
+STYLE DS_MODALFRAME | DS_FIXEDSYS | WS_POPUP | WS_CAPTION
+CAPTION "Checkout Conflicts"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    DEFPUSHBUTTON   "OK",IDOK,345,223,50,14
+    LTEXT           "The files below prevent the checkout from completing. Resolve them first before checking out.",
+                    IDC_STATIC,7,7,388,10
+    CONTROL         "List1",IDC_CHECKOUT_NOTIFY_LIST,"SysListView32",
+                    LVS_REPORT | LVS_SHAREIMAGELISTS | LVS_NOCOLUMNHEADER | 
+                    WS_BORDER | WS_TABSTOP,7,22,388,197
+END
+
 
 /////////////////////////////////////////////////////////////////////////////
 //
@@ -925,6 +938,16 @@ BEGIN
         HORZGUIDE, 21
         HORZGUIDE, 33
         HORZGUIDE, 38
+    END
+
+    IDD_CHECKOUT_NOTIFY, DIALOG
+    BEGIN
+        LEFTMARGIN, 7
+        RIGHTMARGIN, 395
+        VERTGUIDE, 340
+        VERTGUIDE, 345
+        TOPMARGIN, 7
+        BOTTOMMARGIN, 237
     END
 END
 #endif    // APSTUDIO_INVOKED

@@ -63,11 +63,17 @@ SCCRTN LGitMergeFastForward(LGitContext *ctx, HWND hwnd, const git_oid *target_o
 
 	/* Checkout the result so the workdir is in the expected state */
 	ff_checkout_options.checkout_strategy = GIT_CHECKOUT_SAFE;
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &ff_checkout_options);
 	LGitProgressInit(ctx, "Fast-Forward", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
 	err = git_checkout_tree(ctx->repo, target, &ff_checkout_options);
 	LGitProgressDeinit(ctx);
-	if (err != 0) {
+	if (err == GIT_ECONFLICT) {
+		LGitProgressDeinit(ctx);
+		/* XXX: Specific error, but checkout notify UI will cover us anyways */
+		ret = SCC_E_UNKNOWNERROR;
+		goto fin;
+	} else if (err != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "failed to checkout HEAD reference");
 		ret = SCC_E_UNKNOWNERROR;
@@ -82,6 +88,7 @@ SCCRTN LGitMergeFastForward(LGitContext *ctx, HWND hwnd, const git_oid *target_o
 		goto fin;
 	}
 fin:
+	LGitFinishCheckoutNotify(ctx, hwnd, &ff_checkout_options);
 	if (target_ref != NULL) {
 		git_reference_free(target_ref);
 	}

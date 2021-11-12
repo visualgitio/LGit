@@ -28,6 +28,7 @@ SCCRTN LGitCheckoutRef(LGitContext *ctx, HWND hwnd, git_reference *branch)
 	BOOL attached = TRUE;
 	int remote_question;
 	SCCRTN ret = SCC_E_NONSPECIFICERROR;
+	int rc;
 	git_reference *new_branch = NULL, *checkout_branch;
 	git_oid commit_oid;
 	git_commit *commit = NULL;
@@ -78,9 +79,15 @@ SCCRTN LGitCheckoutRef(LGitContext *ctx, HWND hwnd, git_reference *branch)
 		goto err;
 	}
 	/* Peeled to a tree */
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &co_opts);
 	LGitProgressInit(ctx, "Checking Out Files", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
-	if (git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts) != 0) {
+	rc = git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts);
+	if (rc == GIT_ECONFLICT) {
+		LGitProgressDeinit(ctx);
+		/* XXX: Specific error, but checkout notify UI will cover us anyways */
+		goto err;
+	} else if (rc != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "git_checkout_tree");
 		goto err;
@@ -101,9 +108,10 @@ SCCRTN LGitCheckoutRef(LGitContext *ctx, HWND hwnd, git_reference *branch)
 		LGitLibraryError(hwnd, "git_repository_set_head_detached");
 		goto err;
 	}
-	LGitProgressDeinit(ctx);
 	ret = SCC_OK;
+	LGitProgressDeinit(ctx);
 err:
+	LGitFinishCheckoutNotify(ctx, hwnd, &co_opts);
 	if (new_branch != NULL) {
 		git_reference_free(new_branch);
 	}
@@ -143,6 +151,7 @@ SCCRTN LGitCheckoutTree(LGitContext *ctx,
 	LGitLog("**LGitCheckoutTree** Context=%p\n", ctx);
 	LGitLog("  oid %s\n", git_oid_tostr_s(commit_oid));
 	SCCRTN ret = SCC_E_NONSPECIFICERROR;
+	int rc;
 	git_commit *commit = NULL;
 	git_checkout_options co_opts;
 	if (git_commit_lookup(&commit, ctx->repo, commit_oid) != 0) {
@@ -156,7 +165,13 @@ SCCRTN LGitCheckoutTree(LGitContext *ctx,
 	/* Peeled to a tree */
 	LGitProgressInit(ctx, "Checking Out Files", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
-	if (git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts) != 0) {
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &co_opts);
+	rc = git_checkout_tree(ctx->repo, (const git_object *)commit, &co_opts);
+	if (rc == GIT_ECONFLICT) {
+		LGitProgressDeinit(ctx);
+		/* XXX: Specific error, but checkout notify UI will cover us anyways */
+		goto err;
+	} else if (rc != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "git_checkout_tree");
 		goto err;
@@ -169,6 +184,7 @@ SCCRTN LGitCheckoutTree(LGitContext *ctx,
 	LGitProgressDeinit(ctx);
 	ret = SCC_OK;
 err:
+	LGitFinishCheckoutNotify(ctx, hwnd, &co_opts);
 	if (commit != NULL) {
 		git_commit_free(commit);
 	}
@@ -179,6 +195,7 @@ SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 {
 	LGitLog("**LGitCheckoutStaged** Context=%p\n");
 	LGitLog("  paths count %u\n", paths->count);
+	SCCRTN ret = SCC_OK;
 	
 	git_checkout_options co_opts;
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
@@ -189,20 +206,28 @@ SCCRTN LGitCheckoutStaged(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 
 	LGitProgressInit(ctx, "Checking Out Files", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
-	if (git_checkout_index(ctx->repo, NULL, &co_opts) != 0) {
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &co_opts);
+	int rc = git_checkout_index(ctx->repo, NULL, &co_opts);
+	if (rc == GIT_ECONFLICT) {
+		LGitProgressDeinit(ctx);
+		/* XXX: Specific error, but checkout notify UI will cover us anyways */
+		ret = SCC_E_NONSPECIFICERROR;
+	} else if (rc != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "LGitCheckoutStaged git_checkout_index");
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
 	}
 
 	LGitProgressDeinit(ctx);
-	return SCC_OK;
+	LGitFinishCheckoutNotify(ctx, hwnd, &co_opts);
+	return ret;
 }
 
 SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 {
 	LGitLog("**LGitStageCheckoutHead** Context=%p\n");
 	LGitLog("  paths count %u\n", paths->count);
+	SCCRTN ret = SCC_OK;
 	
 	git_checkout_options co_opts;
 	git_checkout_options_init(&co_opts, GIT_CHECKOUT_OPTIONS_VERSION);
@@ -213,14 +238,21 @@ SCCRTN LGitCheckoutHead(LGitContext *ctx, HWND hwnd, git_strarray *paths)
 
 	LGitProgressInit(ctx, "Checking Out Files", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
-	if (git_checkout_head(ctx->repo, &co_opts) != 0) {
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &co_opts);
+	int rc = git_checkout_head(ctx->repo, &co_opts);
+	if (rc == GIT_ECONFLICT) {
+		LGitProgressDeinit(ctx);
+		/* XXX: Specific error, but checkout notify UI will cover us anyways */
+		ret = SCC_E_NONSPECIFICERROR;
+	} else if (rc != 0) {
 		LGitProgressDeinit(ctx);
 		LGitLibraryError(hwnd, "LGitCheckoutHead git_checkout_head");
-		return SCC_E_NONSPECIFICERROR;
+		ret = SCC_E_NONSPECIFICERROR;
 	}
 
 	LGitProgressDeinit(ctx);
-	return SCC_OK;
+	LGitFinishCheckoutNotify(ctx, hwnd, &co_opts);
+	return ret;
 }
 
 /**
