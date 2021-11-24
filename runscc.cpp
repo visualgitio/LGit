@@ -853,6 +853,19 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 	LGitLog("  files %d\n", nFiles);
 	LGitLog("  standalone %d\n", standalone);
 	std::set<std::string> initial_select;
+
+	/*
+	 * #58: Work around a VS2003 bug where it passes a handle for a context
+	 * without a project open. It won't work if they highlight something that
+	 * isn't a file, but if we grab a file, we can try to open it standalone.
+	 * XXX: Configurable?
+	 */
+	bool contradictory = !ctx->active && nFiles > 0;
+	/* if we're running standalone this is pointless and a fork bomb */
+	if (!standalone && contradictory) {
+		return LGitOpenNewInstance(ctx, nFiles > 0 ? lpFileNames[0] : NULL, hWnd);
+	}
+
 	for (i = 0; i < nFiles; i++) {
 		char path[2048];
 		if (unicode) {

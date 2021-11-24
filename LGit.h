@@ -90,6 +90,7 @@ const wchar_t *LGitStripBasePathW(LGitContext *ctx, const wchar_t *abs);
 LGIT_API BOOL LGitGetProjectNameFromPath(char *project, const char *path, size_t bufsz);
 void LGitOpenFiles(LGitContext *ctx, git_strarray *paths);
 BOOL LGitCreateShortcut(LGitContext *ctx, HWND hwnd);
+SCCRTN LGitOpenNewInstance(LGitContext *ctx, const char *file, HWND hwnd);
 
 /* unicode.cpp */
 char *LGitWideToUtf8Alloc(const wchar_t *buf);

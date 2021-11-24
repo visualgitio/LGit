@@ -206,3 +206,53 @@ fin:
 	}
 	return TRUE;
 }
+
+/* note that "file" will get autodiscovered... i hope */
+SCCRTN LGitOpenNewInstance(LGitContext *ctx, const char *file, HWND hwnd)
+{
+	STARTUPINFOW sinfo;
+	PROCESS_INFORMATION pinfo;
+	ZeroMemory(&sinfo, sizeof(sinfo));
+	ZeroMemory(&pinfo, sizeof(pinfo));
+
+	wchar_t self_exe[_MAX_PATH], *last_slash;
+	/* get the DLL path so we can swap it out */
+	if (GetModuleFileNameW(ctx->dllInst, self_exe, _MAX_PATH) == 0) {
+		LGitLog("!! Failed to get library name\n");
+		return SCC_E_UNKNOWNERROR;
+	}
+	/* this is for the DLL so replace */
+	last_slash = wcsrchr(self_exe, L'\\');
+	*last_slash = '\0';
+	wcslcat(self_exe, L"\\VGit.exe", _MAX_PATH);
+
+	/* lazy way to make the args; we don't need to quote it in full! */
+	wchar_t combined_argv[2048];
+	wcslcpy(combined_argv, L"vgit", 2048);
+	if (file != NULL) {
+		/* must be discovered bc the .exe checks if dir */
+		char file_utf8[1024];
+		LGitAnsiToUtf8(file, file_utf8, 1024);
+		git_buf discovered = {0,0};
+		int rc = git_repository_discover(&discovered, file_utf8, 1, NULL);
+		if (rc != 0) {
+			LGitLibraryError(hwnd, "Discovering Repository Root");
+			goto fin;
+		}
+		LGitTranslateStringChars(file_utf8, '/', '\\');
+
+		wcslcat(combined_argv, L" ", 2048);
+		wchar_t path_w[1024];
+		LGitUtf8ToWide(discovered.ptr, path_w, 1024);
+		wcslcat(combined_argv, path_w, 2048);
+		git_buf_dispose(&discovered);
+		/* XXX: append files we should highlight (requires changes in exe) */
+	}
+fin:
+	LGitLog(" ! exe %S argv %S\n", self_exe, combined_argv);
+	int ret = CreateProcessW(self_exe, combined_argv, NULL, NULL, FALSE, 0, NULL, NULL, &sinfo, &pinfo);
+	if (ret != 0) {
+		LGitLog(" ! CreateProcess returned %d (GLE %x)\n", ret, GetLastError());
+	}
+	return ret != 0 ? SCC_OK : SCC_E_UNKNOWNERROR;
+}
