@@ -7,9 +7,10 @@
 
 #include "stdafx.h"
 
+/* the less than SCC_OK handles SCC_I_* */
 #define HandleSccError(buf, bufsz, ret, msg) if (ret == SCC_I_OPERATIONCANCELED || ret == SCC_E_COULDNOTCREATEPROJECT) { \
 	return 2; \
-	} else if (ret != SCC_OK) { \
+	} else if (ret < SCC_OK) { \
 	_snprintf(buf, bufsz, "%s (ret %x)", msg, ret); \
 	OutputDebugString(buf); \
 	MessageBoxA(NULL, buf, "Visual Git Standalone Error", MB_ICONERROR); \

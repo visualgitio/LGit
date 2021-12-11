@@ -120,6 +120,7 @@ static BOOL CALLBACK AddBranchDialogProc(HWND hwnd,
 typedef struct _LGitBranchDialogParams {
 	LGitContext *ctx;
 	HMENU menu;
+	BOOL changed;
 	/* for label editor */
 	wchar_t old_name[128];
 	BOOL editing;
@@ -267,6 +268,7 @@ static void BranchCheckout(HWND hwnd, LGitBranchDialogParams* params)
 	if (LGitCheckoutRefByName(params->ctx, hwnd, name) == SCC_OK) {
 		FillBranchView(hwnd, params);
 	}
+	params->changed = TRUE;
 }
 
 static void BranchMerge(HWND hwnd, LGitBranchDialogParams* params)
@@ -280,6 +282,7 @@ static void BranchMerge(HWND hwnd, LGitBranchDialogParams* params)
 	if (LGitMergeRefByName(params->ctx, hwnd, name) == SCC_OK) {
 		FillBranchView(hwnd, params);
 	}
+	params->changed = TRUE;
 }
 
 static void BranchHistory(HWND hwnd, LGitBranchDialogParams* params)
@@ -290,7 +293,10 @@ static void BranchHistory(HWND hwnd, LGitBranchDialogParams* params)
 		return;
 	}
 	LGitLog(" ! History for %s\n", name);
-	LGitHistoryForRefByName(params->ctx, hwnd, name);
+	SCCRTN ret = LGitHistoryForRefByName(params->ctx, hwnd, name);
+	if (ret == SCC_I_RELOADFILE) {
+		params->changed = TRUE;
+	}
 }
 
 /* XXX: Offer a stage version. */
@@ -751,5 +757,5 @@ SCCRTN LGitShowBranchManager(LGitContext *ctx, HWND hwnd)
 		break;
 	}
 	DestroyMenu(params.menu);
-	return SCC_OK;
+	return params.changed ? SCC_I_RELOADFILE : SCC_OK;
 }

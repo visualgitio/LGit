@@ -34,6 +34,8 @@ typedef struct _LGitHistoryDialogParams {
 
 	int max_index;
 
+	BOOL changed;
+
 	/* window sundry */
 	HMENU menu;
 } LGitHistoryDialogParams;
@@ -340,6 +342,7 @@ static void CheckoutSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
 	if (LGitCheckoutTree(params->ctx, hwnd, &oid) == SCC_OK) {
 		FillHistoryListView(hwnd, params, params->path_count == 0);
 	}
+	params->changed = TRUE;
 }
 
 static void RevertSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
@@ -363,6 +366,7 @@ static void RevertSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
 		/* History may be mutated */
 		FillHistoryListView(hwnd, params, params->path_count == 0);
 	}
+	params->changed = TRUE;
 }
 
 static void ResetSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params, BOOL hard)
@@ -386,6 +390,7 @@ static void ResetSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params, BOOL
 		/* History may be mutated */
 		FillHistoryListView(hwnd, params, params->path_count == 0);
 	}
+	params->changed = TRUE;
 }
 
 static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
@@ -539,6 +544,9 @@ fin:
 	}
 	if (walker != NULL) {
 		git_revwalk_free(walker);
+	}
+	if (params.changed) {
+		ret = SCC_I_RELOADFILE;
 	}
 	return ret;
 }

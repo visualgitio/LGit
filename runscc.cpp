@@ -15,6 +15,8 @@ typedef struct _LGitExplorerParams {
 	BOOL standalone;
 	/* for the view */
 	BOOL include_ignored, include_unmodified, include_untracked;
+	/* this may be very very unspecific but better than nothing? */
+	BOOL changed;
 } LGitExplorerParams;
 
 /* put here for convenience */
@@ -472,6 +474,7 @@ static void DiffFromRevision(HWND hwnd, LGitExplorerParams *params, git_strarray
 static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *params)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_EXPLORER_FILES);
+	SCCRTN scc_ret;
 	git_strarray strings;
 	ZeroMemory(&strings, sizeof(git_strarray));
 	int ret;
@@ -514,21 +517,28 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			UpdateExplorerStatus(hwnd, params);
 			FillExplorerListView(hwnd, params);
 			UpdateExplorerMenu(hwnd, params);
+			params->changed = TRUE;
 		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_BRANCHES:
-		LGitShowBranchManager(params->ctx, hwnd);
+		scc_ret = LGitShowBranchManager(params->ctx, hwnd);
 		/* XXX: Only if something changed as a result */
 		UpdateExplorerStatus(hwnd, params);
 		FillExplorerListView(hwnd, params);
 		UpdateExplorerMenu(hwnd, params);
+		if (scc_ret == SCC_I_RELOADFILE) {
+			params->changed = TRUE;
+		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_HISTORY:
-		SccHistory(params->ctx, hwnd, 0, NULL, 0, NULL);
+		scc_ret = SccHistory(params->ctx, hwnd, 0, NULL, 0, NULL);
 		/* XXX: Only if something changed as a result */
 		UpdateExplorerStatus(hwnd, params);
 		FillExplorerListView(hwnd, params);
 		UpdateExplorerMenu(hwnd, params);
+		if (scc_ret == SCC_I_RELOADFILE) {
+			params->changed = TRUE;
+		}
 		return TRUE;
 	case ID_EXPLORER_REPOSITORY_CHECKOUT:
 		{
@@ -547,6 +557,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			}
 			git_object_free(obj);
 			git_reference_free(ref);
+			params->changed = TRUE;
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_ADDFILES:
@@ -611,6 +622,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
 			UpdateExplorerMenu(hwnd, params);
+			params->changed = TRUE;
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_REVERTTOHEAD:
@@ -627,6 +639,7 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 			LGitFreePathList(strings.strings, strings.count);
 			FillExplorerListView(hwnd, params);
 			UpdateExplorerMenu(hwnd, params);
+			params->changed = TRUE;
 		}
 		return TRUE;
 	case ID_EXPLORER_STAGE_FILEPROPERTIES:
@@ -686,7 +699,9 @@ static BOOL HandleExplorerCommand(HWND hwnd, UINT cmd, LGitExplorerParams *param
 		LGitPushDialog(params->ctx, hwnd);
 		return TRUE;
 	case ID_EXPLORER_REMOTE_PULL:
-		LGitPullDialog(params->ctx, hwnd);
+		if (LGitPullDialog(params->ctx, hwnd) == SCC_OK) {
+			params->changed = TRUE;
+		}
 		return TRUE;
 	case ID_EXPLORER_CONFIG_REPOSITORY:
 		{
@@ -907,7 +922,7 @@ static SCCRTN LGitExplorer(LGitContext *ctx,
 	}
 	/* XXX: Persist changes made by the user in the menus */
 	DestroyMenu(params.menu);
-	return SCC_OK;
+	return params.changed ? SCC_I_RELOADFILE : SCC_OK;
 }
 
 SCCRTN SccRunScc(LPVOID context, 
