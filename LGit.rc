@@ -996,6 +996,7 @@ BEGIN
         MENUITEM "&Switch To...",               ID_HISTORY_COMMIT_CHECKOUT
         MENUITEM "Re&vert",                     ID_HISTORY_COMMIT_REVERT
         MENUITEM "&Reset To",                   ID_HISTORY_COMMIT_RESET_HARD
+        MENUITEM "&Cherry Pick",                ID_HISTORY_COMMIT_CHERRYPICK
     END
 END
 

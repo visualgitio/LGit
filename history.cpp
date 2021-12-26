@@ -35,6 +35,7 @@ typedef struct _LGitHistoryDialogParams {
 	int max_index;
 
 	BOOL changed;
+	BOOL is_head;
 
 	/* window sundry */
 	HMENU menu;
@@ -188,7 +189,7 @@ static BOOL FillHistoryListView(HWND hwnd,
 			if (parents == 0) {
 				git_tree *tree;
 				if (git_commit_tree(&tree, commit) != 0) {
-					LGitLibraryError(hwnd, "SccHistory git_commit_lookup");
+					LGitLibraryError(hwnd, "SccHistory git_commit_tree");
 					git_commit_free(commit);
 					return FALSE;
 				}
@@ -369,6 +370,31 @@ static void RevertSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
 	params->changed = TRUE;
 }
 
+/* This prob shouldn't be shown for the current branch... */
+static void CherryPickSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params)
+{
+	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
+	if (lv == NULL) {
+		return;
+	}
+	int selected = ListView_GetNextItem(lv, -1, LVNI_SELECTED);
+	if (selected == -1) {
+		return;
+	}
+	char oid_s[80];
+	ListView_GetItemText(lv, selected, 0, oid_s, 80);
+	git_oid oid;
+	if (git_oid_fromstr(&oid, oid_s) != 0) {
+		LGitLibraryError(hwnd, "git_oid_fromstr");
+		return;
+	}
+	if (LGitCherryPickCommit(params->ctx, hwnd, &oid) == SCC_OK) {
+		/* History may be mutated */
+		FillHistoryListView(hwnd, params, params->path_count == 0);
+	}
+	params->changed = TRUE;
+}
+
 static void ResetSelectedCommit(HWND hwnd, LGitHistoryDialogParams *params, BOOL hard)
 {
 	HWND lv = GetDlgItem(hwnd, IDC_COMMITHISTORY);
@@ -405,6 +431,11 @@ static void UpdateHistoryMenu(HWND hwnd, LGitHistoryDialogParams *params)
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_CHECKOUT);
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_REVERT);
 	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_RESET_HARD);
+	EnableMenuItemIfCommitSelected(ID_HISTORY_COMMIT_CHERRYPICK);
+	if (params->is_head) {
+		/* it doesn't make sense to show for the branch you're on */
+		EnableMenuItem(params->menu, ID_HISTORY_COMMIT_CHERRYPICK, MF_BYCOMMAND | MF_GRAYED);
+	}
 }
 
 static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
@@ -448,6 +479,9 @@ static BOOL CALLBACK HistoryDialogProc(HWND hwnd,
 			return TRUE;
 		case ID_HISTORY_COMMIT_RESET_HARD:
 			ResetSelectedCommit(hwnd, param, TRUE);
+			return TRUE;
+		case ID_HISTORY_COMMIT_CHERRYPICK:
+			CherryPickSelectedCommit(hwnd, param);
 			return TRUE;
 		case ID_HISTORY_REFRESH:
 			FillHistoryListView(hwnd, param, param->path_count == 0);
@@ -517,6 +551,22 @@ static SCCRTN LGitHistoryInternal(LGitContext *ctx,
 		goto fin;
 	}
 	git_revwalk_sorting(walker, GIT_SORT_TIME);
+
+	/* are we using the HEAD? */
+	if (ref != NULL && strlen(ref) > 0) {
+		/* it's a branch because only those can be a HEAD */
+		git_reference *possible_head = NULL;
+		/* failures here are insignificant */
+		if (git_reference_lookup(&possible_head, ctx->repo, ref) != 0) {
+			params.is_head = FALSE;
+		} else {
+			params.is_head = git_branch_is_head(possible_head);
+			git_reference_free(possible_head);
+		}
+	} else {
+		/* default is to use HEAD, so yes */
+		params.is_head = TRUE;
+	}
 
 	params.ctx = ctx;
 	params.walker = walker;

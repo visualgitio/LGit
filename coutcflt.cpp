@@ -146,6 +146,10 @@ SCCRTN LGitFinishCheckoutNotify(LGitContext *ctx, HWND hwnd, git_checkout_option
 		return SCC_OK;;
 	}
 	LGitCheckoutNotifyResults *results = (LGitCheckoutNotifyResults*)co_opts->notify_payload;
+	if (results->conflicts.size() == 0) {
+		/* nothing to report */
+		goto fin;
+	}
 	LGitCheckoutNotifyParams params;
 	params.ctx = ctx;
 	params.results = results;
@@ -162,6 +166,7 @@ SCCRTN LGitFinishCheckoutNotify(LGitContext *ctx, HWND hwnd, git_checkout_option
 		break;
 	}
 	
+fin:
 	/* now free */
 	delete results;
 	co_opts->notify_payload = NULL;

@@ -2,7 +2,7 @@
  * Reverts (and resets?) commits.
  */
 
- #include <stdafx.h>
+#include <stdafx.h>
 
 SCCRTN LGitRevertCommit(LGitContext *ctx,
 						HWND hwnd,
@@ -28,6 +28,7 @@ SCCRTN LGitRevertCommit(LGitContext *ctx,
 		LGitLibraryError(hwnd, "git_commit_lookup");
 		goto err;
 	}
+	LGitInitCheckoutNotifyCallbacks(ctx, hwnd, &revert_opts.checkout_opts);
 	LGitProgressInit(ctx, "Reverting Commit", 0);
 	LGitProgressStart(ctx, hwnd, TRUE);
 	if (git_revert(ctx->repo, commit, &revert_opts) != 0) {
@@ -47,6 +48,7 @@ SCCRTN LGitRevertCommit(LGitContext *ctx,
 	}
 	ret = SCC_OK;
 err:
+	LGitFinishCheckoutNotify(ctx, hwnd, &revert_opts.checkout_opts);
 	/* The message is provided by the merge message, so remove it. */
 	git_repository_message_remove(ctx->repo);
 	if (index != NULL) {

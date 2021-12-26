@@ -85,6 +85,7 @@
 #include <git2/tag.h>
 #include <git2/graph.h>
 #include <git2/apply.h>
+#include <git2/cherrypick.h>
 
 // our own stuff, after the prereqs
 #include "resource.h"

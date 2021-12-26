@@ -185,13 +185,14 @@
 #define ID_HISTORY_REFRESH              40060
 #define ID_REFERENCE_REFRESH            40061
 #define ID_EXPLORER_REPOSITORY_CREATESHORTCUTONDESKTOP 40062
+#define ID_HISTORY_COMMIT_CHERRYPICK    40063
 
 // Next default values for new objects
 // 
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        148
-#define _APS_NEXT_COMMAND_VALUE         40063
+#define _APS_NEXT_COMMAND_VALUE         40064
 #define _APS_NEXT_CONTROL_VALUE         1080
 #define _APS_NEXT_SYMED_VALUE           101
 #endif

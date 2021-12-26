@@ -139,6 +139,9 @@ SCCRTN LGitFileProperties(LGitContext *ctx, HWND hWnd, LPCSTR relative_path);
 SCCRTN LGitRevertCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
 SCCRTN LGitResetToCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid, BOOL hard);
 
+/* cherry.cpp */
+SCCRTN LGitCherryPickCommit(LGitContext *ctx, HWND hwnd, const git_oid *commit_oid);
+
 /* history.cpp */
 SCCRTN LGitHistoryForRefByName(LPVOID context, HWND hWnd, const char *ref);
 SCCRTN LGitHistory(LPVOID context, HWND hWnd, git_strarray *paths);
