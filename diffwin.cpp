@@ -190,13 +190,14 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 	} else {
 		lvi.iImage = 6; /* doesn't exist or will be nop. */
 	}
+#if 1
 	/*
 	 * This is going to be ugly because the Win32 controls don't handle tabs
 	 * or newlines very well. We should render newlines when they differ, as
 	 * well as any trailing spaces.
 	 */
 	/* First, check for tabs, then copy compensating */
-	params->msg[0] = '\0';
+	ZeroMemory(params->msg, CALLBACK_MSG_SIZE);
 	for (base_indent = 0, i = 0; i < CALLBACK_MSG_SIZE && i < line->content_len; i++) {
 		if (line->content[i] == '\t') {
 			/* Two spaces because I say so */
@@ -204,17 +205,25 @@ static int LGitDiffLineCallback(const git_diff_delta *delta,
 			base_indent++;
 		}
 	}
-	length = __min(CALLBACK_MSG_SIZE - base_indent, line->content_len);
-	memcpy(params->msg + (2 * base_indent), line->content + (1 * base_indent), length);
+	size_t tab_length = strlen(params->msg);
+	length = __min(CALLBACK_MSG_SIZE - tab_length, line->content_len - base_indent);
+	memcpy(params->msg + tab_length, line->content + base_indent, length);
 	/* Truncate because not null terminated, and get newline */
 	params->msg[__min(CALLBACK_MSG_SIZE - 1, length)] = '\0';
 	length = strlen(params->msg);
-	if (!isprint(params->msg[length - 1])) {
+	/* We could have a zero-length line. Could be a loop instead. */
+	if (line->content_len >= 1 && !isprint(params->msg[length - 1])) {
 		params->msg[length - 1] = '\0';
 	}
-	if (!isprint(params->msg[length - 2])) {
+	if (line->content_len >= 2 && !isprint(params->msg[length - 2])) {
 		params->msg[length - 2] = '\0';
 	}
+#else
+	/* Simplistic implementation */
+	length = __min(CALLBACK_MSG_SIZE, line->content_len);
+	memcpy(params->msg, line->content, length);
+	params->msg[length] = '\0';
+#endif
 	LGitUtf8ToWide(params->msg, params->msgw, CALLBACK_MSG_SIZE);
 	lvi.pszText = params->msgw;
 	lvi.iSubItem = 0;
@@ -238,12 +247,12 @@ static BOOL FillDiffView(HWND hwnd, LGitDiffDialogParams* params)
 	LGitDiffCallbackParams cbp;
 	cbp.lv = lv;
 	cbp.index = 0;
-	cbp.msg = (char*)malloc(CALLBACK_MSG_SIZE);
+	cbp.msg = (char*)malloc(CALLBACK_MSG_SIZE + 1);
 	if (cbp.msg == NULL) {
 		LGitLog(" ! Couldn't alloc callback buffer\n");
 		return FALSE;
 	}
-	cbp.msgw = (wchar_t*)malloc(CALLBACK_MSG_SIZE);
+	cbp.msgw = (wchar_t*)calloc(CALLBACK_MSG_SIZE + 1, sizeof(wchar_t));
 	if (cbp.msgw == NULL) {
 		free(cbp.msg);
 		LGitLog(" ! Couldn't alloc wide callback buffer\n");
